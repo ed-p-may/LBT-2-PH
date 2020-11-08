@@ -5,38 +5,102 @@ import LBT2PH.helpers
 from collections import namedtuple
 
 class PHPP_Window:
-    def __init__(self,_aperture, _params, _rh_doc_library):
+    '''  Class to organize data for a 'window'.
+    Args:
+        _aperture: A LadybugTools 'aperture' object
+        _params: <dict> A dict with a 'phpp' key and parameter values
+        _rh_doc_library: The Rhino document window library from the document UserText
+    Properties:
+        * quantity
+        * _tolerance
+        * aperture
+        * params
+        * rh_library
+    '''
+    
+    def __init__(self, _aperture, _params, _rh_doc_library):
+        self.quantity = 1
+        self._tolerance = 0.01
         self.aperture = _aperture
         self.params = _params
         self.rh_library = _rh_doc_library
-
+    
     @property
     def name(self):
-        name = self.params.get('Object Name', None)
-        if name is None:
-            name = self.aperture.display_name 
-        return name
+        nm = self.params.get('Object Name', None)
+        if nm is None:
+            nm = self.aperture.display_name 
+        return nm
 
     @property
-    def frame(self):
-        frame_type = (self.params.get('FrameType', None))
-        if frame_type is None: return PHPP_Frame()        
-        frame = self.rh_library['lib_FrameTypes'].get(frame_type, PHPP_Frame() )
+    def frame(self):      
+        # 1) Try and create glazing from user_data params
+        # 2) Try and create glazing from UserText params
+        # 3) If all fails, return a default Frame object
         
-        return frame
+        frame_val = (self.params.get('FrameType', None))
+        try:
+            d = json.loads( frame_val )
+            nm = d['_nm']
+            uValues = d['_uValues']
+            frameWidths = d['_frameWidths']
+            psiGlazings = d['_psiGlazings']
+            psiInstalls = d['_psiInstalls']
+            chiGlassCarrier = d['_chiGlassCarrier']
+
+            frame_object = PHPP_Frame(nm, uValues, frameWidths, psiGlazings, psiInstalls, chiGlassCarrier)
+            return frame_object
+        except:
+            frame_object = self.rh_library['lib_FrameTypes'].get(frame_val, None )
+            
+            if frame_object:
+                return frame_object
+            else:
+                # Since no PHPP params, use the EP/HB Construction values
+                nm = self.aperture.properties.energy.construction.display_name
+                uVal = self.aperture.properties.energy.construction.u_factor
+
+            if nm and uVal:
+                frame =  PHPP_Frame(_nm=nm, _uValues=[uVal]*4, _frameWidths=[0.1]*4,
+                                    _psiGlazings=[0]*4, _psiInstalls=[0]*4)
+                return frame
+            else:
+                return PHPP_Frame()
 
     @property
     def glazing(self):
-        glazing_type = (self.params.get('GlazingType', None))
-        if glazing_type is None: return PHPP_Glazing()        
-        glazing = self.rh_library['lib_GlazingTypes'].get(glazing_type, PHPP_Glazing() )
-        
-        return glazing
+        # 1) Try and create glazing from user_data params
+        # 2) Try and create glazing from UserText params
+        # 3) If all fails, return a default Glazing object
 
+        glazing_val = (self.params.get('GlazingType', None))
+        try:
+            d = json.loads( glazing_val )
+            nm = d['_nm']
+            gVal = d['_gValue']
+            uVal = d['_uValue']
+            
+            glazing_object = PHPP_Glazing(nm, gVal, uVal)
+            return glazing_object
+        except:
+            glazing_object = self.rh_library['lib_GlazingTypes'].get(glazing_val, None )
+            
+            if glazing_object:
+                return glazing_object
+            else:
+                # Since no PHPP params, use the EP/HB Construction values
+                nm = self.aperture.properties.energy.construction.display_name
+                uVal = self.aperture.properties.energy.construction.u_factor
+
+                if nm and uVal:
+                    return PHPP_Glazing(_nm=nm, _gValue=0.4, _uValue=uVal)        
+                else:
+                    return PHPP_Glazing()
+  
     @property
     def window_edges(self):
-        window_left, window_right = self.aperture.geometry.get_left_right_vertical_edges(0.01)
-        window_top, window_bottom = self.aperture.geometry.get_top_bottom_horizontal_edges(0.01)
+        window_left, window_right = self.aperture.geometry.get_left_right_vertical_edges(self._tolerance)
+        window_top, window_bottom = self.aperture.geometry.get_top_bottom_horizontal_edges(self._tolerance)
         
         Output = namedtuple('Output', ['Left', 'Right', 'Bottom', 'Top'])
         return Output(window_left, window_right, window_bottom, window_top)
@@ -76,19 +140,41 @@ class PHPP_Window:
         window_edges = self.window_edges
         window_area = self.aperture.area
         glazing_area = glazing_edge_lens.Left * glazing_edge_lens.Bottom
-        frame_areas = [e.length*w for e, w in zip(window_edges, frame.frameWidths)]
         
+        # Correct for the corner overlap
+        corner_areas = []
+        corner_areas.append(frame.fLeft * frame.fTop + frame.fLeft * frame.fBottom)
+        corner_areas.append(frame.fRight* frame.fTop + frame.fRight * frame.fBottom)
+        corner_areas.append(frame.fLeft * frame.fBottom + frame.fRight * frame.fBottom)
+        corner_areas.append(frame.fLeft* frame.fTop + frame.fRight * frame.fTop)
+        frame_areas = [(e.length*w)-(0.5*ca) for e, w, ca in zip(window_edges, frame.frameWidths, corner_areas)]
+
+        # Calc the heat-loss values for all the elements
         hl_glazing = glazing_area * self.glazing.uValue
         hl_frames = sum([a*u for a, u in zip(frame_areas, frame.uValues)])
         hl_glazing_edge = sum([e_len*psi_g for e_len, psi_g in zip(glazing_edge_lens, frame.PsiGVals)])
         hl_install_edge = sum([e.length*psi_i*i for e, psi_i, i in zip(window_edges, frame.PsiInstalls, self.installs)])
         
         u_w_installed = (hl_glazing + hl_frames + hl_glazing_edge + hl_install_edge) / window_area
-
+        
         return u_w_installed
     
+    @property
+    def host_surface(self):
+        return self.aperture.parent.display_name.replace('EXT_', '')
+
+    @property
+    def height(self):
+        left, right = self.aperture.geometry.get_left_right_vertical_edges(self._tolerance)
+        return left.length
+
+    @property
+    def width(self):
+        top, bottom = self.aperture.geometry.get_top_bottom_horizontal_edges(self._tolerance)
+        return top.length
+
     def __unicode__(self):
-        return u'A PHPP-Style Window Object: < {self.name} >'.format(self=self)
+        return u'A PHPP-Style Window Object: < {} >'.format(self.name)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
@@ -99,7 +185,15 @@ class PHPP_Window:
             self.rh_library)
 
 class PHPP_Frame:
-    ''' For Storing PHPP Style Frame Parameters '''
+    ''' For Storing PHPP Style Frame Parameters       
+     Args:
+        _nm (str): The name of the Frame Type
+        _uValues (list): A list of the 4 U-Values (W/m2k) for the frame sides (Left, Right, Bottom, Top)
+        _frameWidths (list): A list of the 4 U-Values (W/m2k) for the frame sides (Left, Right, Bottom, Top)
+        _psiGlazings (list): A list of the 4 Psi-Values (W/mk) for the glazing spacers (Left, Right, Bottom, Top)
+        _psiInstalls (list): A list of the 4 Psi-Values (W/mk) for the frame Installations (Left, Right, Bottom, Top)
+        _chiGlassCarrier (list): A value for the Chi-Value (W/k) of the glass carrier for curtain walls
+    '''
     
     def __init__(self, 
                 _nm='Default Frame',
@@ -108,19 +202,9 @@ class PHPP_Frame:
                 _psiGlazings=[0.04]*4,
                 _psiInstalls=[0.04]*4,
                 _chiGlassCarrier=None):
-        '''
-        Args:
-            _nm (str): The name of the Frame Type
-            _uValues (list): A list of the 4 U-Values (W/m2k) for the frame sides (Left, Right, Bottom, Top)
-            _frameWidths (list): A list of the 4 U-Values (W/m2k) for the frame sides (Left, Right, Bottom, Top)
-            _psiGlazings (list): A list of the 4 Psi-Values (W/mk) for the glazing spacers (Left, Right, Bottom, Top)
-            _psiInstalls (list): A list of the 4 Psi-Values (W/mk) for the frame Installations (Left, Right, Bottom, Top)
-            _chiGlassCarrier (list): A value for the Chi-Value (W/k) of the glass carrier for curtain walls
-        '''
-        __slots__ = ('Name', 'uValues', 'frameWidths', 'PsiGVals', 'PsiInstalls', 'chiGlassCarrier')
-        self.Name = _nm
-        
-        self.uValues = _uValues
+
+        self.name = _nm
+        self._uValues = _uValues
         self.frameWidths = _frameWidths
         self.PsiGVals = _psiGlazings
         self.PsiInstalls = _psiInstalls
@@ -131,6 +215,23 @@ class PHPP_Frame:
         self.cleanAttrSet(['psigLeft', 'psigRight', 'psigBottom', 'psigTop'], self.PsiGVals)
         self.cleanAttrSet(['psiInstLeft', 'psiInstRight', 'psiInstBottom', 'psiInstTop'], self.PsiInstalls)
     
+    @property
+    def uValues(self):
+        if self._uValues is None:
+            return [0.1]*4
+        
+        if len(self._uValues) == 4:
+            return self._uValues
+        else:
+            return [self._uValues]*4
+
+    @property
+    def display_name(self):
+        nm = self.name
+        nm = nm.replace('PHPP_CONST_', '')
+        nm = nm.replace('PHPP_MAT_', '')
+        return nm
+
     def cleanAttrSet(self, _inList, _attrList):
         # In case the input len != 4 and convert to float values
         if len(_attrList) != 4:
@@ -150,15 +251,27 @@ class PHPP_Frame:
                 
                 setattr(self, _inList[i], val)
     
+    def to_dict(self):
+        d = {}
+        d['class'] = self.__class__.__name__
+        d['_nm'] = self.name
+        d['_uValues'] = self._uValues
+        d['_frameWidths'] = self.frameWidths
+        d['_psiGlazings'] = self.PsiGVals
+        d['_psiInstalls'] = self.PsiInstalls
+        d['_chiGlassCarrier'] = self.chiGlassCarrier
+        
+        return d
+    
     def __unicode__(self):
-        return u'A PHPP Style Frame Object: < {self.Name} >'.format(self=self)
+        return u'A PHPP Style Frame Object: < {self.name} >'.format(self=self)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
        return "{}( _nm={!r}, _uValues={!r}, _frameWidths={!r}, _psiGlazings={!r}, "\
               "_psiInstalls={!r}, _chiGlassCarrier={!r} )".format(
                self.__class__.__name__,
-               self.Name,
+               self.name,
                self.uValues,
                self.frameWidths,
                self.PsiGVals,
@@ -175,23 +288,49 @@ class PHPP_Glazing:
             _gValue (float): The g-Value (SHGC) value of the glass only as per EN 410 (%)
             _uValue (float): The Thermal Trasmittance value of the center of glass (W/m2k) as per EN 673
         """
-        __slots__ = ('Name', 'gValue', 'uValue')
 
-        self.Name = _nm
-        try: self.gValue = float(_gValue)
-        except: self.gValue = _gValue
+        self.name = _nm
+        self._gValue = _gValue
+        self._uValue = _uValue
+    
+    @property
+    def gValue(self):
+        try:
+            return float(self._gValue)
+        except:
+            return None
+    
+    @property
+    def uValue(self):
+        try:
+            return float(self._uValue)
+        except:
+            return None
+    
+    @property
+    def display_name(self):
+        nm = self.name
+        nm = nm.replace('PHPP_CONST_', '')
+        nm = nm.replace('PHPP_MAT_', '')
+        return nm
+
+    def to_dict(self):
+        d = {}
+        d['class'] = self.__class__.__name__
+        d['_nm'] = self.display_name
+        d['_gValue'] = self.gValue
+        d['_uValue'] = self.uValue
         
-        try: self.uValue = float(_uValue)
-        except: self.uValue = _uValue
-        
+        return d
+
     def __unicode__(self):
-        return u'A PHPP Style Glazing Object: < {self.Name} >'.format(self=self)
+        return u'A PHPP Style Glazing Object: < {} >'.format(self.display_name)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
        return "{}( _nm={!r}, _gValue={!r}, _uValue={!r} )".format(
                self.__class__.__name__,
-               self.Name,
+               self.display_name,
                self.gValue,
                self.uValue)
 
@@ -253,11 +392,11 @@ def create_EP_window_mat(_win_obj):
     shgc = _win_obj.glazing.gValue
     t_vis = 0.6
 
-    # create the material
+    # Create the material
     mat = EnergyWindowMaterialSimpleGlazSys(
         clean_and_id_ep_string(name), u_factor, shgc, t_vis)
     mat.display_name = name
-    
+
     return mat
 
 def create_EP_const(_win_EP_material):
@@ -325,7 +464,7 @@ def get_rh_doc_window_library(_ghdoc):
                     lib_GlazingTypes[tempDict['Name']] = newGlazingObject
                 elif '_PsiInstall_' in eachKey:
                     tempDict = json.loads(rs.GetDocumentUserText(eachKey))
-                    newPsiInstallObject = PHPP_Window_Install(
+                    newPsiInstallObject = PHPP_Installs(
                                     [
                                     tempDict['Left'],
                                     tempDict['Right'],

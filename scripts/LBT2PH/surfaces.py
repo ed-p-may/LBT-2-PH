@@ -6,6 +6,8 @@ from collections import namedtuple
 import Rhino
 import math
 
+
+
 class Temp_Surface:
     ''' A temporary holder for some surface stuff. Used to be just a nametuple.. '''
 
@@ -22,6 +24,7 @@ class hb_surface:
     Args:
         _srfc: <Surface> A single 'Surface' object with .geom and .param properties
         _constructions: <Dict> A dict of all the EP Constructions
+        _ghenv: The Grasshopper 'ghenv' object from the active scene
     Properties:
         * geometry
         * name

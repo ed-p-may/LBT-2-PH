@@ -1,1 +1,3 @@
-C:\Users\ *username* \AppData\Roaming\McNeel\Rhinoceros\6.0\scripts\LBT2PH
+Copy the 'LBT2PH' folder into the Rhino 'Scripts' folder on your system. 
+
+ie: C:\Users\ *username* \AppData\Roaming\McNeel\Rhinoceros\6.0\scripts\LBT2PH\...

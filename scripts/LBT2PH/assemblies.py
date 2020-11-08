@@ -4,6 +4,45 @@ import rhinoscriptsyntax as rs
 import Grasshopper.Kernel as ghK
 import scriptcontext as sc
 
+class PHPP_Construction:
+    def __init__(self, _hb_const):
+        self.hb_const = _hb_const
+
+    @property
+    def u_value(self):
+        return self.hb_const.u_value
+
+    @property
+    def Name(self):
+        return self.hb_const.display_name.replace('__Int__', '')
+
+    @property
+    def ID(self):
+        return self.hb_const.identifier
+
+    @property
+    def IntInsul(self):
+        if '__Int__' in self.hb_const.display_name:
+            return 'x'
+        else:
+            return None
+
+    @property
+    def Layers(self):
+        layers = []
+        for i, layer in enumerate(self.hb_const.layers):
+            mat = self.hb_const.materials[i]
+            layers.append( [i, mat.display_name]  ) 
+
+        return layers
+    
+    def __unicode__(self):
+        return u'A PHPP-Style Construction Object: < {} >'.format(self.Name)
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+       return "{}(_hb_const={!r})".format(self.__class__.__name__, self.hb_const)
+
 def get_constructions_from_rh(_ghdoc):
     ''' Returns a dict with all the assemblies found in the Rhino UserText'''
     
