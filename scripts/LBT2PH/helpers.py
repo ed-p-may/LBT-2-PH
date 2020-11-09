@@ -4,6 +4,10 @@ import scriptcontext as sc
 import Rhino
 import re
 
+from honeybee.typing import clean_and_id_ep_string
+from honeybee_energy.schedule.ruleset import ScheduleRuleset
+from honeybee_energy.lib.scheduletypelimits import schedule_type_limit_by_identifier
+
 def add_to_hb_obj_user_data(_hb_obj, key, _val):
     if _hb_obj.user_data is None:
         _hb_obj.user_data = {}
@@ -116,3 +120,17 @@ def convert_value_to_metric(_inputString, _outputUnit):
             return float(inputValue) * float(conversionFactor)
         except:
             return inputValue
+
+def create_hb_constant_schedule():
+    _type_limit_ = schedule_type_limit_by_identifier('Fractional')
+    _name = 'Infilt_Const_Sched'
+
+    schedule = ScheduleRuleset.from_constant_value(
+        clean_and_id_ep_string(_name), 1, _type_limit_)
+
+    schedule.display_name = _name
+
+    return schedule
+
+
+ 

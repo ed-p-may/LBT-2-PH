@@ -6,6 +6,9 @@ import re
 import random
 import scriptcontext as sc
 
+from honeybee_energy.schedule.ruleset import ScheduleRuleset
+from honeybee_energy.lib.schedules import schedule_by_identifier
+from ladybug.dt import Date
 import LBT2PH
 import LBT2PH.helpers
 
@@ -332,6 +335,57 @@ class PHPP_Sys_ExhaustVent:
                self.duct_01)
 
 
+class PHPP_Sys_VentSchedule:
+    def __init__(self, s_h=1.0, t_h=1.0, s_m=0.77, t_m=0.0, s_l=0.4, t_l=0.0):
+        self.id = random.randint(1000,9999)
+        self._speed_high = s_h
+        self._time_high = t_h
+        self._speed_med = s_m
+        self._time_med = t_m
+        self._speed_low = s_l
+        self._time_low = t_l
+
+    def to_dict(self):
+        d = {}
+        d.update( {'id':self.id} )
+        d.update( {'_speed_high':self._speed_high} )
+        d.update( {'_time_high':self._time_high} )
+        d.update( {'_speed_med':self._speed_med} )
+        d.update( {'_time_med':self._time_med} )
+        d.update( {'_speed_low':self._speed_low} )
+        d.update( {'_time_low':self._time_low} )
+
+        return d
+
+    @classmethod
+    def from_dict(cls, _dict):
+        new_sched = cls()
+        new_sched.id = _dict['id']
+        new_sched._speed_high = _dict['_speed_high']
+        new_sched._time_high = _dict['_time_high']
+        new_sched._speed_med = _dict['_speed_med']
+        new_sched._time_med = _dict['_time_med']
+        new_sched._speed_low = _dict['_speed_low']
+        new_sched._time_low = _dict['_time_low']
+
+        return new_sched
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __unicode__(self):
+        return u'A PHPP Ventilation Schedule Object: <{self.id}>'.format(self=self)
+    def __repr__(self):
+        return "{}( s_h={!r}, t_h={!r}, s_m={!r}, t_m={!r}, s_l={!r}, t_l={!r})".format(
+                self.__class__.__name__,
+                self.id,
+                self._speed_high,
+                self._time_high,
+                self._speed_med,
+                self._time_med,
+                self._speed_low,
+                self._time_low)
+
+
 class PHPP_Sys_Ventilation:
     def __init__(self,
                 _ghenv=None,
@@ -420,3 +474,166 @@ class PHPP_Sys_Ventilation:
                 self.duct_02,
                 self.exhaust_vent_objs)
 
+
+def calc_hb_room_annual_vent_flow_rate(_hb_room, _ghenv):
+    ''' Uses the EP Loads and Schedules to calc the HB Room's annual flowrate '''
+
+    #print dir(_hb_room)
+    #print _hb_room.properties.energy.people.occupancy_schedule.display_name
+    #print dir(_hb_room.properties.energy.people)
+    #print _hb_room.properties.energy.ventilation
+    #print dir(_hb_room.properties.energy.ventilation)
+
+    #---------------------------------------------------------------------------
+    # Guard
+    if _hb_room.floor_area == 0:
+        warning =   "Something wrong with the floor area - are you sure\n"\
+                    "there is at least one 'Floor' surface making up the Room?"
+        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
+        return None
+
+    #---------------------------------------------------------------------------
+    # Pull the Ventilation Loads, Occupancy, and Schedule from HB Room
+    vent_flow_per_area = _hb_room.properties.energy.ventilation.flow_per_area
+    vent_flow_per_person = _hb_room.properties.energy.ventilation.flow_per_person
+    people_per_area = _hb_room.properties.energy.people.people_per_area
+
+    #---------------------------------------------------------------------------
+    # Calc hourly flow rates (m3/h) based on the HB/EP Schedule values
+    # m3/s---> m3/h
+    room_vent_by_area = [vent_flow_per_area * _hb_room.floor_area * 60 * 60] * 8760
+    
+    room_vent_by_area_AVG = sum(room_vent_by_area) / len(room_vent_by_area)
+    room_vent_by_people_AVG = people_per_area * _hb_room.floor_area * vent_flow_per_person * 60 * 60
+    room_vent_total_AVG = room_vent_by_area_AVG + room_vent_by_people_AVG
+    
+    #---------------------------------------------------------------------------
+    # Preview results
+    print("The HB Room: '{}' has an average annual airflow of: {:.2f} "\
+        "m3/h".format(_hb_room.display_name, room_vent_total_AVG) )
+    print(">Looking at the Honeybee Program parameters:" )
+    print("   *Note: These are the values BEFORE any occupany / activity schedule"\
+        "is applied to reduce this (demand control)" )
+    print("   *Note: These are the values takes into account the airflow for 'areas' and the airflow for people." )
+    print("   Details:")
+    print("      >Reference HB-Room Floor Area used is: {:.2f} m2".format(float(_hb_room.floor_area)) )
+    print("      >[Ventilation Per Pers: {:.6f} m3/s-prs] x [Floor Area: {:.2f} m2] x [{:.2f} ppl/m2] "\
+        "* 3600 s/hr = {:.2f} m3/hr".format(vent_flow_per_person, _hb_room.floor_area,
+        vent_flow_per_person*3600, room_vent_by_people_AVG) )
+    print("      >[Ventilation Per Area: {:.6f} m3/s-m2] x [Floor Area: {:.2f} m2] "\
+        "* 3600 s/hr = {:.2f} m3/hr".format(float(vent_flow_per_area),
+        float(_hb_room.floor_area), float(room_vent_by_area_AVG)) )
+    print("      >[Vent For Area: {:.2f} m3/h] + [Vent For PPL: {:.2f} m3/h] ="\
+        " {:.2f} m3/h".format(room_vent_by_area_AVG, vent_flow_per_person, room_vent_total_AVG) )
+    print('- '*50)
+    
+    return room_vent_total_AVG
+
+def hb_schedule_to_data(_schedule_name):
+        try:
+            _schedule = schedule_by_identifier(_schedule_name)
+        except:
+            return None
+        
+        week_start_day = 'Sunday'
+        start_date, end_date, timestep = Date(1, 1), Date(12, 31), 1
+        holidays = None
+
+        data = _schedule.data_collection(
+            timestep, start_date, end_date, week_start_day, holidays, leap_year=False)
+
+        return data
+
+def calc_space_vent_flow_rates(_space, _hb_room, _hb_room_tfa, _hb_room_avg_vent_rate, _type, _ghenv):
+    if _type != 'EP':
+        return None
+
+    #---------------------------------------------------------------------------
+    # Guard
+    if _hb_room.floor_area == 0:
+        warning =   "Something wrong with the floor area - are you sure\n"\
+                    "there is at least one 'Floor' surface making up the Room?"
+        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
+        return None
+
+    if _hb_room_tfa == 0:
+        warning =   "Got TFA of 0 - are you sure\n"\
+                    "there is at least one 'TFA' surface in the Room?"
+        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
+        return None
+
+    #---------------------------------------------------------------------------
+    percent_of_total_zone_TFA = _space.space_tfa / _hb_room_tfa
+    room_air_flow = percent_of_total_zone_TFA * _hb_room_avg_vent_rate
+    room_air_flow = room_air_flow/2  # Div by 2 cus' half goes to supply, half to extract?
+
+    return { 'V_sup': room_air_flow, 'V_eta': room_air_flow, 'V_trans': room_air_flow }
+
+def generate_histogram(_data, _nbins):
+    # Creates a dictionary Histogram of some data in n-bins
+    
+    min_val = min(_data)
+    max_val = max(_data)
+    hist_bins = {} # The number of items in each bin
+    hist_vals = {} # The avg value for each bin
+    total = 0
+
+    # Initialize the dict
+    for k in range(_nbins+1):
+        hist_bins[k] = 0
+        hist_vals[k] = 0
+    
+    # Create the Histogram
+    for d in _data:
+        bin_number = int(_nbins * ((d - min_val) / (max_val - min_val)))
+        
+        hist_bins[bin_number] += 1
+        hist_vals[bin_number] += d
+        total += 1
+    
+    # Clean up / fix the data for output
+    for n in hist_vals.keys():
+        hist_vals[n] =  hist_vals[n] / hist_bins[n]
+    
+    for h in hist_bins.keys():
+        hist_bins[h] = float(hist_bins[h]) / total
+    
+    # The number of items in each bin, the avg value of the items in the bin
+    return hist_bins, hist_vals 
+
+def calc_space_vent_schedule(_space, _hb_room, _hb_room_tfa):
+    if _hb_room_tfa == 0:
+        return None
+
+    # Create a PHPP-Style 3-part sched from the EP data
+    occupancy_sched_name = _hb_room.properties.energy.people.occupancy_schedule.display_name
+    bins, vals = generate_histogram(hb_schedule_to_data(occupancy_sched_name).values, 2)
+    room_sched_from_hb = PHPP_Sys_VentSchedule( vals[2], bins[2], vals[1], bins[1], vals[0], bins[0] )
+    
+    # Compute the Room % of Total TFA and Room's Ventilation Airflows
+    percentZoneTotalTFA = _space.space_tfa / _hb_room_tfa
+    numOfPeoplePerArea = _hb_room.properties.energy.people.people_per_area
+    vent_flow_per_person = _hb_room.properties.energy.ventilation.flow_per_person
+    vent_flow_per_area = _hb_room.properties.energy.ventilation.flow_per_area
+    roomFlowrate_People_Peak = numOfPeoplePerArea * _hb_room.floor_area * vent_flow_per_person * 60 * 60 * percentZoneTotalTFA
+    
+    # Calc total airflow for People
+    # Calc the flow rates for people based on the HB Schedule values
+    roomFlowrate_People_High = (room_sched_from_hb._speed_high * roomFlowrate_People_Peak) 
+    roomFlowrate_People_Med = (room_sched_from_hb._speed_med * roomFlowrate_People_Peak) 
+    roomFlowrate_People_Low = (room_sched_from_hb._speed_low * roomFlowrate_People_Peak) 
+    
+    roomVentilationPerArea = (vent_flow_per_area * _hb_room.floor_area * 60 * 60 * percentZoneTotalTFA)
+    
+    if roomVentilationPerArea != 0 and roomFlowrate_People_Peak != 0:
+        roomFlowrate_Total_High = (roomFlowrate_People_High + roomVentilationPerArea) / (roomFlowrate_People_Peak + roomVentilationPerArea)
+        roomFlowrate_Total_Med = (roomFlowrate_People_Med + roomVentilationPerArea) / (roomFlowrate_People_Peak + roomVentilationPerArea)
+        roomFlowrate_Total_Low = (roomFlowrate_People_Low + roomVentilationPerArea) / (roomFlowrate_People_Peak + roomVentilationPerArea)
+
+        # Re-set the Room's Vent Schedule Fan-Speeds based on the calculated rates
+        # taking into account both Floor Area and People
+        phppRoomVentSched = PHPP_Sys_VentSchedule(roomFlowrate_Total_High, bins[2], roomFlowrate_Total_Med, bins[1], roomFlowrate_Total_Low, bins[0] )
+    else:
+        phppRoomVentSched = PHPP_Sys_VentSchedule()
+    
+    return phppRoomVentSched

@@ -1,11 +1,15 @@
-from collections import namedtuple
-from os import kill
 import rhinoscriptsyntax as rs
 import random
 import ghpythonlib.components as ghc
 import Grasshopper.Kernel as ghK
 import Rhino
+
 from ladybug_geometry.geometry3d import Point3D
+import LBT2PH
+import LBT2PH.ventilation
+
+reload(LBT2PH)
+reload(LBT2PH.ventilation)
 
 class TFA_Surface:
     ''' Represents an individual TFA Surface floor element '''
@@ -31,10 +35,10 @@ class TFA_Surface:
         else:
             return self._neighbors
 
-    def get_vent_flow_rate(self, _type='supply'):
+    def get_vent_flow_rate(self, _type='V_sup'):
         ''' type = V_sup, V_eta or V_trans '''
         try:
-            return self.params.get(_type, 0)
+            return float(self.params.get(_type, 0.0))
         except Exception as e:
             print(e)
             print('Error getting {} ventilation flow rate?'.format(_type))
@@ -176,12 +180,14 @@ class TFA_Surface:
 class Volume:
     ''' Represents an individual volume / part of a larger Space '''
 
-    def __init__(self, _tfa_surface, _space_geometry=None, _space_height=2.5):
+    def __init__(self, _tfa_surface=None, _space_geometry=None, _space_height=2.5):
         self.id = random.randint(1000,9999)
         self.tfa_surface = _tfa_surface
         self._space_geom = _space_geometry
         self._space_height = _space_height
+        self._space_vn50 = None
         self._offset_z = 0
+        self._phpp_vent_flow_rates = {'V_sup':0, 'V_eta':0, 'V_trans':0}
 
     @property
     def dict_key(self):
@@ -197,25 +203,39 @@ class Volume:
     
     @property
     def volume_number(self):
-        try: 
-            return str(self.tfa_surface.space_number)
-        except:
-            return None
+        return self.tfa_surface.space_number
 
     @property
-    def space_height(self):
+    def volume_height(self):
         try:
-            return float(self._space_height)
-        except Exception as e:
-            print(e)
-            return 2.5
+            # Try and get the height from the input geometry
+            z_positions = []
+            vol_brep = self.volume_brep
+            for brep in vol_brep:
+                vert_list = brep.Vertices
+                for vert in vert_list.Item:
+                    z_positions.append( vert.Location.Z )
+
+            highest =  max(z_positions)
+            lowest = min(z_positions)
+            vertical_distance = abs(highest - lowest)
+            
+            return float( vertical_distance )
+        except:
+            try:
+                return float(self._space_height)
+            except:
+                return 2.5
 
     @property
     def volume_brep(self):
-        if self._space_geom:
-            return self._build_volume_brep_from_geom()
-        else:
-            return self._build_volume_brep_from_zone()
+        try:
+            if self._space_geom:
+                return self._build_volume_brep_from_geom()
+            else:
+                return self._build_volume_brep_from_zone()
+        except Exception as e:
+            return None
 
     def _build_volume_brep_from_geom(self):
         results = ghc.BrepJoin( [self.tfa_surface.surface, self._space_geom.breps] )
@@ -235,7 +255,7 @@ class Volume:
 
         # Extrusion curve
         surface_centroid = Rhino.Geometry.AreaMassProperties.Compute(floor_surface).Centroid
-        end_point = ghc.ConstructPoint(surface_centroid.X, surface_centroid.Y, surface_centroid.Z + self.space_height)
+        end_point = ghc.ConstructPoint(surface_centroid.X, surface_centroid.Y, surface_centroid.Z + self._space_height)
         extrusion_curve = rs.AddLine(surface_centroid, end_point)
 
         volume_brep = rs.ExtrudeSurface(surface=floor_surface, curve=extrusion_curve, cap=True)
@@ -243,25 +263,47 @@ class Volume:
         
         return [volume_brep]
 
+    def _get_vent_flow_rate(self, _type):
+        try:
+            return float(self.tfa_surface.get_vent_flow_rate(_type))
+        except:
+            return self._phpp_vent_flow_rates[_type]
+
+    def set_phpp_vent_rates(self, _dict):
+        self._phpp_vent_flow_rates = _dict
+        
+        self.tfa_surface.set_vent_flow_rate('V_sup', _dict['V_sup'])
+        self.tfa_surface.set_vent_flow_rate('V_eta', _dict['V_eta'])
+        self.tfa_surface.set_vent_flow_rate('V_trans', _dict['V_trans'])
+
+    @property
+    def area_tfa(self):
+        return float( self.tfa_surface.area_tfa )
+
+    @property
     def vn50(self):
-        #
-        #
-        #
-        #
-        #
-        # TODO
-        #
-        #
-        #
-        
-        
-        return 0
+        try:
+            volumes = []
+            breps = self.volume_brep
+            for brep in breps:
+                try:
+                    volumes.append( abs(float( brep.GetVolume() ) ) )
+                except:
+                    volumes.append( 0 )
+            
+            return sum(volumes)
+        except Exception as e:
+            try:
+                return float(self._space_vn50)
+            except:
+                return 5
 
     def to_dict(self):
         d = {}
         d.update( {'id': self.id} )
-        d.update( {'space_height': self.space_height})
+        d.update( {'volume_height': self.volume_height})
         d.update( {'tfa_surface': self.tfa_surface.to_dict() } )
+        d.update( {'_space_vn50': self.vn50 } )
 
         tfa_sub_surfaces = {}
         for sub_surface in self.tfa_surface.sub_surfaces:
@@ -269,18 +311,24 @@ class Volume:
             tfa_sub_surfaces.update( { key:sub_surface.to_dict() } )
         d.update( {'tfa_sub_surfaces': tfa_sub_surfaces } )
     
+        vent_rates = {}
+        vent_rates.update( {'V_sup':self._get_vent_flow_rate('V_sup') })
+        vent_rates.update( {'V_eta':self._get_vent_flow_rate('V_eta') })
+        vent_rates.update( {'V_trans':self._get_vent_flow_rate('V_trans') })
+        d.update( {'_phpp_vent_flow_rates':vent_rates} )
+
         return d
 
     @classmethod
     def from_dict(cls, _dict):
         
-        id = _dict['id']
-        space_height = _dict['space_height']
-        space_geometry = None
-        tfa_surface = TFA_Surface.from_dict( _dict['tfa_surface'], _dict['tfa_sub_surfaces'] )
-
-        new_volume = cls(tfa_surface, space_geometry, space_height)
-        new_volume.id = id
+        new_volume = cls()
+        new_volume.tfa_surface = TFA_Surface.from_dict( _dict['tfa_surface'], _dict['tfa_sub_surfaces'] )
+        new_volume._space_geom = None
+        new_volume.volume_height = _dict['volume_height']
+        new_volume.id = _dict['id']
+        new_volume._space_vn50 = _dict['_space_vn50']
+        new_volume._phpp_vent_flow_rates = _dict['_phpp_vent_flow_rates']
     
         return new_volume
 
@@ -297,36 +345,45 @@ class Volume:
                self._space_height)
 
 
-
 class Space:
     ''' A 'Space' or Room in a Zone. Made up of one or more Volumes/parts '''
     
-    def __init__(self, _volumes):
+    def __init__(self, _volumes=None, _vent_sched=LBT2PH.ventilation.PHPP_Sys_VentSchedule() ):
         self.id = random.randint(1000,9999)
         self.volumes = _volumes
         self.phpp_vent_system_id = 'default'
-        self._ventilation_flow_rates = {'v_sup':0, 'v_eta':0, 'v_trans':0}
-
+        self._phpp_vent_flow_rates = {'V_sup':0, 'V_eta':0, 'V_trans':0}
+        self.vent_sched = _vent_sched
+    
     @property
     def space_vent_supply_air(self):
-        try: 
-            return self._ventilation_flow_rates['v_sup']
+        vent_rates = []
+        try:
+            for vol in self.volumes:
+                vent_rates.append( vol._get_vent_flow_rate('V_sup') )
+            return max(vent_rates)
         except:
-            return 0
-    
+            return self._phpp_vent_flow_rates['V_sup']
+        
     @property
     def space_vent_extract_air(self):
-        try: 
-            return self._ventilation_flow_rates['v_eta']
+        vent_rates = []
+        try:
+            for vol in self.volumes:
+                vent_rates.append( vol._get_vent_flow_rate('V_eta') )           
+            return max(vent_rates)
         except:
-            return 0
-    
+            return self._phpp_vent_flow_rates['V_eta']
+        
     @property
     def space_vent_transfer_air(self):
-        try: 
-            return self._ventilation_flow_rates['v_trans']
+        vent_rates = []
+        try:
+            for vol in self.volumes:
+                vent_rates.append( vol._get_vent_flow_rate('V_trans') )
+            return max(vent_rates)
         except:
-            return 0
+            return self._phpp_vent_flow_rates['V_trans']
 
     @property
     def space_breps(self):
@@ -348,7 +405,6 @@ class Space:
         
     @property
     def host_room_name(self):
-
         host_room_names = set()
         for volume in self.volumes:
             host_room_names.add(volume.host_room_name)
@@ -388,59 +444,58 @@ class Space:
         return '{}-{}'.format(self.space_number, self.space_name)
 
     @property
-    def space_volume(self):
+    def space_vn50(self):
         return sum([volume.vn50 for volume in self.volumes])
 
     @property
     def space_tfa(self):
-        #
-        #
-        #
-        # TODO
-        #
-        #
-        #
-
-        
-        
-        return 10
+        return sum([volume.area_tfa for volume in self.volumes])
 
     @property
     def space_avg_clear_ceiling_height(self):
-        #
-        #
-        #
-        # TODO
-        #
-        #
-        #
-        # 
-        return 10
+        return sum([volume.volume_height for volume in self.volumes])/len(self.volumes)
+
+    def set_phpp_vent_rates(self, _dict):
+        if 'V_sup' in _dict.keys() and 'V_eta' in _dict.keys() and 'V_trans' in _dict.keys():
+            self._phpp_vent_flow_rates = _dict
+
+        for vol in self.volumes:
+            vol.set_phpp_vent_rates( _dict )
 
     def to_dict(self):
         d = {}
         d.update( {'id': self.id} )
+        d.update( {'phpp_vent_system_id': self.phpp_vent_system_id} )
         d.update( {'volumes' : {} } )
+
         for volume in self.volumes:
             key = '{}_{}'.format(volume.dict_key, volume.id)
             d['volumes'].update( { key : volume.to_dict() } )
-        d.update( {'phpp_vent_system_id': self.phpp_vent_system_id} )
+        
+        vent_rates = {}
+        vent_rates.update( {'V_sup': self.space_vent_supply_air} )
+        vent_rates.update( {'V_eta': self.space_vent_extract_air} )
+        vent_rates.update( {'V_trans': self.space_vent_transfer_air} )
+        d.update( {'_phpp_vent_flow_rates': vent_rates} )
+        d.update( {'vent_sched': self.vent_sched.to_dict()} )
 
-        return d     
+        return d
 
     @classmethod
     def from_dict(cls, _dict):
 
-        id = _dict['id']
         dict_volumes = _dict['volumes']
         volumes = []
         for volume in dict_volumes.values():
             new_volume = Volume.from_dict(volume)
             volumes.append(new_volume)
 
-        new_space =  cls(volumes)
-        new_space.id = id
+        new_space =  cls()
+        new_space.id = _dict['id']
         new_space.phpp_vent_system_id = _dict['phpp_vent_system_id']
+        new_space._phpp_vent_flow_rates = _dict['_phpp_vent_flow_rates']
+        new_space.volumes = volumes
+        new_space.vent_sched = LBT2PH.ventilation.PHPP_Sys_VentSchedule.from_dict( _dict['vent_sched'] )
 
         return new_space
 
@@ -563,9 +618,16 @@ def join_touching_tfa_groups(_tfa_surface_groups):
             unionedTFAObj.set_vent_flow_rate('V_eta', max(ventFlowRates_Eta) )
             unionedTFAObj.set_vent_flow_rate('V_trans', max(ventFlowRates_Tran) )
 
-
-            #TODO: Join all the 'Non-Res' stuff together
-
+            #
+            #
+            #
+            #
+            # TODO: Join all the 'Non-Res' stuff together
+            #
+            # 
+            # 
+            # 
+            # 
 
             tfa_srfcs_joined.append(unionedTFAObj)
     
