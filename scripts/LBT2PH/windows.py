@@ -1,55 +1,19 @@
 import rhinoscriptsyntax as rs
 import Rhino
+import ghpythonlib.components as ghc
 import json
+import math
+from System import Object
+
 import LBT2PH.helpers
+import LBT2PH.shading
+from ladybug_rhino.fromgeometry import from_face3d 
+
+reload( LBT2PH.shading )
+
 from collections import namedtuple
 
-
-class PHPP_Shading_Dimensions:
-    def __init__(self):
-        pass
-    
-    @property
-    def has_values(self):
-        if self.h_hori and self.d_hori:
-            if self.o_reveal and self.d_reveal:
-                if self.o_over and self.d_over:
-                    return True
-        
-        return False
-
-    @property
-    def h_hori(self):
-        
-        return None
-
-    @property
-    def d_hori(self):
-        
-        return None
-
-    @property
-    def o_reveal(self):
-        
-        return None
-
-    @property
-    def d_reveal(self):
-        
-        return None
-
-    @property
-    def o_over(self):
-        
-        return None
-
-    @property
-    def d_over(self):
-        
-        return None
-
-
-class PHPP_Window:
+class PHPP_Window(Object):
     '''  Class to organize data for a 'window'.
     Args:
         _aperture: A LadybugTools 'aperture' object
@@ -61,6 +25,9 @@ class PHPP_Window:
         * aperture
         * params
         * rh_library
+        * _shading_dimensions
+        * _shading_factor_winter
+        * _shading_factor_summer
     '''
     
     def __init__(self, _aperture=None, _params=None, _rh_doc_library=None):
@@ -72,6 +39,7 @@ class PHPP_Window:
         self._shading_dimensions = None
         self._shading_factor_winter = None
         self._shading_factor_summer = None
+        self.shading_dimensions = None
     
     @property
     def name(self):
@@ -164,6 +132,33 @@ class PHPP_Window:
         return Output(glazing_Left, glazing_Right, glazing_Bottom, glazing_Top)
 
     @property
+    def glazing_surface(self):
+        geom = self.inset_window_surface
+        
+        # Create the frame and instet surfaces
+        WinCenter = ghc.Area(geom).centroid
+        WinNormalVector = self.surface_normal
+        
+        #Create the Inset Perimeter Curve
+        WinEdges = ghc.DeconstructBrep(geom).edges
+        WinPerimeter = ghc.JoinCurves(WinEdges, False)
+        FrameWidth = self.frame.fLeft
+        InsetCurve = rs.OffsetCurve(WinPerimeter, WinCenter, FrameWidth, WinNormalVector, 0)
+        
+        # In case the curve goes 'out' and the offset fails
+        # Or is too small and results in multiple offset Curves
+        if len(InsetCurve)>1:
+            warning = 'Error. The window named: "{}" is too small. The frame offset of {} m can not be done. Check the frame sizes?'.format(self.Name, FrameWidth)
+            print(warning)
+            
+            InsetCurve = rs.OffsetCurve(WinPerimeter, WinCenter, 0.05, WinNormalVector, 0)
+            InsetCurve = rs.coercecurve( InsetCurve[0] )
+        else:
+            InsetCurve = rs.coercecurve( InsetCurve[0] )
+        
+        return ghc.BoundarySurfaces(InsetCurve)
+
+    @property
     def installs(self):
         def _str_to_bool(_):
             try:
@@ -180,6 +175,14 @@ class PHPP_Window:
         
         Output = namedtuple('Output', ['Left', 'Right', 'Bottom', 'Top'])
         return Output(left, right, bottom, top)
+
+    @property
+    def install_depth(self):
+        try:
+            inst_depth = self.params.get('InstallDepth', None)
+            return float(inst_depth)
+        except:
+            return 0.1
 
     @property
     def u_w_installed(self):
@@ -222,45 +225,210 @@ class PHPP_Window:
         return top.length
 
     @property
-    def shading_dimension_simple(self):
-        if self._shading_dimensions:
-            return self._shading_dimensions
-        else:
-            return PHPP_Shading_Dimensions()
-
-    @property
     def shading_factor_winter(self):
         try:
             return float(self._shading_factor_winter)
         except Exception as e:
             return 0.75
 
+    @shading_factor_winter.setter
+    def shading_factor_winter(self, _in):
+        try:
+            self._shading_factor_winter = float(_in)
+        except ValueError as e:
+            print(e)
+            print('Shading Factor must be a number.')
+
     @property
     def shading_factor_summer(self):
         try:
-            return float(self._shading_factor_winter)
+            return float(self._shading_factor_summer)
         except Exception as e:
             return 0.75
+    
+    @shading_factor_summer.setter
+    def shading_factor_summer(self, _in):
+        try:
+            self._shading_factor_summer= float(_in)
+        except ValueError as e:
+            print(e)
+            print('Shading Factor must be a number.')
+
+    @property
+    def rh_surface(self):
+        """Get the LBT Aperture 'Face3d' as a Rhino surface"""
+        
+        if self.aperture:
+            lbt_face3d = self.aperture.geometry
+            rh_surface = from_face3d( lbt_face3d )
+            return rh_surface
+        else:
+            return None
+
+    @property
+    def surface_normal(self):
+        """ Convert the LBT normal to a real Rhino normal """
+        
+        lbt_norm = self.aperture.normal
+        x = lbt_norm.x
+        y = lbt_norm.y
+        z = lbt_norm.z
+
+        return Rhino.Geometry.Vector3d(x, y, z)
+
+    @staticmethod
+    def _get_vector_from_center_to_edge(_surface, _surface_plane):
+        """ Find a Vector from center of surface to mid-point on each edge.
+        
+        Arguments:
+            _surface: The Rhino surface to analyze.
+            _surface_plane: A Plane aligned to the surface.
+        Returns:
+            edgeVectors: (List) Vector3D for mid-point on each edge
+        """
+        
+        worldOrigin = Rhino.Geometry.Point3d(0,0,0)
+        worldXYPlane = ghc.XYPlane(worldOrigin)
+        geomAtWorldZero = ghc.Orient(_surface, _surface_plane, worldXYPlane).geometry
+        edges = ghc.DeconstructBrep(geomAtWorldZero).edges
+        
+        # Find the mid-point for each edge and create a vector to that midpoint
+        crvMidPoints = [ ghc.CurveMiddle(edge) for edge in edges ]
+        edgeVectors = [ ghc.Vector2Pt(midPt, worldOrigin, False).vector for midPt in crvMidPoints ]
+        
+        return edgeVectors
+
+    @staticmethod
+    def _calc_edge_angle_about_center(_vectorList):
+        """Take in a list of vectors. Calculate the Vector angle about the center
+        
+        Note: The 'center' is (0,0,0). Will calculate around 360 degrees (clockwise)
+        and return values in degrees not radians.
+        
+        Arguments:
+            _vectorList: (list) Vectors to the surface's edges
+        Returns:
+            vectorAngles: (List) Float values of Degrees for each Vector input
+        """
+        
+        vectorAngles = []
+        
+        refAngle = ghc.UnitY(1)
+        x2 = refAngle.X
+        y2 = refAngle.Y
+        
+        for vector in _vectorList:
+            x1 = vector.X
+            y1 = vector.Y
+            
+            # Calc the angle between
+            angle = math.atan2(y2, x2) - math.atan2(y1, x1)
+            angle = angle * 360 / (2 * math.pi)
+            
+            if angle < 0:
+                angle = angle + 360
+            
+            angle = round(angle, 0)
+            
+            if angle >359.9 or angle < 0.001:
+                angle = 0
+            
+            vectorAngles.append(angle)
+        
+        return vectorAngles
+    
+    @staticmethod
+    def _get_plane_aligned_to_surface(_surface):
+        """Finds an Aligned Plane for Surface input
+        
+        Note, will try and correct to make sure the aligned plane's Y-Axis aligns 
+        to the surface and goes 'up' (world Z) if it can.
+        
+        Arguments:
+            _surface: The Rhino surface to align with
+        Returns:
+            srfcPlane: A single Plane object, aligned to the surface
+        """
+        
+        # Get the UV info for the surface
+        srfcPlane = rs.SurfaceFrame(_surface, [0.5, 0.5])
+        centroid = ghc.Area(_surface).centroid
+        uVector = srfcPlane.XAxis
+        vVector = srfcPlane.YAxis
+        
+        # Create a Plane aligned to the UV of the srfc
+        lineU = ghc.LineSDL(centroid, uVector, 1)
+        lineV = ghc.LineSDL(centroid, vVector, 1)
+        srfcPlane = ghc.Line_Line(lineU, lineV)
+        
+        # Try and make sure its pointing the right directions
+        if abs(round(srfcPlane.XAxis.Z, 2)) != 0:
+            srfcPlane =  ghc.RotatePlane(srfcPlane, ghc.Radians(90))
+        if round(srfcPlane.YAxis.Z, 2) < 0:
+            srfcPlane =  ghc.RotatePlane(srfcPlane, ghc.Radians(180))
+        
+        return srfcPlane
+
+    def _get_edges_in_order(self, _surface):
+        """Sort the surface edges using the Degree about center as the Key"""
+
+        srfcPlane = self._get_plane_aligned_to_surface( _surface )
+        vectorList = self._get_vector_from_center_to_edge( _surface, srfcPlane)
+        edgeAngleDegrees = self._calc_edge_angle_about_center(vectorList)
+        srfcEdges_Unordered = ghc.DeconstructBrep(_surface).edges
+        srfcEdges_Ordered = ghc.SortList( edgeAngleDegrees, srfcEdges_Unordered).values_a
+        
+        Edges = namedtuple('Edges', ['bottom', 'left', 'top', 'right'])
+        output = Edges(*srfcEdges_Ordered)
+        return output
+
+    @staticmethod
+    def _extrude_reveal_edge(_geom, _direction, _extrudeDepth, _install):
+        """Extrudes edge in some direction, guards against 0 extrude """
+        
+        if _install == 0 or _extrudeDepth == 0:
+            return None
+        else:
+            return ghc.Extrude( _geom, ghc.Amplitude(_direction, _extrudeDepth) )
 
     @property
     def reveal_geometry(self):
-        #
-        #
-        # TODO
-        #
-        #
+        """Create reveal (side) geometry for the window edges"""
+        
+        orientation = -1 # don't rememeber why this is.....
+        window_surface = self.rh_surface
+        if not window_surface:
+            return None
 
+        # ----------------------------------------------------------------------
+        # Get the inputs
+        edges = self._get_edges_in_order( window_surface )
+        inst_depth = self.install_depth
+        normal = self.surface_normal * orientation
 
-        return [-1]
+        # ----------------------------------------------------------------------
+        # Create the reveal geom
+        bottom = self._extrude_reveal_edge(edges.bottom, normal, inst_depth, self.installs.Bottom)
+        left = self._extrude_reveal_edge(edges.left, normal, inst_depth, self.installs.Left)
+        top = self._extrude_reveal_edge(edges.top, normal, inst_depth, self.installs.Top)
+        right = self._extrude_reveal_edge(edges.right, normal, inst_depth, self.installs.Right)
+        
+        # ----------------------------------------------------------------------
+        # Output
+        RevealGeom = namedtuple('RevealGeom', ['left', 'right', 'bottom', 'top'])
+        output = RevealGeom( left, right, bottom, top )
+        
+        return output
 
     @property
     def inset_window_surface(self):
-        #
-        #
-        # TODO
-        #
-        #
-        return -1
+        """Moves the window geometry based on the InstallDepth param """
+        orientation = -1 # don't remember why this is...
+        
+        transform_vector = ghc.Amplitude(self.surface_normal, self.install_depth*-1)
+        transformed_surface = ghc.Move(self.rh_surface, transform_vector).geometry
+        
+        return transformed_surface
 
     def to_dict(self):
         d = {}
@@ -269,10 +437,12 @@ class PHPP_Window:
         d.update( {'aperture':self.aperture} )
         d.update( {'params':self.params} )
         d.update( {'rh_library':self.rh_library} )
-        d.update( {'_shading_dimensions':self._shading_dimensions} )
         d.update( {'_shading_factor_winter':self._shading_factor_winter } )
         d.update( {'_shading_factor_summer':self._shading_factor_summer} )
-        
+
+        if self.shading_dimensions:
+            d.update( {'shading_dimensions':self.shading_dimensions.to_dict() } )
+
         return d
 
     @classmethod
@@ -284,10 +454,10 @@ class PHPP_Window:
         new_obj.aperture= _dict['aperture']
         new_obj.params = _dict['params']
         new_obj.rh_library =_dict['rh_library']
-        new_obj._shading_dimensions =_dict['_shading_dimensions']
         new_obj._shading_factor_winter =_dict['_shading_factor_winter']
         new_obj._shading_factor_summer =_dict['_shading_factor_summer']
-        
+        shading_dims = LBT2PH.shading.PHPP_Shading_Dims.from_dict( _dict.get('shading_dimensions') )        
+        new_obj.shading_dimensions = shading_dims
         return new_obj
 
     def __unicode__(self):
@@ -310,6 +480,15 @@ class PHPP_Frame:
         _psiGlazings (list): A list of the 4 Psi-Values (W/mk) for the glazing spacers (Left, Right, Bottom, Top)
         _psiInstalls (list): A list of the 4 Psi-Values (W/mk) for the frame Installations (Left, Right, Bottom, Top)
         _chiGlassCarrier (list): A value for the Chi-Value (W/k) of the glass carrier for curtain walls
+    Properties:
+        * name
+        * _uValues
+        * frameWidths
+        * PsiGVals
+        * PsiInstalls
+        * chiGlassCarrier
+        * uValues
+        * display_name
     '''
     
     def __init__(self, 

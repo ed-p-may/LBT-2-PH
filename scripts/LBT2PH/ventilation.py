@@ -5,6 +5,7 @@ import Grasshopper.Kernel as ghK
 import re
 import random
 import scriptcontext as sc
+from System import Object
 
 from honeybee_energy.schedule.ruleset import ScheduleRuleset
 from honeybee_energy.lib.schedules import schedule_by_identifier
@@ -13,7 +14,7 @@ import LBT2PH
 import LBT2PH.helpers
 
 
-class PHPP_Sys_Duct:
+class PHPP_Sys_Duct(Object):
     def __init__(self, _duct_input=[], _wMM=[], _iThckMM=[], _iLambda=[], _ghdoc=[]):
         """
         Args:
@@ -220,7 +221,7 @@ class PHPP_Sys_Duct:
                 self._ghdoc)
 
 
-class PHPP_Sys_VentUnit:
+class PHPP_Sys_VentUnit(Object):
     def __init__(self, _nm='97ud-Default HRV unit', _hr=0.75, _mr=0, _elec=0.45, _frsotT=-5, _ext=False):
         self.id = random.randint(1000,9999)
         self._name = _nm
@@ -362,7 +363,7 @@ class PHPP_Sys_VentUnit:
                 self.exterior)
 
 
-class PHPP_Sys_ExhaustVent:
+class PHPP_Sys_ExhaustVent(Object):
     def __init__(self, nm='Default_Exhaust_Vent',
                 airFlowRate_On=450,
                 airFlowRate_Off=25,
@@ -391,6 +392,10 @@ class PHPP_Sys_ExhaustVent:
             return str(self._name)
         except:
             return 'Exhaust_Unit'
+
+    @name.setter
+    def name(self, _in):
+        self._name = str(_in)
 
     def _evaluateInputUnits(self, _in):
         """If values are passed including a 'cfm' string, will
@@ -481,7 +486,7 @@ class PHPP_Sys_ExhaustVent:
                self.duct_01)
 
 
-class PHPP_Sys_VentSchedule:
+class PHPP_Sys_VentSchedule(Object):
     def __init__(self, s_h=1.0, t_h=1.0, s_m=0.77, t_m=0.0, s_l=0.4, t_l=0.0):
         self.id = random.randint(1000,9999)
         self._speed_high = s_h
@@ -532,7 +537,7 @@ class PHPP_Sys_VentSchedule:
                 self._time_low)
 
 
-class PHPP_Sys_Ventilation:
+class PHPP_Sys_Ventilation(Object):
     def __init__(self,
                 _ghenv=None,
                 _system_id=random.randint(1000,9999),

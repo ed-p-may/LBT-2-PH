@@ -369,21 +369,6 @@ def get_aperture_surfaces_from_model(_model, _ghdoc):
 
     return phpp_apertures
 
-
-    apertures = []
-    for aperture in _model.apertures:
-        try: params = aperture.user_data['phpp']['aperture_params']
-        except: params = {}
-
-        rh_doc_window_library = LBT2PH.windows.get_rh_doc_window_library(_ghdoc)
-        new_window = LBT2PH.windows.PHPP_Window(aperture, params, rh_doc_window_library)
-        apertures.append(new_window)
-
-    return apertures
-
-
-
-
 def get_spaces_from_model(_model, _ghdoc):
     ''' Returns a list of PHPP_Space objects found in the HB Model '''
     rooms = []
@@ -426,3 +411,19 @@ def get_ventilation_systems_from_model(_model, _ghenv):
         model_vent_systems.add(room_vent_system)
 
     return list(model_vent_systems)
+
+def get_ground_from_model(_model, _ghenv):
+    ground_objs = []
+    
+    for hb_room in _model.rooms:
+        phpp_dict = hb_room.user_data.get('phpp', None)
+        if not phpp_dict:
+            continue
+        
+        ground_obj = phpp_dict.get('gound', None)
+        if not ground_obj:
+            continue
+        
+        ground_objs.append( ground_obj )
+    
+    return ground_objs
