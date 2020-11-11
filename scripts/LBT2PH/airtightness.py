@@ -11,7 +11,7 @@ def get_room_infiltration_rate(_n50, _q50, _blower_pressure, _hb_room, _phpp_spa
     phpp_spaces_vn50 = sum( [space.space_vn50 for space in phpp_spaces] )
     
     if _n50:
-        room_infil_airflow = phpp_spaces_vn50 * _n50 / 3600
+        room_infil_airflow = (phpp_spaces_vn50 * _n50) / 3600  #m3/s
     elif _q50:
         room_infil_airflow = _hb_room.exposed_area * _q50 / 3600
     else:
@@ -27,12 +27,14 @@ def get_room_infiltration_rate(_n50, _q50, _blower_pressure, _hb_room, _phpp_spa
 
     return room_infil_airflow, phpp_spaces_vn50
 
-def calc_standard_flow_rate(_room_infil_airflow, _blowerPressure):
+def calc_standard_flow_rate(_room_infil_airflow, _blower_pressure):
     # Flow Rate incorporating Blower Pressure
     # This equation comes from Honeybee. The HB Componet uses a standard pressure
     # at rest of 4 Pascals. 
-    normalAvgPressure = 4 #Pa
-    standardFlowRate = _room_infil_airflow/(math.pow((_blowerPressure/normalAvgPressure), 0.63)) # m3/s
+    
+    normal_avg_pressure = 4.0 #Pa
+    factor = (math.pow((_blower_pressure/normal_avg_pressure), 0.63))
+    standardFlowRate = _room_infil_airflow / factor # m3/s
 
     return standardFlowRate
 

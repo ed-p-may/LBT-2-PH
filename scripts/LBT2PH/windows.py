@@ -4,6 +4,51 @@ import json
 import LBT2PH.helpers
 from collections import namedtuple
 
+
+class PHPP_Shading_Dimensions:
+    def __init__(self):
+        pass
+    
+    @property
+    def has_values(self):
+        if self.h_hori and self.d_hori:
+            if self.o_reveal and self.d_reveal:
+                if self.o_over and self.d_over:
+                    return True
+        
+        return False
+
+    @property
+    def h_hori(self):
+        
+        return None
+
+    @property
+    def d_hori(self):
+        
+        return None
+
+    @property
+    def o_reveal(self):
+        
+        return None
+
+    @property
+    def d_reveal(self):
+        
+        return None
+
+    @property
+    def o_over(self):
+        
+        return None
+
+    @property
+    def d_over(self):
+        
+        return None
+
+
 class PHPP_Window:
     '''  Class to organize data for a 'window'.
     Args:
@@ -18,12 +63,15 @@ class PHPP_Window:
         * rh_library
     '''
     
-    def __init__(self, _aperture, _params, _rh_doc_library):
+    def __init__(self, _aperture=None, _params=None, _rh_doc_library=None):
         self.quantity = 1
         self._tolerance = 0.01
         self.aperture = _aperture
         self.params = _params
         self.rh_library = _rh_doc_library
+        self._shading_dimensions = None
+        self._shading_factor_winter = None
+        self._shading_factor_summer = None
     
     @property
     def name(self):
@@ -172,6 +220,75 @@ class PHPP_Window:
     def width(self):
         top, bottom = self.aperture.geometry.get_top_bottom_horizontal_edges(self._tolerance)
         return top.length
+
+    @property
+    def shading_dimension_simple(self):
+        if self._shading_dimensions:
+            return self._shading_dimensions
+        else:
+            return PHPP_Shading_Dimensions()
+
+    @property
+    def shading_factor_winter(self):
+        try:
+            return float(self._shading_factor_winter)
+        except Exception as e:
+            return 0.75
+
+    @property
+    def shading_factor_summer(self):
+        try:
+            return float(self._shading_factor_winter)
+        except Exception as e:
+            return 0.75
+
+    @property
+    def reveal_geometry(self):
+        #
+        #
+        # TODO
+        #
+        #
+
+
+        return [-1]
+
+    @property
+    def inset_window_surface(self):
+        #
+        #
+        # TODO
+        #
+        #
+        return -1
+
+    def to_dict(self):
+        d = {}
+        d.update( {'quantity':self.quantity} )
+        d.update( {'_tolerance':self._tolerance} )
+        d.update( {'aperture':self.aperture} )
+        d.update( {'params':self.params} )
+        d.update( {'rh_library':self.rh_library} )
+        d.update( {'_shading_dimensions':self._shading_dimensions} )
+        d.update( {'_shading_factor_winter':self._shading_factor_winter } )
+        d.update( {'_shading_factor_summer':self._shading_factor_summer} )
+        
+        return d
+
+    @classmethod
+    def from_dict(cls, _dict):
+        
+        new_obj = cls()
+        new_obj.quantity = _dict['quantity']
+        new_obj._tolerance = _dict['_tolerance']
+        new_obj.aperture= _dict['aperture']
+        new_obj.params = _dict['params']
+        new_obj.rh_library =_dict['rh_library']
+        new_obj._shading_dimensions =_dict['_shading_dimensions']
+        new_obj._shading_factor_winter =_dict['_shading_factor_winter']
+        new_obj._shading_factor_summer =_dict['_shading_factor_summer']
+        
+        return new_obj
 
     def __unicode__(self):
         return u'A PHPP-Style Window Object: < {} >'.format(self.name)
@@ -376,6 +493,14 @@ class PHPP_Installs:
                self.__class__.__name__, self.Installs)
 
 def create_EP_window_mat(_win_obj):
+    """ Creates an E+ style material for the window based on the PHPP U-W-Installed
+
+    Args:
+        _win_obj (): The PHPP-Style window object
+    Returns:
+        mat: The window E+ Material
+    
+    """
     try:  # import the core honeybee dependencies
         from honeybee.typing import clean_and_id_ep_string
     except ImportError as e:
@@ -400,6 +525,14 @@ def create_EP_window_mat(_win_obj):
     return mat
 
 def create_EP_const(_win_EP_material):
+    """ Creates an 'E+' style construction for the window
+
+    Args:
+        _win_EP_material (): The E+ Material for the window
+    Returns:
+        constr (): The new E+ Construction for the window
+    """
+
     try:  # import the core honeybee dependencies
         from honeybee.typing import clean_and_id_ep_string
     except ImportError as e:
@@ -424,8 +557,96 @@ def create_EP_const(_win_EP_material):
 
     return constr
 
+def get_rh_doc_window_library(_ghdoc):
+    """ Loads window-type entries from DocumentUseText library of the Active Rhino doc.
+
+        Note, it determines if its a 'window-type' entry by looking for the 
+        string "PHPP_lib_Glazing", "PHPP_lib_Frame" or "_PsiInstall_" in the key
+         
+    Args:
+        _ghdoc (ghdoc): The 'ghdoc' object from the Grasshopper document.
+    Returns:
+        PHPPLibrary_ (dict): A dictionary of all the window-type entries
+            found with their parameters.
+    """
+    
+    PHPPLibrary_ = {}
+    lib_GlazingTypes = {}
+    lib_FrameTypes = {}
+    lib_PsiInstalls = {}
+
+    with LBT2PH.helpers.context_rh_doc(_ghdoc):
+        # First, try and pull in the Rhino Document's PHPP Library
+        # And make new Frame and Glass Objects. Add all of em' to new dictionaries
+        if not rs.IsDocumentUserText():
+            return PHPPLibrary_
+        
+        for eachKey in rs.GetDocumentUserText():
+            if 'PHPP_lib_Glazing' in eachKey:
+                tempDict = json.loads(rs.GetDocumentUserText(eachKey))
+                newGlazingObject = PHPP_Glazing(
+                                tempDict['Name'],
+                                tempDict['gValue'],
+                                tempDict['uValue']
+                                )
+                lib_GlazingTypes[tempDict['Name']] = newGlazingObject
+            elif '_PsiInstall_' in eachKey:
+                tempDict = json.loads(rs.GetDocumentUserText(eachKey))
+                newPsiInstallObject = PHPP_Installs(
+                                [
+                                tempDict['Left'],
+                                tempDict['Right'],
+                                tempDict['Bottom'],
+                                tempDict['Top']
+                                ]
+                                )
+                lib_PsiInstalls[tempDict['Typename']] = newPsiInstallObject
+            elif 'PHPP_lib_Frame' in eachKey:
+                tempDict = json.loads(rs.GetDocumentUserText(eachKey))
+                newFrameObject = PHPP_Frame(
+                                tempDict['Name'],
+                                [
+                                tempDict['uFrame_L'],
+                                tempDict['uFrame_R'],
+                                tempDict['uFrame_B'],
+                                tempDict['uFrame_T']
+                                ],
+                                [
+                                tempDict['wFrame_L'],
+                                tempDict['wFrame_R'],
+                                tempDict['wFrame_B'],
+                                tempDict['wFrame_T']
+                                ],
+                                [
+                                tempDict['psiG_L'],
+                                tempDict['psiG_R'],
+                                tempDict['psiG_B'],
+                                tempDict['psiG_T']
+                                ],
+                                [
+                                tempDict['psiInst_L'],
+                                tempDict['psiInst_R'],
+                                tempDict['psiInst_B'],
+                                tempDict['psiInst_T']
+                                ]
+                                )
+                lib_FrameTypes[tempDict['Name']] = newFrameObject
+        
+        PHPPLibrary_['lib_GlazingTypes'] = lib_GlazingTypes
+        PHPPLibrary_['lib_FrameTypes'] = lib_FrameTypes
+        PHPPLibrary_['lib_PsiInstalls'] = lib_PsiInstalls
+    
+    return PHPPLibrary_
+
 def get_rh_obj_usertext(_guid):
-    ''' Get the UserText dictionary for a Rhino Object '''
+    """ Get the UserText dictionary for a Rhino Object 
+    
+    Args:
+        _guid (Guid): The Rhino Guid of the object
+    Returns:
+        user_text_dict (dict): A dictionary of all the key:value pairs found
+            in the UserText dictionary
+    """
     
     if _guid is None: return {}
 
@@ -434,83 +655,19 @@ def get_rh_obj_usertext(_guid):
     
     return user_text_dict
 
-def get_rh_doc_window_library(_ghdoc):
-    """ Loads any window object entries from the DocumentUseText library from the Active Rhino document 
+def get_rh_window_obj_params(_ghdoc, _window_guid):
+    """ Get any Rhino-side parameter data for the Window
+
+    Note: this only works in Rhino v6.0+ I believe...
     
     Args:
-        None
+        _ghdoc (ghdoc): The 'ghdoc' object from the Grasshopper document.
+        _window_guid (Rhino Guid): The Rhino Guid of the window.
     Returns:
-        PHPPLibrary_ (dict): A dictionary of all the window entries found with their parameters
+        window_rh_params_dict (dict): A dictionary of all the data found
+            in the Rhino object's UserText library.
     """
     
-    PHPPLibrary_ = {}
-    
-    with LBT2PH.helpers.context_rh_doc(_ghdoc):
-        lib_GlazingTypes = {}
-        lib_FrameTypes = {}
-        lib_PsiInstalls = {}
-        
-        # First, try and pull in the Rhino Document's PHPP Library
-        # And make new Frame and Glass Objects. Add all of em' to new dictionaries
-        if rs.IsDocumentUserText():
-            for eachKey in rs.GetDocumentUserText():
-                if 'PHPP_lib_Glazing' in eachKey:
-                    tempDict = json.loads(rs.GetDocumentUserText(eachKey))
-                    newGlazingObject = PHPP_Glazing(
-                                    tempDict['Name'],
-                                    tempDict['gValue'],
-                                    tempDict['uValue']
-                                    )
-                    lib_GlazingTypes[tempDict['Name']] = newGlazingObject
-                elif '_PsiInstall_' in eachKey:
-                    tempDict = json.loads(rs.GetDocumentUserText(eachKey))
-                    newPsiInstallObject = PHPP_Installs(
-                                    [
-                                    tempDict['Left'],
-                                    tempDict['Right'],
-                                    tempDict['Bottom'],
-                                    tempDict['Top']
-                                    ]
-                                    )
-                    lib_PsiInstalls[tempDict['Typename']] = newPsiInstallObject
-                elif 'PHPP_lib_Frame' in eachKey:
-                    tempDict = json.loads(rs.GetDocumentUserText(eachKey))
-                    newFrameObject = PHPP_Frame(
-                                    tempDict['Name'],
-                                    [
-                                    tempDict['uFrame_L'],
-                                    tempDict['uFrame_R'],
-                                    tempDict['uFrame_B'],
-                                    tempDict['uFrame_T']
-                                    ],
-                                    [
-                                    tempDict['wFrame_L'],
-                                    tempDict['wFrame_R'],
-                                    tempDict['wFrame_B'],
-                                    tempDict['wFrame_T']
-                                    ],
-                                    [
-                                    tempDict['psiG_L'],
-                                    tempDict['psiG_R'],
-                                    tempDict['psiG_B'],
-                                    tempDict['psiG_T']
-                                    ],
-                                    [
-                                    tempDict['psiInst_L'],
-                                    tempDict['psiInst_R'],
-                                    tempDict['psiInst_B'],
-                                    tempDict['psiInst_T']
-                                    ]
-                                    )
-                    lib_FrameTypes[tempDict['Name']] = newFrameObject
-            
-            PHPPLibrary_['lib_GlazingTypes'] = lib_GlazingTypes
-            PHPPLibrary_['lib_FrameTypes'] = lib_FrameTypes
-            PHPPLibrary_['lib_PsiInstalls'] = lib_PsiInstalls
-    
-    return PHPPLibrary_
-
-def get_rh_window_obj_params(_ghdoc, _window_guid):
     with LBT2PH.helpers.context_rh_doc(_ghdoc):
         window_rh_params_dict = get_rh_obj_usertext(_window_guid)
         

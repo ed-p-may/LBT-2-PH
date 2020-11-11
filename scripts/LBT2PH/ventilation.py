@@ -37,6 +37,38 @@ class PHPP_Sys_Duct:
         self._set_params_from_rhino_obj( _duct_input )
         self._set_params_from_user_input( _duct_input, _wMM, _iThckMM, _iLambda )
 
+    @property
+    def duct_length(self):
+        try:
+            return float(self._duct_length[0])
+        except Exception as e:
+            print(e, self._duct_length)
+            return 5.0
+
+    @property
+    def duct_width(self):
+        try:
+            return float(self._duct_width[0])
+        except Exception as e:
+            print(e, self._duct_width)
+            return 104
+    
+    @property
+    def insulation_thickness(self):
+        try:
+            return float(self._insulation_thickness[0])
+        except Exception as e:
+            print(e, self._insulation_thickness)
+            return 52
+
+    @property
+    def insulation_lambda(self):
+        try:
+            return float(self._insulation_lambda[0])
+        except Exception as e:
+            print(e, self._insulation_lambda)
+            return 0.04
+
     def _set_params_from_defaults(self):
         self._duct_length = [5]
         self._duct_width = [104]
@@ -191,34 +223,124 @@ class PHPP_Sys_Duct:
 class PHPP_Sys_VentUnit:
     def __init__(self, _nm='97ud-Default HRV unit', _hr=0.75, _mr=0, _elec=0.45, _frsotT=-5, _ext=False):
         self.id = random.randint(1000,9999)
-        self.name = _nm
-        self.HR_eff = float(_hr)
-        self.MR_eff = float(_mr)
-        self.elec_eff = float(_elec)
-        self.frost_temp = _frsotT
-        self.exterior = 'x' if _ext==True else ''
+        self._name = _nm
+        self._HR_eff = _hr
+        self._MR_eff = _mr
+        self._elec_eff = _elec
+        self._frost_temp = _frsotT
+        self._exterior = _ext
     
+    @property
+    def name(self):
+        try:
+            return str(self._name)
+        except:
+            return 'Default Name'
+
+    @name.setter
+    def name(self, _in):
+        try:
+            self._name = str(_in)
+        except Exception as e:
+            print(e)
+            pass
+
+    @property
+    def HR_eff(self):
+        try:
+            return float(self._HR_eff)
+        except:
+            return 0.75
+
+    @HR_eff.setter
+    def HR_eff(self, _in):
+        try:
+            self._HR_eff = float(_in)
+        except Exception as e:
+            print(e)
+            pass
+
+    @property
+    def MR_eff(self):
+        try:
+            return float(self._MR_eff)
+        except:
+            return 0.0
+
+    @MR_eff.setter
+    def MR_eff(self, _in):
+        try:
+            self._MR_eff = float(_in)
+        except Exception as e:
+            print(e)
+            pass
+
+    @property
+    def elec_eff(self):
+        try:
+            return float(self._elec_eff)
+        except:
+            return 0.45
+
+    @MR_eff.setter
+    def elec_eff(self, _in):
+        try:
+            self._elec_eff = float(_in)
+        except Exception as e:
+            print(e)
+            pass
+    
+    @property
+    def frost_temp(self):
+        try:
+            return float(self._frost_temp)
+        except:
+            return -5
+
+    @frost_temp.setter
+    def frost_temp(self, _in):
+        try:
+            self._frost_temp = float(_in)
+        except Exception as e:
+            print(e)
+            pass
+
+    @property
+    def exterior(self):
+        try:
+            return 'x' if self._exterior else ''
+        except:
+            return ''
+
+    @exterior.setter
+    def exterior(self, _in):
+        try:
+            self._exterior = 'x' if _in else ''
+        except Exception as e:
+            print(e)
+            pass
+
     def to_dict(self):
         d = {}
         d.update( {'id':self.id} )
-        d.update( {'name':self.name } )
-        d.update( {'HR_eff':self.HR_eff } )
-        d.update( {'MR_eff':self.MR_eff } )
-        d.update( {'elec_eff':self.elec_eff } )
-        d.update( {'frost_temp':self.frost_temp } )
-        d.update( {'exterior':self.exterior } )
+        d.update( {'_name':self.name } )
+        d.update( {'_HR_eff':self.HR_eff } )
+        d.update( {'_MR_eff':self.MR_eff } )
+        d.update( {'_elec_eff':self.elec_eff } )
+        d.update( {'_frost_temp':self.frost_temp } )
+        d.update( {'_exterior':self.exterior } )
 
         return d
    
     @classmethod
     def from_dict(cls, _dict):
         id = _dict['id']
-        name = _dict['name']
-        hr = _dict['HR_eff']
-        mr = _dict['MR_eff']
-        elec = _dict['elec_eff']
-        frost_temp = _dict['frost_temp']
-        ext = _dict['exterior']
+        name = _dict['_name']
+        hr = _dict['_HR_eff']
+        mr = _dict['_MR_eff']
+        elec = _dict['_elec_eff']
+        frost_temp = _dict['_frost_temp']
+        ext = _dict['_exterior']
         
         new_vent_unit = cls(name, hr, mr, elec, frost_temp, ext)
         new_vent_unit.id = id
@@ -249,9 +371,10 @@ class PHPP_Sys_ExhaustVent:
                 default_duct=PHPP_Sys_Duct()):
         
         self.id = random.randint(1000,9999)
-        self.name = nm
+        self._name = nm
         self.vent_floor_area = 10
         self.vent_area_height = 2.5
+        self._phpp_ud_name = None
         
         self.flow_rate_on = self._evaluateInputUnits(airFlowRate_On)
         self.flow_rate_off = self._evaluateInputUnits(airFlowRate_Off)
@@ -262,6 +385,13 @@ class PHPP_Sys_ExhaustVent:
         self.duct_01 = default_duct
         self.duct_02 = default_duct
         
+    @property
+    def name(self):
+        try:
+            return str(self._name)
+        except:
+            return 'Exhaust_Unit'
+
     def _evaluateInputUnits(self, _in):
         """If values are passed including a 'cfm' string, will
         set the return value to the m3/h equivalent"""
@@ -284,11 +414,27 @@ class PHPP_Sys_ExhaustVent:
                 outputVal = float(outputVal) * 1.699010796 #cfm--->m3/h
         
         return float(outputVal)
-    
+       
+    @property
+    def phpp_ud_name(self):
+        try:
+            return str(self._phpp_ud_name)
+        except Exception as e:
+            print(e)
+            return None
+
+    @phpp_ud_name.setter
+    def phpp_ud_name(self, _in):
+        try:
+            self._phpp_ud_name = str(_in)
+        except Exception as e:
+            print(e)
+            pass
+
     def to_dict(self):
         d = {}
-        d.update( {'id':self.id} )
-        d.update( {'name':self.name } )
+        d.update( { 'id':self.id} )
+        d.update( { '_name':self.name } )
         d.update( { 'vent_floor_area':self.vent_floor_area } )
         d.update( { 'vent_area_height':self.vent_area_height } )
         d.update( { 'flow_rate_on':self.flow_rate_on } )
@@ -303,7 +449,7 @@ class PHPP_Sys_ExhaustVent:
     
     @classmethod
     def from_dict(cls, _dict):
-        nm = _dict['name']
+        nm = _dict['_name']
         airFlowRate_On = _dict['flow_rate_on']
         airFlowRate_Off =_dict['flow_rate_off']
         hrsPerDay_On = _dict['hours_per_day_on']
@@ -405,9 +551,26 @@ class PHPP_Sys_Ventilation:
         self.duct_01 = _d01
         self.duct_02 = _d02
         self.exhaust_vent_objs = _exhaustObjs
+        self._phpp_ud_name = None
         
         self.setVentSystemType(_ghenv)
     
+    @property
+    def phpp_ud_name(self):
+        try:
+            return str(self._phpp_ud_name)
+        except Exception as e:
+            print(e)
+            return None
+
+    @phpp_ud_name.setter
+    def phpp_ud_name(self, _in):
+        try:
+            self._phpp_ud_name = str(_in)
+        except Exception as e:
+            print(e)
+            pass
+
     def __eq__(self, other):
         return self.id == other.id
     

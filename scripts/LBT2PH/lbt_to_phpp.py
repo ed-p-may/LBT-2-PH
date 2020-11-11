@@ -24,7 +24,8 @@ except ImportError as e:
 
 class PHPP_Zone:
     def __init__(self, _room):
-        self.room = _room
+        self.hb_room = _room
+        self.phpp_spaces = self._create_phpp_spaces()
         self.ScheduleName = 'Schedule Name'
         self.DesignFlowRate = 'Design Flow Rate'
         self.FlowRatePerFloorArea = 'Flow per Zone Floor Area'
@@ -33,19 +34,55 @@ class PHPP_Zone:
     
     @property
     def Name(self):
-        return self.room.display_name
+        return self.hb_room.display_name
 
     @property
     def ZoneName(self):
-        return self.room.display_name
+        return self.hb_room.display_name
+
+    @property
+    def floor_area_gross(self):
+        return self.hb_room.floor_area
+
+    @property
+    def n50(self):
+        # Get the basic parameters needed
+        blower_pressure = 50.0 #Pa
+        normal_avg_pressure = 4.0 #Pa
+        q50 = self.hb_room.properties.energy.infiltration.flow_per_exterior_area
+
+        # Determine the ACH from the q50 value
+        infil_flow_rate_at_normal_pressure = q50 * self.hb_room.exposed_area
+        factor =  math.pow((blower_pressure/normal_avg_pressure), 0.63)
+        infil_flow_rate_at_50PA = factor * infil_flow_rate_at_normal_pressure   # m3/s
+        infil_flow_rate_at_50PA = infil_flow_rate_at_50PA * 3600                # m3/hr
+        n50 = infil_flow_rate_at_50PA / self.vn50
+
+        return n50
+
+    @property
+    def vn50(self):
+        vn50_total = sum([space.space_vn50 for space in self.phpp_spaces])
+        return vn50_total
+
+    def _create_phpp_spaces(self):
+        spaces = []
+        try:
+            for space_dict in self.hb_room.user_data['phpp']['spaces'].values():
+                new_space = LBT2PH.spaces.Space.from_dict(space_dict)
+                spaces.append( new_space )
+        except KeyError as e:
+            print(e)
+
+        return spaces
 
     def __unicode__(self):
-        return u'A PHPP-Style Zone/Room Object: < {self.Name} >'.format(self=self)
+        return u'A PHPP-Style Zone/HB-Room Object: < {self.Name} >'.format(self=self)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
        return "{}(_room={!r})".format(
-            self.__class__.__name__, self.room)
+            self.__class__.__name__, self.hb_room)
 
 class PHPP_Surface:
     def __init__(self, _lbt_face, _rm_name, _rm_id, _scene_north_vec, _ghenv):
@@ -238,9 +275,11 @@ class PHPP_Surface:
 
 def get_zones_from_model(_model):
     zones = []
+    
     for room in _model.rooms:
         new_room = PHPP_Zone(room)
         zones.append(new_room)
+    
     return zones
 
 def get_exposed_surfaces_from_model(_model, _north, _ghenv):
@@ -315,6 +354,22 @@ def get_aperture_constructions_from_model(_model):
 def get_aperture_surfaces_from_model(_model, _ghdoc):
     ''' Returns a list of PHPP_Window objects found in the HB Model '''
     
+    phpp_apertures = []
+    
+    for hb_aperture in _model.apertures:
+        try:
+            window_dict = hb_aperture.user_data['phpp']
+            new_phpp_aperture = LBT2PH.windows.PHPP_Window.from_dict( window_dict )
+            new_phpp_aperture.aperture = hb_aperture
+            new_phpp_aperture.rh_library = LBT2PH.windows.get_rh_doc_window_library(_ghdoc)
+            
+            phpp_apertures.append(new_phpp_aperture)
+        except KeyError as e:
+            print(e)
+
+    return phpp_apertures
+
+
     apertures = []
     for aperture in _model.apertures:
         try: params = aperture.user_data['phpp']['aperture_params']
@@ -325,6 +380,9 @@ def get_aperture_surfaces_from_model(_model, _ghdoc):
         apertures.append(new_window)
 
     return apertures
+
+
+
 
 def get_spaces_from_model(_model, _ghdoc):
     ''' Returns a list of PHPP_Space objects found in the HB Model '''
