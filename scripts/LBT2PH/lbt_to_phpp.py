@@ -9,11 +9,17 @@ import LBT2PH.materials
 import LBT2PH.assemblies
 import LBT2PH.windows
 import LBT2PH.spaces
+import LBT2PH.ground
+import LBT2PH.dhw
+import LBT2PH.appliances
 
 reload(LBT2PH.materials)
 reload(LBT2PH.assemblies)
 reload(LBT2PH.windows)
 reload(LBT2PH.spaces)
+reload(LBT2PH.ground)
+reload(LBT2PH.dhw)
+reload(LBT2PH.appliances)
 
 try:  # import the core honeybee dependencies
     from honeybee.model import Model
@@ -415,15 +421,63 @@ def get_ventilation_systems_from_model(_model, _ghenv):
 def get_ground_from_model(_model, _ghenv):
     ground_objs = []
     
+    for hb_room in _model.rooms:      
+        phpp_dict = hb_room.user_data.get('phpp')
+        if not phpp_dict:
+            continue
+
+        ground_dict = phpp_dict.get('ground')
+        if not ground_dict:
+            continue
+
+        ground_type = ground_dict.get('type')
+        if '1' in ground_type:
+            obj = LBT2PH.ground.PHPP_Ground_Slab_on_Grade.from_dict( ground_dict, _ghenv )
+        elif '2' in ground_type:
+            obj = LBT2PH.ground.PHPP_Ground_Heated_Basement.from_dict( ground_dict, _ghenv )
+        elif '3' in ground_type:
+            obj = LBT2PH.ground.PHPP_Ground_Unheated_Basement.from_dict( ground_dict, _ghenv )
+        elif '4' in ground_type:
+            obj = LBT2PH.ground.PHPP_Ground_Crawl_Space.from_dict( ground_dict, _ghenv )
+        else:
+            obj = None
+    
+        if obj:
+            ground_objs.append( obj )
+
+    return ground_objs
+
+def get_dhw_systems(_model):
+    dhw_systems = []
+
     for hb_room in _model.rooms:
-        phpp_dict = hb_room.user_data.get('phpp', None)
+        phpp_dict = hb_room.user_data.get('phpp')
         if not phpp_dict:
             continue
         
-        ground_obj = phpp_dict.get('gound', None)
-        if not ground_obj:
+        dhw_dict = phpp_dict.get('dhw_systems')
+        if not dhw_dict:
             continue
-        
-        ground_objs.append( ground_obj )
-    
-    return ground_objs
+
+        for system in dhw_dict.values():
+            dhw_systems.append( LBT2PH.dhw.PHPP_DHW_System.from_dict( system ))
+
+    return dhw_systems
+
+def get_appliances(_model):
+    appliance_objs = []
+    for room in _model.rooms:
+        try:
+            appliances_dict = room.user_data.get('phpp').get('appliances')
+            new_obj = LBT2PH.appliances.Appliances.from_dict( appliances_dict )
+            appliance_objs.append(new_obj)
+        except AttributeError as e:
+            print(e)
+            print('No Appliance information found on the HB Room: {}'.format(room.display_name) )
+
+    return appliance_objs
+
+
+
+
+

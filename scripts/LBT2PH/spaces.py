@@ -354,6 +354,7 @@ class Space:
         self.phpp_vent_system_id = 'default'
         self._phpp_vent_flow_rates = {'V_sup':0, 'V_eta':0, 'V_trans':0}
         self.vent_sched = _vent_sched
+        self._tfa = None
     
     @property
     def space_vent_supply_air(self):
@@ -449,7 +450,10 @@ class Space:
 
     @property
     def space_tfa(self):
-        return sum([volume.area_tfa for volume in self.volumes])
+        try:
+            return float(self._tfa)
+        except:
+            return sum([volume.area_tfa for volume in self.volumes])
 
     @property
     def space_avg_clear_ceiling_height(self):
@@ -465,6 +469,7 @@ class Space:
     def to_dict(self):
         d = {}
         d.update( {'id': self.id} )
+        d.update( {'_tfa':self.space_tfa} )
         d.update( {'phpp_vent_system_id': self.phpp_vent_system_id} )
         d.update( {'volumes' : {} } )
 
@@ -491,11 +496,12 @@ class Space:
             volumes.append(new_volume)
 
         new_space =  cls()
-        new_space.id = _dict['id']
-        new_space.phpp_vent_system_id = _dict['phpp_vent_system_id']
-        new_space._phpp_vent_flow_rates = _dict['_phpp_vent_flow_rates']
+        new_space._tfa = _dict.get('_tfa')
+        new_space.id = _dict.get('id')
+        new_space.phpp_vent_system_id = _dict.get('phpp_vent_system_id')
+        new_space._phpp_vent_flow_rates = _dict.get('_phpp_vent_flow_rates')
         new_space.volumes = volumes
-        new_space.vent_sched = LBT2PH.ventilation.PHPP_Sys_VentSchedule.from_dict( _dict['vent_sched'] )
+        new_space.vent_sched = LBT2PH.ventilation.PHPP_Sys_VentSchedule.from_dict( _dict.get('vent_sched') )
 
         return new_space
 
