@@ -121,12 +121,11 @@ def convert_value_to_metric(_inputString, _outputUnit):
         except:
             return inputValue
 
-def create_hb_constant_schedule():
-    _type_limit_ = schedule_type_limit_by_identifier('Fractional')
-    _name = 'Infilt_Const_Sched'
+def create_hb_constant_schedule(_name, _type_limit='Fractional'):
+    type_limit = schedule_type_limit_by_identifier( _type_limit )
 
     schedule = ScheduleRuleset.from_constant_value(
-        clean_and_id_ep_string(_name), 1, _type_limit_)
+        clean_and_id_ep_string(_name), 1, type_limit)
 
     schedule.display_name = _name
 

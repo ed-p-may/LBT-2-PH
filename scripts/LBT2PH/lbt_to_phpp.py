@@ -4,6 +4,7 @@ import rhinoscriptsyntax as rs
 import math
 import json
 from collections import OrderedDict
+from collections import namedtuple
 
 import LBT2PH.materials
 import LBT2PH.assemblies
@@ -477,7 +478,22 @@ def get_appliances(_model):
 
     return appliance_objs
 
+def get_lighting(_model):
+    Lighting = namedtuple('Lighting', ['efficacy', 'hb_room_name', 'hb_room_tfa'])
 
+    out = []
+    for room in _model.rooms:
+        name = room.display_name
+        efficacy =  float( room.user_data.get('phpp', {}).get('appliances', {}).get('lighting_efficacy', 50) )
+
+        space_tfas = []
+        for space_dict in room.user_data.get('phpp', {}).get('spaces', {}).values():
+            space_tfas.append( float( space_dict.get('_tfa', 0)) )
+        space_tfa = sum(space_tfas)
+
+        out.append( Lighting(efficacy, name, space_tfa) )
+
+    return out
 
 
 
