@@ -17,7 +17,7 @@ def add_to_hb_obj_user_data(_hb_obj, key, _val):
     
     # Decided to do a deepcopy here, otherwise ref pointer always
     # goes to the same dict which makes it confusing as things are added/edited.
-    #  I dont *think* it would error without the copy? But more predictable with it.
+    # I dont *think* it would error without the copy? But more predictable with it.
     new_user_data = deepcopy(_hb_obj.user_data)
     if new_user_data.has_key('phpp'):
         if new_user_data['phpp'].has_key(key):

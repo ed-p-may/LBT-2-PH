@@ -1268,14 +1268,98 @@ def get_lighting(_lighting_objects, _hb_room_names):
     avg_lighting_eff = sum(weighted_efficacy) / sum(tfas)
     return [ PHPP_XL_Obj('Electricity', 'L26', avg_lighting_eff) ]
 
-def get_non_res_spaces(_spaces, _hb_rooms, _start_rows ):
-    # 
-    # 
-    # 
-    # TODO
-    #
-    #
-    #
-    #
+def get_non_res_space_info(_spaces, _hb_room_names, _start_rows ):
+    print("Creating 'Electricity non-res' Objects ... ")
+    elecNonRes = []
+    rowStart_Lighting = _start_rows.get('Electricity non-res').get('Lighting', 19)
+    
+    # Note: these two are not implemented yet
+    #----
+    # rowStart_OfficeEquip = _start_rows.get('Electricity non-res').get('Office Equip', 62)
+    # rowStart_Kitchen = _start_rows.get('Electricity non-res').get('Kitchen', 77)
+    #----
 
-    return []
+    for i, space in enumerate(_spaces):
+        row = rowStart_Lighting+i
+        1591454589
+        if space.host_room_name not in _hb_room_names:
+            break
+
+        if space.non_res_usage != '-':
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'F{}'.format(row), space.non_res_usage))
+
+        if space.non_res_motion != '-' and  space.non_res_motion != 'No':
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'X{}'.format(row), 'x' ))
+        
+        if space.non_res_lighting != '-':
+            roomID = '{}-{}'.format(space.space_number, space.space_name )
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'C{}'.format(row), roomID))
+            
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'D{}'.format(row), space.area_gross, 'M2', 'FT2'))
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'H{}'.format(row), 0))                                # Deviation From North=0
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'J{}'.format(row), 0.69))                             # Triple Glazing
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'M{}'.format(row), space.depth, 'M', 'FT'))
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'N{}'.format(row), '=D{}/M{}'.format(row, row)  ))
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'O{}'.format(row), space.space_avg_clear_ceiling_height, 'M', 'FT'))
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'P{}'.format(row), 1, 'M', 'FT'  ))                   # Lintel Height
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'Q{}'.format(row), 0, 'M', 'FT'  ))                   # Window Width                
+            
+            lightingControlNum = space.non_res_lighting.split('-')[0]
+            elecNonRes.append( PHPP_XL_Obj('Electricity non-res', 'W{}'.format(row), lightingControlNum ))
+            
+    return elecNonRes
+
+def get_location( _locationObjs ):
+    climate = []
+    
+    if len(_locationObjs) == 0:
+        return climate
+    
+    loc = _locationObjs[0]
+    print("Creating the 'Climate' Objeects...")
+    climate.append( PHPP_XL_Obj('Climate', 'D9', loc.Country if loc else 'US-United States of America' )) # Climate Data Set Name (Dropdown)
+    climate.append( PHPP_XL_Obj('Climate', 'D10', loc.Region if loc else 'New York' )) # Climate Data Set Name (Dropdown)
+    climate.append( PHPP_XL_Obj('Climate', 'D12', loc.DataSet if loc else 'US0055b-New York' )) # Climate Data Set Name (Dropdown)
+    climate.append( PHPP_XL_Obj('Climate', 'D18', loc.Altitude if loc else '=D17' )) # Altitude
+    
+    return climate
+
+def get_footprint(_fp):
+    print('Creating the Building Footprint Object...')
+    
+    try:
+        fp_area = _fp[0].Footprint_area
+        fpObj = PHPP_XL_Obj('Areas', 'V33', fp_area)
+    except:
+        fpObj = PHPP_XL_Obj('Areas', 'V33', 0)
+    
+    return [ fpObj ]
+
+def get_thermal_bridges(_tb_objects, _start_rows):
+    print("Creating the 'Thermal Bridging' Objects...")
+    
+    tb_RowStart = _start_rows.get('Areas').get('TB')
+    tb_List = []
+    for i, tb in enumerate(_tb_objects):
+        # for each Thermal Bridge in the model....
+        if tb.typename == 'Estimated':
+            i = 0
+        else:
+            i = i+1
+        
+        # Setup the Excel Address Locations
+        Address_Name = '{}{}'.format('L', tb_RowStart + i)
+        Address_GroupNo = '{}{}'.format('M', tb_RowStart + i)
+        Address_Quantity = '{}{}'.format('P', tb_RowStart + i)
+        Address_Length = '{}{}'.format('R', tb_RowStart + i)
+        Address_PsiValue = '{}{}'.format('X', tb_RowStart + i)
+        
+        tb_List.append( PHPP_XL_Obj('Areas', Address_Name, tb.typename))
+        tb_List.append( PHPP_XL_Obj('Areas', Address_GroupNo, tb.group_number))
+        tb_List.append( PHPP_XL_Obj('Areas', Address_Quantity, 1))
+        tb_List.append( PHPP_XL_Obj('Areas', Address_Length, tb.length, 'M', 'FT'))
+        tb_List.append( PHPP_XL_Obj('Areas', Address_PsiValue, tb.psi_value, 'W/MK', 'BTU/HR-FT-F'))
+    
+    return tb_List
+
+

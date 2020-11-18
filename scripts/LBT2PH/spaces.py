@@ -3,6 +3,7 @@ import random
 import ghpythonlib.components as ghc
 import Grasshopper.Kernel as ghK
 import Rhino
+from System import Object
 
 from ladybug_geometry.geometry3d import Point3D
 import LBT2PH
@@ -11,13 +12,14 @@ import LBT2PH.ventilation
 reload(LBT2PH)
 reload(LBT2PH.ventilation)
 
-class TFA_Surface:
+class TFA_Surface(Object):
     ''' Represents an individual TFA Surface floor element '''
     
     def __init__(self, _surface, _host_room_name, _params, _sub_surfaces=[]):
         self._inset = 0.1
         self._neighbors = None
         self._area_gross = None
+        self._depth = None
 
         self.id = random.randint(1000,9999)
         self.surface = _surface
@@ -29,65 +31,78 @@ class TFA_Surface:
         return self.id == other.id
 
     @property
-    def neighbors(self):
-        if self._neighbors is None:
-            return set([self.id])
-        else:
-            return self._neighbors
+    def non_res_usage(self):
+        return self.get_surface_param('useType', '-')
 
-    def get_vent_flow_rate(self, _type='V_sup'):
-        ''' type = V_sup, V_eta or V_trans '''
-        try:
-            return float(self.params.get(_type, 0.0))
-        except Exception as e:
-            print(e)
-            print('Error getting {} ventilation flow rate?'.format(_type))
+    @non_res_usage.setter
+    def non_res_usage(self, _val):
+        self.set_surface_param('useType', _val)
 
-    def set_vent_flow_rate(self, _type, _val):
-        ''' type = V_sup, V_eta or V_trans '''
-        try:
-            self.params[_type] = float(_val)
-        except Exception as e:
-            print(e)
-            print('Error setting {} ventilation flow rate to {}?'.format(_type, _val))
+    @property
+    def non_res_lighting(self):
+        return self.get_surface_param('lighting', '-')
+    
+    @non_res_lighting.setter
+    def non_res_lighting(self, _val):
+        self.set_surface_param('lighting', _val)
+
+    @property
+    def non_res_motion(self):
+        return self.get_surface_param('motion', '-')
+
+    @non_res_motion.setter
+    def non_res_motion(self, _val):
+        self.set_surface_param('motion', _val)
 
     @property
     def tfa_factor(self):
         try:
-            return float(self.params.get('TFA_Factor', 1))
-        except:
-            print("Error getting the surface's TFA Factor?")
-            return 1
-    
-    def set_tfa_factor(self, _val):
-        try:
-            self.params['TFA_Factor'] = float(_val)
+            return float( self.get_surface_param('TFA_Factor', 1) )
         except Exception as e:
+            print('Error getting the TFA Factor as a number?')
+            print(e)
+
+    @tfa_factor.setter
+    def tfa_factor(self, _val):
+        try:
+            self.set_surface_param('TFA_Factor', float(_val) )
+        except Exception as e:
+            print('Please supply a number for the TFA-Factor on Surface {}'.format(self.space_name) )
+            print('Error setting "{}" as the TFA-Factot'.format( _val ) )
             print(e)
 
     @property
     def space_number(self):
         try:
-            return str(self.params['Room_Number'])
-        except:
-            return None
-
-    def set_space_number(self, _val):
-        try:
-            self.params['Room_Number'] = str(_val)
+            return self.get_surface_param('Room_Number', None)
         except Exception as e:
+            print('Error getting the Space Number?')
             print(e)
-    
+
+    @space_number.setter
+    def space_number(self, _val):
+        try:
+            self.set_surface_param('Room_Number', _val )
+        except Exception as e:
+            print('Error setting "{}" as the Space-Number on surface "{}"?'.format( _val, self.space_name ) )
+            print(e)
+
     @property
     def space_name(self):
-        return self.params.get('Object Name', None)
-
-    def set_space_name(self, _val):
         try:
-            self.params['Object Name'] = _val
+            return self.get_surface_param('Object Name', None)
         except Exception as e:
+            print('Error getting the Space Name?')
             print(e)
-        
+
+    @space_name.setter
+    def space_name(self, _val):
+        try:
+            self.set_surface_param('Object Name', _val )
+        except Exception as e:
+            print('Error setting "{}" as the Space-Name on surface "{}"?'.format( _val, self.space_name ) )
+            print(e)
+
     @property
     def area_tfa(self):
         return self.area_gross * self.tfa_factor
@@ -97,21 +112,22 @@ class TFA_Surface:
         if self._area_gross:
             return self._area_gross
         else:
-            return self.compute_area_gross()
-    
-    def set_area_gross(self, _val):
+            # Compute the Gross Area
+            try:
+                return self.surface.GetArea()
+            except Exception as e:
+                print('Error calculating the Gross Area?')
+                print(e)
+                return None
+
+    @area_gross.setter
+    def area_gross(self, _val):
         try:
             self._area_gross = float(_val)
-        except:
-            print('Area Gross should be a number. Input {} is a {}'.format(_val, type(_val)))
-    
-    def compute_area_gross(self):
-        try:
-            return self.surface.GetArea()
-        except:
-            print('Error getting Gross Area of the TFA Surface?')
-            return None
-        
+        except Exception as e:
+            print('Error setting "{}" as the Gross-Area for surface "{}"?'.format( _val, self.space_name ) )
+            print(e)
+
     @property
     def surface_perimeter(self):
         brep_edges = self.surface.Edges
@@ -120,8 +136,65 @@ class TFA_Surface:
 
         return srfc_perimeter[0]
 
+    @property
+    def neighbors(self):
+        if self._neighbors is None:
+            return set([self.id])
+        else:
+            return self._neighbors
+
     def set_neighbors(self, _in):
         self._neighbors = self.neighbors.union(_in)
+
+    def get_vent_flow_rate(self, _type='V_sup'):
+        ''' type = V_sup, V_eta or V_trans '''
+        try:
+            return float(self.params.get(_type, 0.0))
+        except Exception as e:
+            print(e)
+            print('Error getting {} ventilation flow rate?'.format(_type))
+
+    def get_surface_param(self, _key, _default=None):
+        """ Gets a value from the 'params' dictionary """
+        try:
+            return self.params.get(_key, _default)
+        except AttributeError as e:
+            print(e)
+            print('No "{}" parameter found in TFA Suface "{}" Params dict?'.format(_key, self.space_name))
+            return _default
+
+    def set_surface_param(self, _key, _val):
+        ''' Sets a value in the 'params' dictionary '''
+        try:
+            self.params[_key] = _val
+        except Exception as e:
+            print(e)
+            print('Error setting "{}" Parameter on TFA Surface "{}"?'.format(_key, _val))
+    
+    @property
+    def depth(self):
+        if self._depth:
+            return self._depth
+        
+        worldXplane = ghc.XYPlane( Rhino.Geometry.Point3d(0,0,0) )
+        
+        # Find the 'short' edge and the 'long' egde of the srfc geometry
+        srfcEdges = ghc.DeconstructBrep(self.surface).edges
+        segLengths = ghc.SegmentLengths(srfcEdges).longest_length
+        srfcEdges_sorted = ghc.SortList(segLengths, srfcEdges).values_a
+        endPoints = ghc.EndPoints(srfcEdges_sorted[-1])
+        longEdgeVector = ghc.Vector2Pt(endPoints.start, endPoints.end, False).vector
+        shortEdgeVector = ghc.Rotate(longEdgeVector, ghc.Radians(90), worldXplane).geometry
+        
+        # Use the edges to find the orientation and dimensions of the room
+        srfcAligedPlane = ghc.ConstructPlane(ghc.Area(self.surface).centroid, longEdgeVector, shortEdgeVector)
+        srfcAlignedWorld = ghc.Orient(self.surface, srfcAligedPlane, worldXplane).geometry
+        dims = ghc.BoxProperties( srfcAlignedWorld ).diagonal
+        dims = [dims.X, dims.Y]
+        width = min(dims)
+        depth = max(dims)
+        
+        return depth
 
     @property
     def dict_key(self):
@@ -140,7 +213,8 @@ class TFA_Surface:
         d.update( {'space_name':self.space_name} )
         d.update( {'host_room_name':self.host_room_name} )
         d.update( {'params':self.params} )
-        d.update( {'area_gross':self.area_gross})
+        d.update( {'area_gross':self.area_gross} )
+        d.update( {'depth':self.depth} )
 
         return d
 
@@ -148,18 +222,20 @@ class TFA_Surface:
     def from_dict(cls, _dict_tfa, _dict_sub_surfaces):
         
         surface = None
-        host_room_name = _dict_tfa['host_room_name']
-        params = _dict_tfa['params']
+        host_room_name = _dict_tfa.get('host_room_name')
+        params = _dict_tfa.get('params')
+        
         sub_surfaces = []
         for sub_surface in _dict_sub_surfaces.values():
             new_sub_surface = cls.from_dict( sub_surface, {} )
             sub_surfaces.append( new_sub_surface )
 
         new_tfa_obj = cls(surface, host_room_name, params, sub_surfaces)
-        new_tfa_obj.id = _dict_tfa['id']        
+        new_tfa_obj.id = _dict_tfa.get('id')
         new_tfa_obj._inset = 0.1
         new_tfa_obj._neighbors = None
-        new_tfa_obj._area_gross = _dict_tfa['area_gross'] 
+        new_tfa_obj._area_gross = _dict_tfa.get('area_gross')
+        new_tfa_obj._depth = _dict_tfa.get('depth', None)
 
         return new_tfa_obj
 
@@ -188,6 +264,18 @@ class Volume:
         self._space_vn50 = None
         self._offset_z = 0
         self._phpp_vent_flow_rates = {'V_sup':0, 'V_eta':0, 'V_trans':0}
+
+    @property
+    def non_res_usage(self):
+        return self.tfa_surface.non_res_usage
+    
+    @property
+    def non_res_lighting(self):
+        return self.tfa_surface.non_res_lighting
+    
+    @property
+    def non_res_motion(self):
+        return self.tfa_surface.non_res_motion
 
     @property
     def dict_key(self):
@@ -237,6 +325,36 @@ class Volume:
         except Exception as e:
             return None
 
+    @property
+    def area_tfa(self):
+        return float( self.tfa_surface.area_tfa )
+
+    @property
+    def vn50(self):
+        try:
+            volumes = []
+            breps = self.volume_brep
+            for brep in breps:
+                try:
+                    volumes.append( abs(float( brep.GetVolume() ) ) )
+                except:
+                    volumes.append( 0 )
+            
+            return sum(volumes)
+        except Exception as e:
+            try:
+                return float(self._space_vn50)
+            except:
+                return 5
+
+    @property
+    def depth(self):
+        return self.tfa_surface.depth
+
+    @property
+    def area_gross(self):
+        return self.tfa_surface.area_gross
+
     def _build_volume_brep_from_geom(self):
         results = ghc.BrepJoin( [self.tfa_surface.surface, self._space_geom.breps] )
         #Un-pack the results
@@ -275,28 +393,6 @@ class Volume:
         self.tfa_surface.set_vent_flow_rate('V_sup', _dict['V_sup'])
         self.tfa_surface.set_vent_flow_rate('V_eta', _dict['V_eta'])
         self.tfa_surface.set_vent_flow_rate('V_trans', _dict['V_trans'])
-
-    @property
-    def area_tfa(self):
-        return float( self.tfa_surface.area_tfa )
-
-    @property
-    def vn50(self):
-        try:
-            volumes = []
-            breps = self.volume_brep
-            for brep in breps:
-                try:
-                    volumes.append( abs(float( brep.GetVolume() ) ) )
-                except:
-                    volumes.append( 0 )
-            
-            return sum(volumes)
-        except Exception as e:
-            try:
-                return float(self._space_vn50)
-            except:
-                return 5
 
     def to_dict(self):
         d = {}
@@ -356,6 +452,48 @@ class Space:
         self.vent_sched = _vent_sched
         self._tfa = None
     
+    @property
+    def non_res_usage(self):
+        output = [volume.non_res_usage for volume in self.volumes]
+        output = list(set(filter( None, output )))
+
+        if len(output) == 0:
+            print('Error: No Non-Res "Usage" found on room {}. Check your TFA surface assignments?'.format(self.space_name))
+            return '-'
+        elif len(output) > 1:
+            print('Error: More than one Non-Res "Usage" found on room {}. Check your TFA surface assignments?'.format(self.space_name))
+            return output[0]
+        else:
+            return output[0]
+
+    @property
+    def non_res_lighting(self):
+        output = [volume.non_res_lighting for volume in self.volumes]
+        output = list(set(filter( None, output )))
+
+        if len(output) == 0:
+            print('Error: No Non-Res "Lighting" found on room {}. Check your TFA surface assignments?'.format(self.space_name))
+            return '1-'
+        elif len(output) > 1:
+            print('Error: More than one Non-Res "Lighting" found on room {}. Check your TFA surface assignments?'.format(self.space_name))
+            return output[0]
+        else:
+            return output[0]
+
+    @property
+    def non_res_motion(self):
+        output = [volume.non_res_motion for volume in self.volumes]
+        output = list(set(filter( None, output )))
+
+        if len(output) == 0:
+            print('Error: No Non-Res "Motion Detector" found on room {}. Check your TFA surface assignments?'.format(self.space_name))
+            return '-'
+        elif len(output) > 1:
+            print('Error: More than one Non-Res "Motion Detector" found on room {}. Check your TFA surface assignments?'.format(self.space_name))
+            return output[0]
+        else:
+            return output[0]
+
     @property
     def space_vent_supply_air(self):
         vent_rates = []
@@ -423,7 +561,7 @@ class Space:
             space_names.add(volume.volume_name)
         
         if len(space_names) != 1:
-            print('Error. Multiple volume names found? Fix your room parameters')
+            print('Error. Multiple volume names found? Please fix your room parameters.')
             return None
         else:
             return space_names.pop()
@@ -435,7 +573,7 @@ class Space:
             space_nums.add(volume.volume_number)
         
         if len(space_nums) != 1:
-            print('Error. Multiple volume numbers found? Fix your room parameters')
+            print('Error. Multiple volume numbers found? Please fix your room parameters')
             return None
         else:
             return str(space_nums.pop())
@@ -454,6 +592,17 @@ class Space:
             return float(self._tfa)
         except:
             return sum([volume.area_tfa for volume in self.volumes])
+
+    @property
+    def depth(self):
+        """ Returns the largest of the Volume depths """
+        
+        depth = [volume.depth for volume in self.volumes]
+        return max(depth)
+
+    @property
+    def area_gross(self):
+        return sum( volume.area_gross for volume in self.volumes )
 
     @property
     def space_avg_clear_ceiling_height(self):
@@ -574,7 +723,7 @@ def bin_tfa_srfcs_by_neighbor(_tfa_srfc_objs):
     
     return srfcSets
 
-def join_touching_tfa_groups(_tfa_surface_groups):
+def join_touching_tfa_groups(_tfa_surface_groups, _ghenv=None):
     tfa_srfcs_joined = []
     
     for group in _tfa_surface_groups.values():
@@ -591,6 +740,9 @@ def join_touching_tfa_groups(_tfa_surface_groups):
             areas_gross = []
             srfc_exterior_perimeters = []
             sub_surfaces = []
+            usage = []
+            lighting = []
+            motion = []
             for tfa_srfc in group:
                 # Get the ventilation flow rates
                 ventFlowRates_Sup.append( tfa_srfc.get_vent_flow_rate('V_sup') )
@@ -599,9 +751,14 @@ def join_touching_tfa_groups(_tfa_surface_groups):
 
                 # Get the geometric information
                 areas_tfa.append(tfa_srfc.area_tfa)
-                areas_gross.append(tfa_srfc.compute_area_gross())
+                areas_gross.append(tfa_srfc.area_gross)
                 srfc_exterior_perimeters.append(tfa_srfc.surface_perimeter)
                 sub_surfaces.append(tfa_srfc)
+
+                # Get the Non-Res params
+                usage.append(tfa_srfc.non_res_usage)
+                lighting.append(tfa_srfc.non_res_lighting)
+                motion.append(tfa_srfc.non_res_motion)
 
             # Build the new TFA surface
             perim_curve = ghc.RegionUnion(srfc_exterior_perimeters)
@@ -616,27 +773,37 @@ def join_touching_tfa_groups(_tfa_surface_groups):
             unionedTFAObj = TFA_Surface(unioned_surface, host_room_name, params, sub_surfaces)
 
             # Set the new TFA Surface's param properties
-            unionedTFAObj.set_area_gross( sum(areas_gross) )
-            unionedTFAObj.set_tfa_factor( sum(areas_tfa) / sum(areas_gross) )
-            unionedTFAObj.set_space_number( group[0].space_number )
-            unionedTFAObj.set_space_name( group[0].space_name )
-            unionedTFAObj.set_vent_flow_rate('V_sup', max(ventFlowRates_Sup) )
-            unionedTFAObj.set_vent_flow_rate('V_eta', max(ventFlowRates_Eta) )
-            unionedTFAObj.set_vent_flow_rate('V_trans', max(ventFlowRates_Tran) )
+            unionedTFAObj.area_gross = sum(areas_gross)
+            unionedTFAObj.tfa_factor = sum(areas_tfa) / sum(areas_gross)
+            unionedTFAObj.space_number = group[0].space_number
+            unionedTFAObj.space_name = group[0].space_name
+            unionedTFAObj.set_surface_param('V_sup', max(ventFlowRates_Sup) )
+            unionedTFAObj.set_surface_param('V_eta', max(ventFlowRates_Eta) )
+            unionedTFAObj.set_surface_param('V_trans', max(ventFlowRates_Tran) )
 
-            #
-            #
-            #
-            #
-            # TODO: Join all the 'Non-Res' stuff together
-            #
-            # 
-            # 
-            # 
-            # 
+            # Set the new TFA Surface's Non-Res params
+            usage = sorted(list(set(filter(None, usage))))
+            lighting = sorted(list(set(filter(None, lighting))))
+            motion = sorted(list(set(filter(None, motion))))
+            
+            unionedTFAObj.non_res_usage = usage[0]
+            unionedTFAObj.non_res_lighting = lighting[0]
+            unionedTFAObj.non_res_motion = motion[0]
 
+            # Give Warnings if needed
+            if len(usage) > 1:
+                msg = 'Warning: Found more than one Non-Res. "Usage" type on room "{}"?'.format( unionedTFAObj.space_name )
+                _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg )
+            if len(lighting) > 1:
+                msg = 'Warning: Found more than one Non-Res. "Lighting" type on room "{}"?'.format( unionedTFAObj.space_name )
+                _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg ) 
+            if len(motion) > 1:
+                msg = 'Warning: Found more than one Non-Res. "Motion Detector" type on room "{}"?'.format( unionedTFAObj.space_name )
+                _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg ) 
+
+            # Pass back the new Joined TFA surface
             tfa_srfcs_joined.append(unionedTFAObj)
-    
+
     return tfa_srfcs_joined
 
 def display_host_error(_tfa_obj, _ghenv):

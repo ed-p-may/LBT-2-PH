@@ -1,4 +1,5 @@
 import Grasshopper.Kernel as ghK
+import ghpythonlib.components as ghc
 import Rhino.Geometry.Vector2d
 import rhinoscriptsyntax as rs
 import math
@@ -13,6 +14,7 @@ import LBT2PH.spaces
 import LBT2PH.ground
 import LBT2PH.dhw
 import LBT2PH.appliances
+import LBT2PH.climate
 
 reload(LBT2PH.materials)
 reload(LBT2PH.assemblies)
@@ -21,6 +23,7 @@ reload(LBT2PH.spaces)
 reload(LBT2PH.ground)
 reload(LBT2PH.dhw)
 reload(LBT2PH.appliances)
+reload(LBT2PH.climate)
 
 try:  # import the core honeybee dependencies
     from honeybee.model import Model
@@ -28,6 +31,13 @@ try:  # import the core honeybee dependencies
     from honeybee.facetype import Wall, RoofCeiling, Floor
 except ImportError as e:
     raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
+
+try:
+    import ladybug.epw as epw  
+    from ladybug_rhino.fromgeometry import from_face3d 
+except ImportError as e:
+    raise ImportError('\nFailed to import ladybug:\n\t{}'.format(e))
+
 
 class PHPP_Zone:
     def __init__(self, _room):
@@ -495,5 +505,106 @@ def get_lighting(_model):
 
     return out
 
+def get_climate(_epw_file):
+    """ Finds the nearest PHPP Climate zone to the EPW Lat /Long 
+    
+    Methodology copied from the PHPP v 9.6a (SI) Climate worksheet
+    """
+    
+    #---------------------------------------------------------------------------
+    # Get the Long and Lat
+    if _epw_file:
+        try:
+            ep = epw.EPW(_epw_file)
+            location = ep.location
+            latitude = location.latitude
+            longitude = location.longitude
+        except Exception as e:
+            print(e)
+            print('Error reading Location from EPW for some reason?')
+    else:
+        latitude = 40
+        longitude = -74
+        print('No EPW file input? I will just use NYC then.')
+
+    #---------------------------------------------------------------------------
+    # Find the closest PHPP Climate/Location
+    climate_data = LBT2PH.climate.phpp_climate_data()
+    for each in climate_data:
+        eachLat = float(each.get('Latitude', 0))
+        eachLong = float(each.get('Longitude', 0))
+
+        a = math.sin(math.pi/180*eachLat)
+        b = math.sin(math.pi/180*latitude)
+        c = math.cos(math.pi/180*eachLat)
+        d = math.cos(math.pi/180*latitude)
+        e = math.cos(math.pi/180*(eachLong-longitude))
+        f = a * b + c * d * e
+        g = max([-1, f])
+        h = min([1, g])
+        j = math.acos(h)
+        kmFromEPWLocation = 6378 * j
+        
+        each['distToEPW'] = kmFromEPWLocation
+    
+    climate_data.sort(key=lambda e: e['distToEPW'])
+    climateSetToUse = climate_data[0]
+    
+    dataSet = climateSetToUse.get('Dataset', 'US0055b-New York')
+    alt = '=J23'
+    country = climateSetToUse.get('Country', 'US-United States of America')
+    region = climateSetToUse.get('Region', 'New York')
+    
+    climateSetToUse = LBT2PH.climate.PHPP_ClimateDataSet(dataSet, alt, country, region)
+    
+    return [ climateSetToUse ]
+
+def get_footprint( _surfaces ):
+    # Finds the 'footprint' of the building for 'Primary Energy Renewable' reference
+    # 1) Re-build the Opaque Surfaces
+    # 2) Join all the surface Breps into a single brep
+    # 3) Find the 'box' for the single joined brep
+    # 4) Find the lowest Z points on the box, offset another 10 units 'down'
+    # 5) Make a new Plane at this new location
+    # 6) Projects the brep onto the new Plane
+    
+    Footprint = namedtuple('Footprint', ['Footprint_surface', 'Footprint_area'])
+    
+    #-----
+    surfaces = [from_face3d(surface.Srfc) for surface in _surfaces]
+    bldg_mass = ghc.BrepJoin( surfaces ).breps
+    if not bldg_mass:
+        return Footprint(None, None)
+    
+    #------- Find Corners, Find 'bottom' (lowest Z)
+    bldg_mass_corners = [v for v in ghc.BoxCorners(bldg_mass)]
+    bldg_mass_corners.sort(reverse=False, key=lambda point3D: point3D.Z)
+    rect_pts = bldg_mass_corners[0:3]
+    
+    #------- Project Brep to Footprint
+    projection_plane1 = ghc.Plane3Pt(rect_pts[0], rect_pts[1], rect_pts[2])
+    projection_plane2 = ghc.Move(projection_plane1, ghc.UnitZ(-10)).geometry
+    matrix = rs.XformPlanarProjection(projection_plane2)
+    footprint_srfc = ghc.Transform(bldg_mass, matrix )
+    footprint_area = ghc.Area(footprint_srfc)
+    
+    #------- Output
+    fp = Footprint(footprint_srfc, footprint_area)
+    
+    return fp
+
+def get_thermal_bridges(_model, _ghenv):
+    results = []
+    try:
+        tb_dict = _model.user_data.get('phpp').get('tb')
+        for tb_obj_dict in tb_dict.values():
+            new_obj = LBT2PH.tb.PHPP_ThermalBridge.from_dict( tb_obj_dict )
+            results.append( new_obj )
+    except TypeError as e:
+        msg = 'Error getting the PHPP/tb dict from the model.user_data?'
+        msg += e
+        _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg)
+
+    return results
 
 
