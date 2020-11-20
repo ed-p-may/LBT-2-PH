@@ -3,6 +3,7 @@ import rhinoscriptsyntax as rs
 import json
 import Grasshopper.Kernel as ghK
 import random
+from ladybug_rhino.fromgeometry import from_face3d 
 
 class PHPP_Ground_Floor_Element:
     """ A 'Floor' surface element for a ground object """
@@ -41,6 +42,7 @@ class PHPP_Ground_Floor_Element:
         # Get all the data from the HB-Room Floor surfaces
         floor_areas = []
         area_weighted_u_values = []
+        perim_curve_lengths = []
         for face in _hb_room:
             if not is_floor(face):
                 continue
@@ -48,12 +50,17 @@ class PHPP_Ground_Floor_Element:
             u_floor =  face.properties.energy.construction.u_factor
             floor_areas.append( face.area )
             area_weighted_u_values.append( u_floor * face.area )
-        
+            
+            face_surface = from_face3d( face.geometry )
+            perim_curve = ghc.JoinCurves(list(face_surface.DuplicateEdgeCurves()), False)
+            perim_curve_lengths.append( ghc.Length( perim_curve ) )
+
         #-----------------------------------------------------------------------
         # Set the Floor Element params
         if floor_areas and area_weighted_u_values:
             self.floor_area = sum(floor_areas)
             self.floor_U_value = sum(area_weighted_u_values) / sum(floor_areas)
+            self.perim_len = sum( perim_curve_lengths )
 
     def set_surface_values(self, _srfc_guids):
         """Pulls Rhino Scene parameters for a list of Surface Object Guids
@@ -188,7 +195,6 @@ class PHPP_Ground_Floor_Element:
                 warning = 'Error in GROUND: Input into _exposedPerimCrvs is not a Curve or Surface?\n'\
                 'Please ensure inputs are Curve / Polyline or Surface only.'
                 self.ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
-        
         self.perim_len = totalLen
         self.perim_psi_X_len = psiXlen
             

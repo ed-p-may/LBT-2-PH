@@ -1,6 +1,7 @@
 from System import Object
 from Grasshopper import DataTree
 from Grasshopper.Kernel.Data import GH_Path
+import Grasshopper.Kernel as ghK
 import statistics
 
 import LBT2PH
@@ -94,7 +95,7 @@ class PHPP_XL_Obj:
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
-       return "{}( _nm={!r}, _shtNm={!r}, _rangeAddress={!r}, _val={!r}, _unitSI={!r}, _unitIP={!r}".format(
+       return "{}( _shtNm={!r}, _rangeAddress={!r}, _val={!r}, _unitSI={!r}, _unitIP={!r}".format(
                self.__class__.__name__,
                self.Worksheet,
                self.Range,
@@ -102,7 +103,60 @@ class PHPP_XL_Obj:
                self.Unit_SI,
                self.Unit_IP)
 
-def get_u_values(_inputBranch, _branch_materials):
+def include_rooms(_hb_rooms, _rooms_to_include, _rooms_to_exclude, _ghenv ):
+    hb_room_names = None
+
+    if _hb_rooms:
+        hb_room_names = [x.ZoneName for x in _hb_rooms]
+        if _rooms_to_include:
+            hb_room_names = [name for name in hb_room_names if name in _rooms_to_include]
+        if _rooms_to_exclude:
+            hb_room_names = [name for name in hb_room_names if name not in _rooms_to_exclude]
+        print('Inlcuding Zones {} in the Export').format(hb_room_names)
+    
+    if not hb_room_names:
+        msg = 'Error: No Zones inluced in the export?'
+        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Error, msg)
+    
+    return hb_room_names
+
+def start_rows( _udIn, _ghenv ):
+    """Takes in the dictionary of start rows and any user-determined inputs
+    modifies the dict values based on iputs. This is useful if the user has
+    modified the PHPP for some reason and the start rows no longer align with 
+    the normal ones. This happens esp. if the user adds more rows for an XXL
+    size PHPP. (more rooms, more areas, etc...)"""
+
+    default_start_rows = {'Additional Ventilation': 
+                {'Rooms':56,
+                'Vent Unit Selection':97,
+                'Vent Ducts':127 },
+            'Components':
+                {'Ventilator':15},
+            'Areas':
+                {'TB':145, 'Surfaces':41},
+            'Electricity non-res':
+                {'Lighting': 19,
+                'Office Equip': 62,
+                'Kitchen':77},
+            }
+    
+    if _udIn:
+        try:
+            for each in _udIn:
+                parsed = each.split(':')
+                newRowStart = int(parsed[1])
+                worksheet, startItem = (parsed[0].split(','))
+                default_start_rows[worksheet.lstrip().rstrip()][startItem.lstrip().rstrip()] = newRowStart
+        except:
+            msg = "Couldn't read the udRowStarts_ input? Make sure it has dict keys separated by a comma and a semicolon before the value."
+            _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
+        
+        return default_start_rows
+    else:
+        return default_start_rows
+
+def build_u_values(_inputBranch, _branch_materials):
     uID_Count = 1
     uValueUID_Names = []
     uValuesConstructorStartRow = 10
@@ -193,7 +247,7 @@ def get_u_values(_inputBranch, _branch_materials):
     
     return uValuesList, uValueUID_Names
 
-def get_components(_inputBranch):
+def build_components(_inputBranch):
     winComponentStartRow = 15
     frame_Count = 0
     glass_Count = 0
@@ -292,7 +346,7 @@ def get_components(_inputBranch):
     
     return winComponentsList
 
-def get_areas(_inputBranch, _zones, _uValueUID_Names):
+def build_areas(_inputBranch, _zones, _uValueUID_Names):
     areasRowStart = 41
     areaCount = 0
     uID_Count = 1
@@ -363,7 +417,7 @@ def get_areas(_inputBranch, _zones, _uValueUID_Names):
     areasList.append( PHPP_XL_Obj('Areas', 'L19', 'Suspended Floor') )
     return areasList, surfacesIncluded
 
-def get_windows(_inputBranch, _surfacesIncluded, _srfcBranch):
+def build_windows(_inputBranch, _surfacesIncluded, _srfcBranch):
     windowsRowStart = 24
     windowsCount = 0
     winSurfacesList = []
@@ -431,7 +485,7 @@ def get_windows(_inputBranch, _surfacesIncluded, _srfcBranch):
             
     return winSurfacesList
 
-def get_shading(_inputBranch, _surfacesIncluded):
+def build_shading(_inputBranch, _surfacesIncluded):
     print("Creating the 'Shading' Objects...")
     row_start = 17
     row_count = 0
@@ -468,36 +522,28 @@ def get_shading(_inputBranch, _surfacesIncluded):
         
     return shading_list
 
-def get_TFA( spaces_branch, _zones):
+def build_TFA( spaces_branch, _hb_room_names):
     tfa = []
     
-    # --------------------------------------------------------------------------
-    # Otherwise, find the values from the model
     print("Trying to find any Honeybee Zone Room TFA info...")
     try:
         tfaSurfaceAreas = [ 0 ]
         for space in spaces_branch:
-            # First, see if the Surface should be included in the output
-            for zoneName in _zones:
-                if space.host_room_name == zoneName:
-                    includeRoom = True
-                    break
-                else:
-                    includeRoom = False
+            if space.host_room_name not in _hb_room_names:
+                break
             
-            if includeRoom:
-                # Get the room's TFA info
-                roomTFA = space.FloorArea_TFA
-                tfaSurfaceAreas.append( roomTFA )
-        # Total up the TFA Areas for output
+            roomTFA = space.space_tfa
+            tfaSurfaceAreas.append( roomTFA )
+
         tfaTotal = sum(tfaSurfaceAreas)
         tfa.append( PHPP_XL_Obj('Areas', 'V34', tfaTotal, 'M2', 'FT2' )) # TFA (m2)
-    except:
-        pass
+    except Exception as e:
+        print(e)
+        print('Error getting TFA value from spaces?')
     
     return tfa
 
-def get_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):
+def build_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):
     print("Creating 'Additional Ventilation' Rooms... ")
     addnlVentRooms = []
     ventUnitsUsed = []
@@ -643,7 +689,7 @@ def get_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):
     
     return addnlVentRooms, ventUnitsUsed
 
-def get_addnl_vent_systems(_inputBranch, _ventUnitsUsed, _startRows):
+def build_addnl_vent_systems(_inputBranch, _ventUnitsUsed, _startRows):
     # Go through each Ventilation System passed in
     
     if not _inputBranch:
@@ -685,6 +731,7 @@ def get_addnl_vent_systems(_inputBranch, _ventUnitsUsed, _startRows):
         vent.append( PHPP_XL_Obj('Ventilation', 'L12', vent_system.system_type) ) 
         
         # Build the Vent Unit
+        row = ventUnitRowStart + ventCount
         vent.append(  PHPP_XL_Obj('Additional Vent',  'D{}'.format(row),  1) ) # Quantity
         vent.append(  PHPP_XL_Obj('Additional Vent',  'E{}'.format(row),  vent_system.system_name) )
         vent.append(  PHPP_XL_Obj('Additional Vent',  'F{}'.format(row),  vent_system.phpp_ud_name) )
@@ -770,7 +817,7 @@ def get_addnl_vent_systems(_inputBranch, _ventUnitsUsed, _startRows):
 
     return vent
 
-def get_infiltration(_inputBranch, _zones_to_include):
+def build_infiltration(_inputBranch, _zones_to_include):
     #---------------------------------------------------------------------------
     # Envelope Airtightness
     
@@ -806,7 +853,7 @@ def get_infiltration(_inputBranch, _zones_to_include):
     
     return airtightness
 
-def get_ground(_ground_objs, _zones):
+def build_ground(_ground_objs, _zones, _ghenv):
     
     ground = []
     
@@ -824,7 +871,7 @@ def get_ground(_ground_objs, _zones):
         'ground contact Floor Elements. Please simplify / consolidate your Floor Elements\n'\
         'before proceeding with export. For now only the first three Floor Elements\n'\
         'will be exported to PHPP.'
-        ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, FloorElementsWarning)
+        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, FloorElementsWarning)
         _ground_objs = _ground_objs[0:3]
     
     for i, ground_obj in enumerate(_ground_objs):
@@ -899,7 +946,7 @@ def get_ground(_ground_objs, _zones):
             
     return ground
 
-def get_DHW_system(_dhw_systems, _hb_rooms):
+def build_DHW_system(_dhw_systems, _hb_rooms):
     #---------------------------------------------------------------------------
     # If more that one system are to be used, combine them into a single system
     
@@ -1145,7 +1192,7 @@ def combine_DHW_systems(_dhwSystems):
     
     return combinedDHWSys
 
-def get_appliances(_appliance_collections, _hb_room_names, _ghenv):
+def build_appliances(_appliance_collections, _hb_room_names, _ghenv):
     
     def appliances_in_room(_appliance_collections, _hb_room_names):
         for hb_host_room_name in _appliance_collections.hb_host_room_ids:
@@ -1254,7 +1301,7 @@ def get_appliances(_appliance_collections, _hb_room_names, _ghenv):
     
     return apps
 
-def get_lighting(_lighting_objects, _hb_room_names):
+def build_lighting(_lighting_objects, _hb_room_names):
 
     weighted_efficacy = []
     tfas = []
@@ -1268,7 +1315,7 @@ def get_lighting(_lighting_objects, _hb_room_names):
     avg_lighting_eff = sum(weighted_efficacy) / sum(tfas)
     return [ PHPP_XL_Obj('Electricity', 'L26', avg_lighting_eff) ]
 
-def get_non_res_space_info(_spaces, _hb_room_names, _start_rows ):
+def build_non_res_space_info(_spaces, _hb_room_names, _start_rows ):
     print("Creating 'Electricity non-res' Objects ... ")
     elecNonRes = []
     rowStart_Lighting = _start_rows.get('Electricity non-res').get('Lighting', 19)
@@ -1309,7 +1356,7 @@ def get_non_res_space_info(_spaces, _hb_room_names, _start_rows ):
             
     return elecNonRes
 
-def get_location( _locationObjs ):
+def build_location( _locationObjs ):
     climate = []
     
     if len(_locationObjs) == 0:
@@ -1324,18 +1371,21 @@ def get_location( _locationObjs ):
     
     return climate
 
-def get_footprint(_fp):
+def build_footprint(_fps):
     print('Creating the Building Footprint Object...')
     
+    fp_area = 0
     try:
-        fp_area = _fp[0].Footprint_area
+        for footprint in _fps:
+            fp_area += footprint.Footprint_area
+
         fpObj = PHPP_XL_Obj('Areas', 'V33', fp_area)
     except:
-        fpObj = PHPP_XL_Obj('Areas', 'V33', 0)
+        fpObj = PHPP_XL_Obj('Areas', 'V33', fp_area)
     
     return [ fpObj ]
 
-def get_thermal_bridges(_tb_objects, _start_rows):
+def build_thermal_bridges(_tb_objects, _start_rows):
     print("Creating the 'Thermal Bridging' Objects...")
     
     tb_RowStart = _start_rows.get('Areas').get('TB')
@@ -1362,4 +1412,213 @@ def get_thermal_bridges(_tb_objects, _start_rows):
     
     return tb_List
 
+def build_settings( _settings_objs ):
+    settings_obj = None
+    if _settings_objs:
+        settings_obj = _settings_objs[0]
+
+    verification = []
+    if settings_obj:
+        verification.append( PHPP_XL_Obj('Verification', 'F28', settings_obj.num_res_units))
+        verification.append( PHPP_XL_Obj('Verification', 'K29', settings_obj.spec_capacity, 'WH/KM2', 'BTU/FT2' ))
+        verification.append( PHPP_XL_Obj('Verification', 'K4', settings_obj.bldg_name ))
+        verification.append( PHPP_XL_Obj('Verification', 'M7', settings_obj.bldg_country ))
+        
+        # Certification Types
+        verification.append( PHPP_XL_Obj('Verification', 'R78', settings_obj.cert_standard ))
+        verification.append( PHPP_XL_Obj('Verification', 'R80', settings_obj.cert_class ))
+        verification.append( PHPP_XL_Obj('Verification', 'R82', settings_obj.pe ))
+        verification.append( PHPP_XL_Obj('Verification', 'R85', settings_obj.enerPHit ))
+        verification.append( PHPP_XL_Obj('Verification', 'R87', settings_obj.retrofit ))
+        
+        # IHG and Occupancy
+        verification.append( PHPP_XL_Obj('Verification', 'R20', settings_obj.building_type))
+        verification.append( PHPP_XL_Obj('Verification', 'R24', settings_obj.ihg_type))
+        verification.append( PHPP_XL_Obj('Verification', 'R25', settings_obj.ihg_values))
+        verification.append( PHPP_XL_Obj('Verification', 'Q29', settings_obj.occupancy ))
+        verification.append( PHPP_XL_Obj('Verification', 'R29', settings_obj.occupancy_method ))
+
+    return verification
+
+def build_summ_vent( _summ_vent_objs ):
+    print('Creating the Summer Ventilation Objects...')
+    
+    #---------------------------------------------------------------------------
+    # Combine all the HB-Room Vent Objs
+    day_ach_vals, night_ach_vals = 0, 0
+    day_ach, night_ach = None, None
+    
+    for each in _summ_vent_objs:
+        try:
+            day_ach_vals += float( each.day_ach )
+        except Exception as e:
+            day_ach = each.day_ach
+        
+        try:
+            night_ach_vals += float( each.night_ach )
+        except Exception as e:
+            night_ach = each.night_ach
+
+    if day_ach_vals:
+        day_ach = sum(day_ach_vals)
+
+    if night_ach_vals:
+        night_ach = sum(night_ach_vals)
+
+    #---------------------------------------------------------------------------
+    # Write out to Excel
+    summerVent_ = []
+    if not day_ach and not night_ach:
+        return summerVent_
+
+    summerVent_.append( PHPP_XL_Obj('SummVent', 'L31', day_ach) )
+    summerVent_.append( PHPP_XL_Obj('SummVent', 'P59', night_ach))
+    summerVent_.append( PHPP_XL_Obj('SummVent', 'R21', ''))                     # HRV Summer Bypass - Clear
+    summerVent_.append( PHPP_XL_Obj('SummVent', 'R22', 'x'))                    # HRV Summer Bypass Set Temp difference (default)
+    summerVent_.append( PHPP_XL_Obj('SummVent', 'R23', ''))                     # HRV Summer Bypass - Clear
+    summerVent_.append( PHPP_XL_Obj('SummVent', 'R24', ''))                     # HRV Summer Bypass - Clear
+    
+    return summerVent_
+
+def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
+    hc_equip = []
+    hp_count = 0
+
+    if not _heating_cooling_objs:
+        return hc_equip
+
+    for k, params in _heating_cooling_objs.items():
+        if k not in _hb_room_names:
+            continue
+        
+        #-----------------------------------------------------------------------
+        boiler = params.get('boiler', None)
+        if boiler:
+            hc_equip.append( PHPP_XL_Obj('Boiler', 'N21', boiler.type)) 
+            hc_equip.append( PHPP_XL_Obj('Boiler', 'N22', boiler.fuel)) 
+            hc_equip.append( PHPP_XL_Obj('Boiler', 'M31', boiler.use_typical_vals)) 
+
+        #-----------------------------------------------------------------------
+        hp_heating = params.get('hp_heating', None)
+        if hp_heating:
+            hp_count +=1
+            hc_equip.append( PHPP_XL_Obj('HP', 'J21', '4-' + hp_heating.name))
+            hc_equip.append( PHPP_XL_Obj('HP', 'I635', hp_heating.name)) 
+            hc_equip.append( PHPP_XL_Obj('HP', 'I637', hp_heating.source)) 
+            for i, item in enumerate(hp_heating.temps_sources):
+                hc_equip.append( PHPP_XL_Obj('HP', 'K{}'.format(i+640), item)) 
+            for i, item in enumerate(hp_heating.temps_sinks):
+                hc_equip.append( PHPP_XL_Obj('HP', 'L{}'.format(i+640), item)) 
+            for i, item in enumerate(hp_heating.heating_capacities):
+                hc_equip.append( PHPP_XL_Obj('HP', 'M{}'.format(i+640), item)) 
+            for i, item in enumerate(hp_heating.cops):
+                hc_equip.append( PHPP_XL_Obj('HP', 'N{}'.format(i+640), item)) 
+            hc_equip.append( PHPP_XL_Obj('HP', 'M658', hp_heating.sink_dt))   
+
+        #-----------------------------------------------------------------------
+        hp_options = params.get('hp_options', None)
+        if hp_options:
+            hc_equip.append( PHPP_XL_Obj('DHW+Distribution', 'J30', hp_options.frwd_temp))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M22', hp_options.hp_distribution))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M27', hp_options.nom_power))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M28', hp_options.rad_exponent))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M42', hp_options.backup_type))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M43', hp_options.dT_elec_flow))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M46', hp_options.hp_priority))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M48', hp_options.hp_control))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M50', hp_options.depth_groundwater))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M51', hp_options.power_groundwater))
+
+        #-----------------------------------------------------------------------
+        dhw_hp = params.get('hp_DHW', None)
+        if dhw_hp:
+            hp_count += 1
+            hc_equip.append( PHPP_XL_Obj('HP', 'J36', '5-' + dhw_hp.name))
+            hc_equip.append( PHPP_XL_Obj('HP', 'I665', dhw_hp.name))
+            hc_equip.append( PHPP_XL_Obj('HP', 'I667', dhw_hp.source)) 
+            for i, item in enumerate(dhw_hp.temps_sources):
+                hc_equip.append( PHPP_XL_Obj('HP', 'K{}'.format(i+670), item)) 
+            for i, item in enumerate(dhw_hp.temps_sinks):
+                hc_equip.append( PHPP_XL_Obj('HP', 'L{}'.format(i+670), item)) 
+            for i, item in enumerate(dhw_hp.heating_capacities):
+                hc_equip.append( PHPP_XL_Obj('HP', 'M{}'.format(i+670), item)) 
+            for i, item in enumerate(dhw_hp.cops):
+                hc_equip.append( PHPP_XL_Obj('HP', 'N{}'.format(i+670), item)) 
+            hc_equip.append( PHPP_XL_Obj('HP', 'M688', dhw_hp.sink_dt)) 
+        
+        hc_equip.append( PHPP_XL_Obj('HP', 'M18', 2 if hp_count==2 else 1)) # Can't ever be zero
+
+        #-----------------------------------------------------------------------
+        supply_air_cooling = params.get('supply_air_cooling', None)
+        if supply_air_cooling:
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'I15', 'x' ))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P17', supply_air_cooling.on_off))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P18', supply_air_cooling.max_capacity, 'KW', 'BTU/H'))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P20', supply_air_cooling.seer, 'W/W', 'BTU/HW'))
+
+        #-----------------------------------------------------------------------
+        recirc_air_cooling = params.get('recirc_air_cooling', None)
+        if recirc_air_cooling:
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'I22', 'x' ))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P24',recirc_air_cooling.on_off))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P25',recirc_air_cooling.max_capacity, 'KW', 'BTU/H'))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P26',recirc_air_cooling.nominal_vol, 'M3/H', 'CFM'))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P28',recirc_air_cooling.variable_vol))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P29',recirc_air_cooling.seer, 'W/W', 'BTU/HW'))
+        
+        #-----------------------------------------------------------------------
+        addnl_dehumid = params.get('addnl_dehumid', None)
+        if addnl_dehumid:
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'I32', 'x' ))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P34', addnl_dehumid.waste_to_room))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P35', addnl_dehumid.seer, 'W/W', 'BTU/HW'))
+
+        #-----------------------------------------------------------------------
+        panel_cooling = params.get('panel_cooling', None)
+        if panel_cooling:
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'I37', 'x' ))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P39', panel_cooling.seer, 'W/W', 'BTU/HW'))
+
+        #-----------------------------------------------------------------------
+
+
+    return hc_equip
+
+def build_PER( _per_objs, _hb_room_names ):
+
+    #---------------------------------------------------------------------------
+    #  Need to combine PER together somehow. Use a floor-area weighted average?
+    
+    total_floor_area = 0
+    fa_X_primary_fac = 0
+    fa_X_dhw_fac = 0
+    primary_heat = '5-Direct electricity'
+    secondary_heat = '-'
+
+    for k, per_obj in _per_objs.items():
+        if k not in _hb_room_names:
+            continue
+        
+        room_floor_area = per_obj.get('room_floor_area', 0)
+        total_floor_area += room_floor_area
+        fa_X_primary_fac += room_floor_area * per_obj.get('primary_heat_frac', 0)
+        fa_X_dhw_fac += room_floor_area * per_obj.get('dhw_frac', 0)
+
+        if per_obj.get('primary_heat'):
+            primary_heat = per_obj.get('primary_heat')
+        if per_obj.get('secondary_heat'):
+            secondary_heat = per_obj.get('secondary_heat')
+
+    primary_fraction = fa_X_primary_fac / total_floor_area
+    secondary_fraction = fa_X_dhw_fac / total_floor_area
+
+    #---------------------------------------------------------------------------
+    # Create Excel objs
+    per_ = []
+    per_.append( PHPP_XL_Obj('PER', 'P10', primary_heat ))
+    per_.append( PHPP_XL_Obj('PER', 'P12', secondary_heat)) 
+    per_.append( PHPP_XL_Obj('PER', 'S10', primary_fraction))
+    per_.append( PHPP_XL_Obj('PER', 'T10', secondary_fraction ))
+
+    return per_
 

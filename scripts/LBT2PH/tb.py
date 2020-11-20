@@ -16,10 +16,14 @@ class PHPP_ThermalBridge:
         self.id = random.randint(1000,9999)
         self.typename = _nm
         self.length = float(_len)        
-        self.group_number = _groupNo
+        self._group_number = _groupNo
         self._fRsi = _fRsi
         self._psi_value = _psi
     
+    @property
+    def group_number(self):
+        return str(self._group_number).split(':')[0]
+
     @property
     def psi_value(self):
         return self._psi_value
@@ -53,7 +57,7 @@ class PHPP_ThermalBridge:
         d.update( {'id':self.id} )
         d.update( {'typename':self.typename} )
         d.update( {'length':self.length} )
-        d.update( {'group_number':self.group_number} )
+        d.update( {'_group_number':self._group_number} )
         d.update( {'_fRsi':self.fRsi} )
         d.update( {'_psi_value':self.psi_value} )
 
@@ -66,7 +70,7 @@ class PHPP_ThermalBridge:
         new_obj.id = _dict.get('id')
         new_obj.typename = _dict.get('typename')
         new_obj.length = _dict.get('length')
-        new_obj.group_number = _dict.get('group_number')
+        new_obj._group_number = _dict.get('_group_number')
         new_obj._fRsi = _dict.get('_fRsi')
         new_obj._psi_value = _dict.get('_psi_value')
 

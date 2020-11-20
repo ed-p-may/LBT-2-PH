@@ -2,12 +2,45 @@ from contextlib import contextmanager
 from copy import deepcopy
 import scriptcontext as sc
 import Rhino
+from copy import deepcopy
 import re
+import Grasshopper.Kernel as ghK
 
 from honeybee.typing import clean_and_id_ep_string
 from honeybee_energy.schedule.ruleset import ScheduleRuleset
 from honeybee_energy.lib.scheduletypelimits import schedule_type_limit_by_identifier
 
+
+def add_to_HB_model( _hb_model, _key, _dict, _ghenv, _write='update' ):
+
+    user_data = deepcopy( _hb_model.user_data )
+    if not user_data:
+        _hb_model.user_data = {'phpp': { _key: _dict} }
+        return _hb_model
+    
+    try:
+        if _write == 'update':
+            user_data['phpp'][_key].update( _dict )
+        elif _write == 'overwrite':
+            user_data['phpp'][_key] = _dict
+    except KeyError as e:
+        try:
+            user_data['phpp'].update( {_key:_dict } )
+        except KeyError:
+            try:
+                user_data = {'phpp':{_key:_dict }}
+            except Exception as e:
+                msg = e
+                msg += 'Error writing data to the model user_data?'
+                _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Error, msg )
+
+    _hb_model.user_data = user_data
+    return _hb_model
+
+#
+#
+#
+# Remove?
 def add_to_hb_obj_user_data(_hb_obj, key, _val):
     if _hb_obj.user_data is None:
         _hb_obj.user_data = {}
@@ -31,6 +64,10 @@ def add_to_hb_obj_user_data(_hb_obj, key, _val):
     _hb_obj.user_data = new_user_data
     
     return _hb_obj
+#
+#
+#
+#
 
 @contextmanager
 def context_rh_doc(_ghdoc):

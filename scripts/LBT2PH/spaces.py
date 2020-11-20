@@ -550,9 +550,9 @@ class Space:
 
         if len(host_room_names) != 1:
             print('Error. Multiple Host Zones found? Fix your room geometry')
-            return host_room_names.pop()
+            return list(host_room_names)[0]
         else:
-            return host_room_names.pop()
+            return list(host_room_names)[0]
 
     @property
     def space_name(self):
@@ -659,9 +659,9 @@ class Space:
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
-       return "{}(_volumes={!r} )".format(
+       return "{}(_volumes={!r}, _vent_sched={!r} )".format(
                self.__class__.__name__,
-               self.volumes)
+               self.volumes, self.vent_sched)
 
 
 def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):

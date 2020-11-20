@@ -1,11 +1,38 @@
+import random
+
 class PHPP_ClimateDataSet:
     
     def __init__(self, _dataSet='US0055b-New York', _alt='=J23', _cntry='US-United States of America', _reg='New York'):
+        self.id = random.randint(1000,9999)
         self.DataSet = _dataSet
         self.Altitude = _alt
         self.Country = _cntry
         self.Region = _reg
     
+
+    def to_dict(self):
+        d = {}
+
+        d.update( {'id':self.id} )
+        d.update( {'DataSet':self.DataSet } )
+        d.update( {'Altitude':self.Altitude } )
+        d.update( {'Country':self.Country } )
+        d.update( {'Region':self.Region } )
+
+        return d
+
+    @classmethod
+    def from_dict(cls, _dict):
+        new_obj = cls()
+
+        new_obj.id = _dict.get('id')
+        new_obj.DataSet = _dict.get('DataSet')
+        new_obj.Altitude = _dict.get('Altitude')
+        new_obj.Country = _dict.get('Country')
+        new_obj.Region = _dict.get('Region')
+
+        return new_obj
+
     def __unicode__(self):
         return u'A Location Object for: "{!r}":'.format(self.DataSet)
     def __str__(self):

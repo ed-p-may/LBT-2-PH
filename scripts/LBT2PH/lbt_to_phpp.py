@@ -15,6 +15,8 @@ import LBT2PH.ground
 import LBT2PH.dhw
 import LBT2PH.appliances
 import LBT2PH.climate
+import LBT2PH.summer_vent
+import LBT2PH.heating_cooling
 
 reload(LBT2PH.materials)
 reload(LBT2PH.assemblies)
@@ -24,6 +26,8 @@ reload(LBT2PH.ground)
 reload(LBT2PH.dhw)
 reload(LBT2PH.appliances)
 reload(LBT2PH.climate)
+reload(LBT2PH.summer_vent)
+reload(LBT2PH.heating_cooling)
 
 try:  # import the core honeybee dependencies
     from honeybee.model import Model
@@ -34,7 +38,8 @@ except ImportError as e:
 
 try:
     import ladybug.epw as epw  
-    from ladybug_rhino.fromgeometry import from_face3d 
+    from ladybug_rhino.fromgeometry import from_face3d
+    from ladybug_rhino.togeometry import to_vector2d
 except ImportError as e:
     raise ImportError('\nFailed to import ladybug:\n\t{}'.format(e))
 
@@ -290,6 +295,15 @@ class PHPP_Surface:
        return "{}(_lbt_face={!r})".format(
             self.__class__.__name__, self.lbt_srfc)
 
+def _find_north( _north ):
+    if _north:
+        try:
+            return to_vector2d( _north )
+        except AttributeError as e:  # north angle instead of vector
+            return float(_north)
+    else:
+        return to_vector2d( Rhino.Geometry.Vector2d(1,2) )
+
 def get_zones_from_model(_model):
     zones = []
     
@@ -505,7 +519,17 @@ def get_lighting(_model):
 
     return out
 
-def get_climate(_epw_file):
+def get_climate(_model, _epw_file):
+    ud_climate_params = _model.user_data.get('phpp', {}).get('climate', None)
+    if ud_climate_params:
+        # Build a ud climate obj
+        for climate_dict in ud_climate_params.values():
+            return [ LBT2PH.climate.PHPP_ClimateDataSet.from_dict( climate_dict ) ]
+    else:
+        # Auto-find the nearest climate based on the EPW file location
+        return find_nearest_phpp_climate( _epw_file )
+
+def find_nearest_phpp_climate(_epw_file):
     """ Finds the nearest PHPP Climate zone to the EPW Lat /Long 
     
     Methodology copied from the PHPP v 9.6a (SI) Climate worksheet
@@ -586,7 +610,7 @@ def get_footprint( _surfaces ):
     projection_plane2 = ghc.Move(projection_plane1, ghc.UnitZ(-10)).geometry
     matrix = rs.XformPlanarProjection(projection_plane2)
     footprint_srfc = ghc.Transform(bldg_mass, matrix )
-    footprint_area = ghc.Area(footprint_srfc)
+    footprint_area = ghc.Area(footprint_srfc).area
     
     #------- Output
     fp = Footprint(footprint_srfc, footprint_area)
@@ -607,4 +631,76 @@ def get_thermal_bridges(_model, _ghenv):
 
     return results
 
+def get_settings(_model):
+    settings_dict = _model.user_data.get('phpp',{}).get('settings',None)
+    if settings_dict:
+        settings_obj = []
+        for settings_params in settings_dict.values():
+            settings_obj.append( LBT2PH.phpp_setup.PHPP_Verification.from_dict( settings_params ) )
+        return settings_obj
+    else:
+        return []
+
+def get_summ_vent(_model):
+    summ_vent_objs = []
+    for room in _model.rooms:
+        summ_vent_d = room.user_data.get('phpp', {}).get('summ_vent', None)
+        if summ_vent_d:
+            for summ_vent_params in summ_vent_d.values():
+                new_obj = LBT2PH.summer_vent.PHPP_SummVent.from_dict( summ_vent_params )    
+                summ_vent_objs.append( new_obj )
+    
+    return summ_vent_objs
+
+def get_heating_cooling(_model):
+    hc_objs = {}
+    for room in _model.rooms:
+
+        d = room.user_data.get('phpp', {}).get('heating_cooling')
+        if not d:
+            continue
+        
+        this_room = {}
+        for k, v in d.items():
+            if 'supply_air_cooling' in k:
+                this_room['supply_air_cooling'] = LBT2PH.heating_cooling.PHPP_Cooling_SupplyAir.from_dict(v)
+            elif 'recirc_air_cooling' in k:
+                this_room['recirc_air_cooling'] = LBT2PH.heating_cooling.PHPP_Cooling_RecircAir.from_dict(v)
+            elif 'addnl_dehumid' in k:
+                this_room['addnl_dehumid'] = LBT2PH.heating_cooling.PHPP_Cooling_Dehumid.from_dict(v)
+            elif 'panel_cooling' in k:
+                this_room['panel_cooling'] =  LBT2PH.heating_cooling.PHPP_Cooling_Panel.from_dict(v)
+            elif 'hp_heating' in k:
+                this_room['hp_heating'] = LBT2PH.heating_cooling.PHPP_HP_AirSource.from_dict(v)
+            elif 'hp_DHW_' in k:
+                this_room['hp_DHW'] = LBT2PH.heating_cooling.PHPP_HP_AirSource.from_dict(v)
+            elif 'hp_options_' in k:
+                this_room['hp_options'] = LBT2PH.heating_cooling.PHPP_HP_Options.from_dict(v)
+            elif 'hp_ground_' in k:
+                this_room['hp_ground'] = None
+            elif 'boiler' in k:
+                this_room['boiler'] = LBT2PH.heating_cooling.PHPP_Boiler.from_dict(v)
+            elif 'compact' in k:
+                this_room['compact'] = None
+            elif 'district_heat' in k:
+                this_room['district_heat'] = None
+
+        hc_objs[room.display_name] = this_room
+
+    return hc_objs
+
+def get_PER( _model ):
+    per_objs = {}
+
+    for room in _model.rooms:
+        d = room.user_data.get('phpp', {}).get('PER')
+        if not d:
+            continue
+        
+        per_params = d.values()[0]
+        per_params.update( {'room_floor_area':room.floor_area} )
+
+        per_objs.update( {room.display_name:per_params} )
+
+    return per_objs
 
