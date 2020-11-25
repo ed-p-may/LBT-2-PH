@@ -673,6 +673,7 @@ def get_heating_cooling(_model):
             elif 'panel_cooling' in k:
                 this_room['panel_cooling'] =  LBT2PH.heating_cooling.PHPP_Cooling_Panel.from_dict(v)
             elif 'hp_heating' in k:
+                print v
                 this_room['hp_heating'] = LBT2PH.heating_cooling.PHPP_HP_AirSource.from_dict(v)
             elif 'hp_DHW_' in k:
                 this_room['hp_DHW'] = LBT2PH.heating_cooling.PHPP_HP_AirSource.from_dict(v)

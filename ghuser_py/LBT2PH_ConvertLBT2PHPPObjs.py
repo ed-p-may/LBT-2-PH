@@ -21,7 +21,7 @@
 #
 """
 -
-EM November 24, 2020
+EM November 25, 2020
     Args:
         north_: <Optional :float :vector> A number between -360 and 360 for the counterclockwise or a vector pointing 'north'
             difference between the North and the positive Y-axis in degrees.
@@ -51,7 +51,7 @@ EM November 24, 2020
 
 ghenv.Component.Name = "LBT2PH_ConvertLBT2PHPPObjs"
 ghenv.Component.NickName = "LBT-->PHPP"
-ghenv.Component.Message = 'NOV_24_2020'
+ghenv.Component.Message = 'NOV_25_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -128,7 +128,7 @@ if _model:
     settings                         = LBT2PH.to_excel.build_settings( phpp_settings )
     summer_vent                      = LBT2PH.to_excel.build_summ_vent( summer_vent )
     heating_cooling                  = LBT2PH.to_excel.build_heating_cooling( heating_cooling, hb_room_names )
-    per                              = LBT2PH.to_excel.build_PER( per, hb_room_names )
+    per                              = LBT2PH.to_excel.build_PER( per, hb_room_names, ghenv )
     occupancy                        = LBT2PH.to_excel.build_occupancy( occupancy )
     
     #---------------------------------------------------------------------------

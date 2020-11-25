@@ -1457,6 +1457,8 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
         hp_heating = params.get('hp_heating', None)
         if hp_heating:
             hp_count +=1
+            print('here')
+            print [hp_heating]
             hc_equip.append( PHPP_XL_Obj('HP', 'J21', '4-' + hp_heating.name))
             hc_equip.append( PHPP_XL_Obj('HP', 'I635', hp_heating.name)) 
             hc_equip.append( PHPP_XL_Obj('HP', 'I637', hp_heating.source)) 
@@ -1539,7 +1541,7 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
 
     return hc_equip
 
-def build_PER( _per_objs, _hb_room_names ):
+def build_PER( _per_objs, _hb_room_names, _ghenv ):
 
     #---------------------------------------------------------------------------
     #  Need to combine PER together somehow. Use a floor-area weighted average?
@@ -1549,8 +1551,10 @@ def build_PER( _per_objs, _hb_room_names ):
     fa_X_dhw_fac = 0
     primary_heat = '5-Direct electricity'
     secondary_heat = '-'
+    mech_cooling = set()
 
     for k, per_obj in _per_objs.items():
+        
         if k not in _hb_room_names:
             continue
         
@@ -1558,6 +1562,7 @@ def build_PER( _per_objs, _hb_room_names ):
         total_floor_area += room_floor_area
         fa_X_primary_fac += room_floor_area * per_obj.get('primary_heat_frac', 0)
         fa_X_dhw_fac += room_floor_area * per_obj.get('dhw_frac', 0)
+        mech_cooling.add( per_obj.get('mech_cooling', None) )
 
         if per_obj.get('primary_heat'):
             primary_heat = per_obj.get('primary_heat')
@@ -1574,7 +1579,17 @@ def build_PER( _per_objs, _hb_room_names ):
     per_.append( PHPP_XL_Obj('PER', 'P12', secondary_heat)) 
     per_.append( PHPP_XL_Obj('PER', 'S10', primary_fraction))
     per_.append( PHPP_XL_Obj('PER', 'T10', secondary_fraction ))
-
+    
+    #---------------------------------------------------------------------------
+    # Mech Cooling
+    if len(list(mech_cooling)) == 1:
+        mech_cooling = list(mech_cooling)[0]
+        per_.append( PHPP_XL_Obj('Verification', 'N29', mech_cooling )) 
+    else:
+        msg = 'Error: Multiple "Mech Cooling" values found? Check the Heating/Cooling'\
+            'settings? Mech Cooling is either on or off for the whole model.'
+        _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg )
+    
     return per_
 
 def build_occupancy( _occ_obj ):

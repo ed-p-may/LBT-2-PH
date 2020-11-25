@@ -3,12 +3,13 @@ import random
 
 class PHPP_PER(Object):
     def __init__(self, _htPrim='5-Direct electricity', _htSec=None,
-                _ht_frac=1, _dhw_frac=1):
+                _ht_frac=1, _dhw_frac=1, _mechClg=False):
         self.id = random.randint(1000,9999)
         self._primary_heat = _htPrim
         self._secondary_heat = _htSec
         self._primary_heat_frac = _ht_frac
         self._dhw_frac = _dhw_frac
+        self._mech_cooling = _mechClg
 
     @property
     def primary_heat(self):
@@ -78,6 +79,18 @@ class PHPP_PER(Object):
         except ValueError:
             print('DHW-Heat Fraction input should be a number')
 
+    @property
+    def mech_cooling(self):
+        if self._mech_cooling:
+            return 'x'
+        else:
+            return None
+
+    @mech_cooling.setter
+    def mech_cooling(self, _in):
+        if _in:
+            self._mech_cooling = True
+
     def to_dict(self):
         d = {}
 
@@ -85,6 +98,7 @@ class PHPP_PER(Object):
         d.update( {'secondary_heat':self.secondary_heat} )
         d.update( {'primary_heat_frac':self.primary_heat_frac} )
         d.update( {'dhw_frac':self.dhw_frac} )
+        d.update( {'mech_cooling':self.mech_cooling} )    
 
         return d
 
@@ -95,7 +109,8 @@ class PHPP_PER(Object):
         new_obj._secondary_heat = _dict.get('secondary_heat')
         new_obj._primary_heat_frac = _dict.get('primary_heat_frac')
         new_obj._dhw_frac = _dict.get('dhw_frac')
-        
+        new_obj.mech_cooling = _dict.get('mech_cooling') 
+
         return new_obj
 
     def __unicode__(self):
@@ -104,7 +119,7 @@ class PHPP_PER(Object):
         return unicode(self).encode('utf-8')
     def __repr__(self):
        return "{}(  _htPrim={!r}, _htSec={!r}, _ht_frac={!r},"\
-           "_dhw_frac={!r}, _mchClg={!r}".format(
+           "_dhw_frac={!r}, _mechClg={!r}".format(
             self.__class__.__name__,
             self.primary_heat,
             self.secondary_heat,
@@ -508,7 +523,7 @@ class PHPP_HP_AirSource(Object):
         d.update( {'_hcs':self.heating_capacities} ) 
         d.update( {'_cops':self.cops} ) 
         d.update( {'sink_dt':self.sink_dt} ) 
-
+        
         return d
 
     @classmethod
