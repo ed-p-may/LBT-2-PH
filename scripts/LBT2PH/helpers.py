@@ -52,29 +52,29 @@ def add_to_HB_model( _hb_model, _key, _dict, _ghenv, _write='update' ):
 #
 #
 # Remove?
-def add_to_hb_obj_user_data(_hb_obj, key, _val):
-    if _hb_obj.user_data is None:
-        _hb_obj.user_data = {}
+# def add_to_hb_obj_user_data(_hb_obj, key, _val):
+#     if _hb_obj.user_data is None:
+#         _hb_obj.user_data = {}
     
-    if not isinstance(_hb_obj.user_data, dict):
-        raise Exception
+#     if not isinstance(_hb_obj.user_data, dict):
+#         raise Exception
     
-    # Decided to do a deepcopy here, otherwise ref pointer always
-    # goes to the same dict which makes it confusing as things are added/edited.
-    # I dont *think* it would error without the copy? But more predictable with it.
-    new_user_data = deepcopy(_hb_obj.user_data)
-    if new_user_data.has_key('phpp'):
-        if new_user_data['phpp'].has_key(key):
-            new_user_data['phpp'][key].update(_val)
-        else:
-            new_user_data['phpp'][key] = _val
-    else:
-        new_user_data['phpp'] = {}
-        new_user_data['phpp'][key] = _val
+#     # Decided to do a deepcopy here, otherwise ref pointer always
+#     # goes to the same dict which makes it confusing as things are added/edited.
+#     # I dont *think* it would error without the copy? But more predictable with it.
+#     new_user_data = deepcopy(_hb_obj.user_data)
+#     if new_user_data.has_key('phpp'):
+#         if new_user_data['phpp'].has_key(key):
+#             new_user_data['phpp'][key].update(_val)
+#         else:
+#             new_user_data['phpp'][key] = _val
+#     else:
+#         new_user_data['phpp'] = {}
+#         new_user_data['phpp'][key] = _val
     
-    _hb_obj.user_data = new_user_data
+#     _hb_obj.user_data = new_user_data
     
-    return _hb_obj
+#     return _hb_obj
 #
 #
 #

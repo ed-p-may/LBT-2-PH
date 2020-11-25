@@ -671,6 +671,22 @@ class Space:
                self.volumes, self.vent_sched)
 
 
+def get_tfa_surface_data_from_Rhino(_guid):  
+   
+    geom = rs.coercegeometry(_guid)
+    nm = rs.ObjectName(_guid)
+
+    params = {}
+    param_keys = rs.GetUserText(_guid)
+    
+    for k in param_keys:
+        params[k] =rs.GetUserText(_guid, k)
+    
+    if 'Object Name' in params.keys():
+        params['Object Name'] = nm
+
+    return (geom, params)
+
 def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):
     srfc_centroid = Rhino.Geometry.AreaMassProperties.Compute(_tfa_srfc_geom).Centroid
     srfc_centroid = Point3D(srfc_centroid.X, srfc_centroid.Y, srfc_centroid.Z)
@@ -690,20 +706,6 @@ def get_hb_room_floor_surfaces(_room):
             hb_floor_surfaces.append(face)
 
     return hb_floor_surfaces
-
-def get_tfa_surface_data_from_Rhino(_guid):  
-    geom = rs.coercebrep(_guid)
-    nm = rs.ObjectName(_guid)
-    
-    params = {}
-    param_keys = rs.GetUserText(_guid)
-    for k in param_keys:
-        params[k] =rs.GetUserText(_guid, k)
-    
-    if 'Object Name' in params.keys():
-        params['Object Name'] = nm
-
-    return (geom, nm, params)
 
 def find_neighbors(_dict_of_TFA_objs):
     for tfa_a in _dict_of_TFA_objs.values():

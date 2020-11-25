@@ -757,13 +757,11 @@ def hb_schedule_to_data(_schedule_name):
 
         return data
 
-def calc_space_vent_rates(_space, _hb_room, _hb_room_tfa, _hb_room_peak_vent_rate, _type, _ghenv):
+def calc_space_vent_rates(_space, _hb_room, _hb_room_tfa, _hb_room_peak_vent_rate, _ghenv):
     """Determine the Vent flowrate (m3/h) for each PHPP Room based on the EP/HB Values"""
 
     #---------------------------------------------------------------------------
     # Guard
-    if _type != 'EP':
-        return None
     
     if _hb_room.floor_area == 0:
         warning =   "Something wrong with the floor area - are you sure\n"\

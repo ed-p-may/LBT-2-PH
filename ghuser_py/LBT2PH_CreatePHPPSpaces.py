@@ -107,22 +107,36 @@ def schedule_object(schedule):
     return schedule
 
 
-#
-#
-# Make it so you can pass in either Rhino geom (Guid) or GH generated Geometry
-#
-#
 
-# Get the UD Space Geometry
+# Sort out the UD Space Geometry to use
 # ------------------------------------------------------------------------------
 with LBT2PH.helpers.context_rh_doc(ghdoc):
-    space_geom = [rs.coercebrep(guid) for guid in _spaces_geometry]
-    rhino_tfa_objects = [LBT2PH.spaces.get_tfa_surface_data_from_Rhino(guid) for guid in _TFA_surfaces]
+    space_geom = [ rs.coercebrep(guid) for guid in _spaces_geometry]
 
+rhino_tfa_objects = []
+for i, tfa_input in enumerate(_TFA_surfaces):
+    rhino_guid = ghenv.Component.Params.Input[3].VolatileData[0][i].ReferenceID
+    rhino_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( rhino_guid )
+    
+    if rhino_obj:
+        # Input is a Rhino surface
+        with LBT2PH.helpers.context_rh_doc(ghdoc):
+            tfa_obj = LBT2PH.spaces.get_tfa_surface_data_from_Rhino( rhino_guid )
+            rhino_tfa_objects.append( tfa_obj )
+    else:
+        # Input is a Grasshoppper-generated surface
+        geom = rs.coercegeometry( tfa_input )
+        params = {}
+        tfa_obj = ( geom, params )
+        rhino_tfa_objects.append( tfa_obj )
+
+
+# Sort the input TFA surfaces depending on which Honeybee Room they are 'in'
+# ------------------------------------------------------------------------------
 HB_rooms_ = []
 tfa_objs = {}
 if _HB_rooms:
-    for tfa_srfc_geom, tfa_srfc_name, tfa_srfc_params in rhino_tfa_objects:
+    for tfa_srfc_geom, tfa_srfc_params in rhino_tfa_objects:
         # ----------------------------------------------------------------------
         # Find the TFA's host Room/Zone
         host_room = LBT2PH.spaces.find_tfa_host_room(tfa_srfc_geom, _HB_rooms)
@@ -202,8 +216,8 @@ else: flow_type = 'EP'
 
 vent_flows_by_phpp_spaces = {}
 for hb_room in _HB_rooms:
-    # 1) Figure out the Zone's Annual Average Ventilation Flow Rate
-    #    (People + Area) based on HB Program (Load / Schedule)
+    # 1) Figure out the Zone's Nominal (peak) Ventilation Flow Rate
+    #    (People + Area + Zone + ACHs) based on HB Program Loads
     #
     # 2) Set the individual PHPP-Space Flow Rates based on the HB Program, or from Rhino Scene
     #
@@ -219,13 +233,16 @@ for hb_room in _HB_rooms:
     rm_hb_flow_rates = LBT2PH.ventilation.calc_room_vent_rates_from_HB(hb_room, ghenv)
     hb_room_tfa = sum([space.space_tfa for space in phpp_spaces_ if space.host_room_name == hb_room.display_name])
     
-    # Calc the PHPP Space flowrates from the Honeybee Room
+    # Calc the PHPP-Space flowrates from the Honeybee-Room
     #---------------------------------------------------------------------------
     for space in phpp_spaces_:
         if space.host_room_name != hb_room.display_name:
             continue
         
-        space_vent_flow_rates = LBT2PH.ventilation.calc_space_vent_rates(space, hb_room, hb_room_tfa, rm_hb_flow_rates.nominal, flow_type, ghenv)
+        if flow_type == 'EP':
+            continue
+        
+        space_vent_flow_rates = LBT2PH.ventilation.calc_space_vent_rates(space, hb_room, hb_room_tfa, rm_hb_flow_rates.nominal, ghenv)
         if space_vent_flow_rates:
             space.set_phpp_vent_rates( space_vent_flow_rates )
             room_airflow_sup += space_vent_flow_rates.get('V_sup')
@@ -238,7 +255,7 @@ for hb_room in _HB_rooms:
             space.vent_sched = LBT2PH.ventilation.calc_space_vent_schedule(space, hb_room, hb_room_tfa)
     
     
-    # Calc the new Honeybee Room Vent Load and Schedule to match the PHPP
+    # Calc the new Honeybee-Room Vent Load and Schedule to match the PHPP-Space
     #---------------------------------------------------------------------------
     if set_honeybee_loads_:
         room_max_airflow = max(room_airflow_sup, room_airflow_eta, room_airflow_trans)
