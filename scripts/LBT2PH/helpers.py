@@ -20,8 +20,12 @@ def add_to_HB_model( _hb_model, _key, _dict, _ghenv, _write='update' ):
 
     user_data = deepcopy( _hb_model.user_data )
     if not user_data:
-        _hb_model.user_data = {'phpp': { _key: _dict} }
-        return _hb_model
+        if _key == 'phpp':
+            _hb_model.user_data = {'phpp': _dict }
+            return _hb_model
+        else:
+            _hb_model.user_data = {'phpp': { _key: _dict} }
+            return _hb_model
     
     try:
         if _write == 'update':

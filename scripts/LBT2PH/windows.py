@@ -8,6 +8,7 @@ from System import Object
 import LBT2PH.helpers
 import LBT2PH.shading
 from ladybug_rhino.fromgeometry import from_face3d 
+from honeybee.aperture import Aperture
 
 reload( LBT2PH.shading )
 
@@ -430,13 +431,47 @@ class PHPP_Window(Object):
         
         return transformed_surface
 
+    def rh_lib_to_dict(self):
+        
+        a = {}
+        for key, val in self.rh_library.items():
+            b = { }
+            if val:
+                for k, v in val.items():
+                   b.update( {k:v.to_dict()} )
+
+            a.update( {key:b} )
+        
+        return a
+
+    @staticmethod
+    def rh_lib_from_dict(_dict):
+        a = {}
+        for k, v in _dict.items():
+            b = {}
+            if 'GLAZING' in k.upper():
+                for glazing in v.values():
+                    obj = PHPP_Glazing.from_dict( glazing)
+                    b.update( {obj.name:obj} )
+            elif 'FRAME' in k.upper():
+                for frame in v.values():
+                    obj = PHPP_Frame.from_dict( frame )
+                    b.update( {obj.name:obj} )
+            elif 'INSTALL' in k.upper():
+                obj = PHPP_Installs.from_dict( v )
+                b.update( {obj.name:obj} )
+            
+            a.update( {k:b} )
+
+        return a
+
     def to_dict(self):
         d = {}
         d.update( {'quantity':self.quantity} )
         d.update( {'_tolerance':self._tolerance} )
-        d.update( {'aperture':self.aperture} )
+        d.update( {'aperture':self.aperture.to_dict()} )
         d.update( {'params':self.params} )
-        d.update( {'rh_library':self.rh_library} )
+        d.update( {'rh_library':self.rh_lib_to_dict() } )
         d.update( {'_shading_factor_winter':self._shading_factor_winter } )
         d.update( {'_shading_factor_summer':self._shading_factor_summer} )
 
@@ -449,13 +484,13 @@ class PHPP_Window(Object):
     def from_dict(cls, _dict):
         
         new_obj = cls()
-        new_obj.quantity = _dict['quantity']
-        new_obj._tolerance = _dict['_tolerance']
-        new_obj.aperture= _dict['aperture']
-        new_obj.params = _dict['params']
-        new_obj.rh_library =_dict['rh_library']
-        new_obj._shading_factor_winter =_dict['_shading_factor_winter']
-        new_obj._shading_factor_summer =_dict['_shading_factor_summer']
+        new_obj.quantity = _dict.get('quantity')
+        new_obj._tolerance = _dict.get('_tolerance')
+        new_obj.aperture = Aperture.from_dict( _dict.get('aperture') )
+        new_obj.params = _dict.get('params')
+        new_obj.rh_library = cls.rh_lib_from_dict( _dict.get('rh_library') )
+        new_obj._shading_factor_winter =_dict.get('_shading_factor_winter')
+        new_obj._shading_factor_summer =_dict.get('_shading_factor_summer')
         shading_dims = LBT2PH.shading.PHPP_Shading_Dims.from_dict( _dict.get('shading_dimensions') )        
         new_obj.shading_dimensions = shading_dims
         return new_obj
@@ -549,15 +584,28 @@ class PHPP_Frame:
     
     def to_dict(self):
         d = {}
-        d['class'] = self.__class__.__name__
-        d['_nm'] = self.name
-        d['_uValues'] = self._uValues
-        d['_frameWidths'] = self.frameWidths
-        d['_psiGlazings'] = self.PsiGVals
-        d['_psiInstalls'] = self.PsiInstalls
-        d['_chiGlassCarrier'] = self.chiGlassCarrier
+
+        d.update( {'name':self.display_name} )
+        d.update( {'uValues':self.uValues} )
+        d.update( {'frameWidths':self.frameWidths} )
+        d.update( {'PsiGVals':self.PsiGVals} )
+        d.update( {'PsiInstalls':self.PsiInstalls} )
+        d.update( {'chiGlassCarrier':self.chiGlassCarrier} )
         
         return d
+    
+    @classmethod
+    def from_dict(cls, _dict):
+        new_obj = cls()
+
+        new_obj.name = _dict.get('name')
+        new_obj._uValues = _dict.get('uValues')
+        new_obj.frameWidths = _dict.get('frameWidths')
+        new_obj.PsiGVals = _dict.get('PsiGVals')
+        new_obj.PsiInstalls = _dict.get('PsiInstalls')
+        new_obj.chiGlassCarrier = _dict.get('chiGlassCarrier')
+
+        return new_obj
     
     def __unicode__(self):
         return u'A PHPP Style Frame Object: < {self.name} >'.format(self=self)
@@ -612,12 +660,22 @@ class PHPP_Glazing:
 
     def to_dict(self):
         d = {}
-        d['class'] = self.__class__.__name__
-        d['_nm'] = self.display_name
-        d['_gValue'] = self.gValue
-        d['_uValue'] = self.uValue
+
+        d.update( {'name':self.display_name} )
+        d.update( {'gValue':self.gValue} )
+        d.update( {'uValue':self.uValue} )
         
         return d
+
+    @classmethod
+    def from_dict(cls, _dict):
+        new_obj = cls()
+
+        new_obj.name = _dict.get('name')
+        new_obj._gValue = _dict.get('gValue')
+        new_obj._uValue = _dict.get('uValue')
+
+        return new_obj
 
     def __unicode__(self):
         return u'A PHPP Style Glazing Object: < {} >'.format(self.display_name)
@@ -639,6 +697,7 @@ class PHPP_Installs:
             _installs (list): A list of four 'install' types (Left, Right, Bottom, Top)
         """
         self.Installs = _installs
+        self.name = 'Installs_Obj'
         self.setInstalls()
         
     def setInstalls(self):
@@ -662,6 +721,23 @@ class PHPP_Installs:
     def values(self):
         Output = namedtuple('Output', ['Left', 'Right', 'Bottom', 'Top'])
         return Output(self.Inst_L, self.Inst_R, self.Inst_B, self.Inst_T)
+
+    def to_dict(self):
+        d = {}
+
+        d.update( {'Installs':self.Installs} )
+        d.update( {'name':self.name} )
+
+        return d
+
+    @classmethod
+    def from_dict(cls, _dict):
+        new_obj = cls()
+
+        new_obj.Installs = _dict.get('Installs')
+        new_obj.name = _dict.get('name')
+
+        return new_obj
 
     def __unicode__(self):
         return u'A PHPP Style Window Install Object: < L={self.Inst_L} | R={self.Inst_R} | T={self.Inst_T} | B={self.Inst_B} >'.format(self=self)

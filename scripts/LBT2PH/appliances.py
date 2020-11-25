@@ -271,8 +271,12 @@ class ElecEquipAppliance(Object):
 
 
 class PNNL_ResidentialLoads:
-    # Fraction Schedules from PNNL Example IDF Files
-    # https://www.energycodes.gov/development/residential/iecc_models
+    """Loads and Schedules for the Honyebee Room which match the PNNL Example files
+
+    PNNL Sample File Source:
+    https://www.energycodes.gov/development/residential/iecc_models
+    """
+
     schedules = {
         'refrigerator': [0.80,0.78,0.77,0.74,0.73,0.73,0.76,0.80,0.82,0.83,0.80,0.80,0.84,0.84,0.83,0.84,0.89,0.97,1.00,0.97,0.94,0.93,0.89,0.83],
         'dishwasher': [0.12,0.05,0.04,0.03,0.03,0.08,0.15,0.23,0.44,0.49,0.43,0.36,0.31,0.35,0.28,0.27,0.28,0.37,0.66,0.84,0.68,0.50,0.33,0.23],

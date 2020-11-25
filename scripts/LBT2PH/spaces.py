@@ -15,7 +15,7 @@ reload(LBT2PH.ventilation)
 class TFA_Surface(Object):
     ''' Represents an individual TFA Surface floor element '''
     
-    def __init__(self, _surface, _host_room_name, _params, _sub_surfaces=[]):
+    def __init__(self, _surface=None, _host_room_name=None, _params=None, _sub_surfaces=[]):
         self._inset = 0.1
         self._neighbors = None
         self._area_gross = None
@@ -154,6 +154,12 @@ class TFA_Surface(Object):
             print(e)
             print('Error getting {} ventilation flow rate?'.format(_type))
 
+    def set_vent_flow_rate(self, _type, _val):
+        if not self.params:
+            self.params = {}
+        
+        self.params[_type] = float(_val)
+
     def get_surface_param(self, _key, _default=None):
         """ Gets a value from the 'params' dictionary """
         try:
@@ -221,17 +227,17 @@ class TFA_Surface(Object):
     @classmethod
     def from_dict(cls, _dict_tfa, _dict_sub_surfaces):
         
-        surface = None
-        host_room_name = _dict_tfa.get('host_room_name')
-        params = _dict_tfa.get('params')
-        
         sub_surfaces = []
         for sub_surface in _dict_sub_surfaces.values():
             new_sub_surface = cls.from_dict( sub_surface, {} )
             sub_surfaces.append( new_sub_surface )
 
-        new_tfa_obj = cls(surface, host_room_name, params, sub_surfaces)
+        new_tfa_obj = cls()
         new_tfa_obj.id = _dict_tfa.get('id')
+        new_tfa_obj.surface = None
+        new_tfa_obj.host_room_name = _dict_tfa.get('host_room_name')
+        new_tfa_obj.params = _dict_tfa.get('params')
+        new_tfa_obj.sub_surfaces = sub_surfaces
         new_tfa_obj._inset = 0.1
         new_tfa_obj._neighbors = None
         new_tfa_obj._area_gross = _dict_tfa.get('area_gross')
@@ -580,7 +586,7 @@ class Space:
 
     @property
     def dict_key(self):
-        return '{}-{}'.format(self.space_number, self.space_name)
+        return '{}_{}_{}'.format(self.space_number, self.space_name, self.id)
 
     @property
     def space_vn50(self):

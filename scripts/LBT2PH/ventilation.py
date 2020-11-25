@@ -6,6 +6,7 @@ import re
 import random
 import scriptcontext as sc
 from System import Object
+from collections import namedtuple
 
 from honeybee_energy.schedule.ruleset import ScheduleRuleset
 from honeybee_energy.lib.schedules import schedule_by_identifier
@@ -528,7 +529,6 @@ class PHPP_Sys_VentSchedule(Object):
     def __repr__(self):
         return "{}( s_h={!r}, t_h={!r}, s_m={!r}, t_m={!r}, s_l={!r}, t_l={!r})".format(
                 self.__class__.__name__,
-                self.id,
                 self._speed_high,
                 self._time_high,
                 self._speed_med,
@@ -643,59 +643,104 @@ class PHPP_Sys_Ventilation(Object):
                 self.exhaust_vent_objs)
 
 
-def calc_hb_room_annual_vent_flow_rate(_hb_room, _ghenv):
+def calc_room_vent_rates_from_HB(_hb_room, _ghenv):
     ''' Uses the EP Loads and Schedules to calc the HB Room's annual flowrate '''
 
-    #print dir(_hb_room)
-    #print _hb_room.properties.energy.people.occupancy_schedule.display_name
-    #print dir(_hb_room.properties.energy.people)
-    #print _hb_room.properties.energy.ventilation
-    #print dir(_hb_room.properties.energy.ventilation)
-
-    #---------------------------------------------------------------------------
     # Guard
+    #---------------------------------------------------------------------------
     if _hb_room.floor_area == 0:
         warning =   "Something wrong with the floor area - are you sure\n"\
                     "there is at least one 'Floor' surface making up the Room?"
         _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
         return None
 
-    #---------------------------------------------------------------------------
-    # Pull the Ventilation Loads, Occupancy, and Schedule from HB Room
+
+    # Pull the Loads from HB Room
+    # ---------------------------------------------------------------------------
     vent_flow_per_area = _hb_room.properties.energy.ventilation.flow_per_area
     vent_flow_per_person = _hb_room.properties.energy.ventilation.flow_per_person
+    vent_flow_per_zone = _hb_room.properties.energy.ventilation.flow_per_zone
+    vent_flow_ach = _hb_room.properties.energy.ventilation.air_changes_per_hour
     people_per_area = _hb_room.properties.energy.people.people_per_area
+    
+
+    # Pull the Schedules from HB Room
+    #---------------------------------------------------------------------------
+    week_start_day = 'Sunday'
+    holidays = None
+    start_date, end_date, timestep = Date(1, 1), Date(12, 31), 1
+
+    hb_sched_occ = _hb_room.properties.energy.people.occupancy_schedule
+    hb_sched_vent = _hb_room.properties.energy.ventilation.schedule
+
+    if hb_sched_occ:
+        hb_sched_occ = schedule_by_identifier(hb_sched_occ.identifier)
+        
+        if isinstance(hb_sched_occ, ScheduleRuleset):
+            data_occ = hb_sched_occ.data_collection(
+                timestep, start_date, end_date, week_start_day, holidays, leap_year=False)
+    else:
+        data_occ = (1 for i in range(8760))
+
+    if hb_sched_vent:
+        hb_sched_vent = schedule_by_identifier(hb_sched_vent.identifier) 
+
+        if isinstance(hb_sched_vent, ScheduleRuleset):
+            data_vent = hb_sched_vent.data_collection(
+                timestep, start_date, end_date, week_start_day, holidays, leap_year=False)
+    else:
+        data_vent = (1 for i in range(8760))
 
     #---------------------------------------------------------------------------
-    # Calc hourly flow rates (m3/h) based on the HB/EP Schedule values
+    # Nominal (peak) flow rates (m3/h) based on the HB/EP Load values
     # m3/s---> m3/h
-    room_vent_by_area = [vent_flow_per_area * _hb_room.floor_area * 60 * 60] * 8760
     
-    room_vent_by_area_AVG = sum(room_vent_by_area) / len(room_vent_by_area)
-    room_vent_by_people_AVG = people_per_area * _hb_room.floor_area * vent_flow_per_person * 60 * 60
-    room_vent_total_AVG = room_vent_by_area_AVG + room_vent_by_people_AVG
+    nom_vent_flow_per_area = vent_flow_per_area * _hb_room.floor_area * 60.0 * 60.0
+    nom_vent_flow_per_zone = vent_flow_per_zone * 60.0 * 60.0
+    nom_vent_flow_ach = vent_flow_ach * _hb_room.volume
+    nom_vent_flow_per_person = people_per_area * _hb_room.floor_area * vent_flow_per_person * 60.0 * 60.0
+
+    nom_vent_flow_total = nom_vent_flow_per_area + nom_vent_flow_per_person + nom_vent_flow_per_zone + nom_vent_flow_ach
     
     #---------------------------------------------------------------------------
     # Preview results
     print("The HB Room: '{}' has an average annual airflow of: {:.2f} "\
-        "m3/h".format(_hb_room.display_name, room_vent_total_AVG) )
+        "m3/h".format(_hb_room.display_name, nom_vent_flow_total) )
     print(">Looking at the Honeybee Program parameters:" )
     print("   *Note: These are the values BEFORE any occupany / activity schedule"\
         "is applied to reduce this (demand control)" )
-    print("   *Note: These are the values takes into account the airflow for 'areas' and the airflow for people." )
+    print("   *Note: These are the values takes into account the airflow for 'areas', for people, per zone and by ACH." )
     print("   Details:")
     print("      >Reference HB-Room Floor Area used is: {:.2f} m2".format(float(_hb_room.floor_area)) )
-    print("      >[Ventilation Per Pers: {:.6f} m3/s-prs] x [Floor Area: {:.2f} m2] x [{:.2f} ppl/m2] "\
-        "* 3600 s/hr = {:.2f} m3/hr".format(vent_flow_per_person, _hb_room.floor_area,
-        vent_flow_per_person*3600, room_vent_by_people_AVG) )
+    print("      >Reference HB-Room Volume used is: {:.2f} m3".format(float(_hb_room.volume)) )
+    print("      >[Ventilation Per Pers: {:.6f} m3/s-prs] x [Floor Area: {:.2f} m2] x [{:.3f} ppl/m2] "\
+        "x 3600 s/hr = {:.2f} m3/hr".format(vent_flow_per_person, _hb_room.floor_area,
+        people_per_area, nom_vent_flow_per_person) )
     print("      >[Ventilation Per Area: {:.6f} m3/s-m2] x [Floor Area: {:.2f} m2] "\
-        "* 3600 s/hr = {:.2f} m3/hr".format(float(vent_flow_per_area),
-        float(_hb_room.floor_area), float(room_vent_by_area_AVG)) )
-    print("      >[Vent For Area: {:.2f} m3/h] + [Vent For PPL: {:.2f} m3/h] ="\
-        " {:.2f} m3/h".format(room_vent_by_area_AVG, vent_flow_per_person, room_vent_total_AVG) )
-    print('- '*50)
+        "x 3600 s/hr = {:.2f} m3/hr".format(float(vent_flow_per_area),
+        float(_hb_room.floor_area), float(nom_vent_flow_per_area)) )
+    print("      >[Ventilation per Zone: {:.6f} m3/s] x 3600 s/hr = "\
+        "{:.2f} m3/h".format(vent_flow_per_zone, nom_vent_flow_per_zone, ) )
+    print("      >[Ventilation by ACH: {:.2f} ACH] x [Volume: {:.2f} m3]"\
+        " = {:.2f} m3/h ".format(vent_flow_ach, _hb_room.volume, nom_vent_flow_ach) )
+    print("      >[Vent For Area: {:.2f} m3/h] + [Vent For PPL: {:.2f} m3/h]"\
+        " + [Vent For Zone: {:.2f} m3/h] + [Vent For ACH: {:.2f} m3/h]"\
+        " = {:.2f} m3/h".format(nom_vent_flow_per_area, vent_flow_per_person, 
+        nom_vent_flow_per_zone, nom_vent_flow_ach, nom_vent_flow_total) )
+    print('- '*100)
     
-    return room_vent_total_AVG
+
+    # Annual Average flow rates taking schedules into account
+    #---------------------------------------------------------------------------
+    total_nom_vent_flow = nom_vent_flow_per_area + nom_vent_flow_per_zone + nom_vent_flow_ach
+    annual_vent_flow_space = sum( total_nom_vent_flow * val for val in data_vent )/8760
+    annual_vent_flow_ppl = sum( nom_vent_flow_per_person * val for val in data_occ )/8760
+    annual_vent_flow_total = annual_vent_flow_space + annual_vent_flow_ppl
+
+    Output = namedtuple('Output', ['nominal', 'annual_avg'])
+    output = Output( nom_vent_flow_total, annual_vent_flow_total  )
+
+    return output
 
 def hb_schedule_to_data(_schedule_name):
         try:
@@ -712,12 +757,14 @@ def hb_schedule_to_data(_schedule_name):
 
         return data
 
-def calc_space_vent_flow_rates(_space, _hb_room, _hb_room_tfa, _hb_room_avg_vent_rate, _type, _ghenv):
-    if _type != 'EP':
-        return None
+def calc_space_vent_rates(_space, _hb_room, _hb_room_tfa, _hb_room_peak_vent_rate, _type, _ghenv):
+    """Determine the Vent flowrate (m3/h) for each PHPP Room based on the EP/HB Values"""
 
     #---------------------------------------------------------------------------
     # Guard
+    if _type != 'EP':
+        return None
+    
     if _hb_room.floor_area == 0:
         warning =   "Something wrong with the floor area - are you sure\n"\
                     "there is at least one 'Floor' surface making up the Room?"
@@ -732,7 +779,7 @@ def calc_space_vent_flow_rates(_space, _hb_room, _hb_room_tfa, _hb_room_avg_vent
 
     #---------------------------------------------------------------------------
     percent_of_total_zone_TFA = _space.space_tfa / _hb_room_tfa
-    room_air_flow = percent_of_total_zone_TFA * _hb_room_avg_vent_rate
+    room_air_flow = percent_of_total_zone_TFA * _hb_room_peak_vent_rate
     room_air_flow = room_air_flow/2  # Div by 2 cus' half goes to supply, half to extract?
 
     return { 'V_sup': room_air_flow, 'V_eta': room_air_flow, 'V_trans': room_air_flow }

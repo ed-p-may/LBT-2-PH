@@ -22,7 +22,7 @@
 """
 Will create geometry for the window 'reveals' (the sides, top and bottom for windows which are installed in a host surface). These are used to accurately calcualte the window shading factors. Will also generate 'punched' envelope surface geometry to allow for accurate shading assessment.
 -
-EM November 21, 2020
+EM November 25, 2020
     Args:
         _HBZones: (list) The Honeybee Zones for analysis
         moveWindows_: (bool) True = will move the window surfaces based on their 'InstallDepth' parameter. Use this if you want to push the windows 'in' to the host surface for the shading calculations. False = will not move the window surfaces.
@@ -36,7 +36,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateWindowReveals"
 ghenv.Component.NickName = "Create Window Reveals"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_25_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"

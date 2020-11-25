@@ -22,7 +22,7 @@
 """
 Use this component AFTER a Honeybee 'Aperture' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant.
 -
-EM Nov. 21, 2020
+EM Nov. 25, 2020
     Args:
         apertures: <list> The HB Aperture objects from a 'Aperture' component
         frames_: <list> Optional. PHPP Frame Object or Objects
@@ -35,7 +35,7 @@ EM Nov. 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPAperture"
 ghenv.Component.NickName = "PHPP Aperture"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_25_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -110,7 +110,11 @@ gh_inputs = zip(ud_frames, ud_glazings, ud_psi_installs,  ud_installs)
 rh_doc_window_library = LBT2PH.windows.get_rh_doc_window_library(ghdoc)
 
 apertures_ = []
-window_guids = window_rh_Guids()
+window_guids = []
+
+if apertures:
+    window_guids = window_rh_Guids()
+
 for aperture, window_guid, gh_input in zip(apertures, window_guids, gh_inputs):
     # Get the Window data from the scene (name, params, etc)
     # If its a generic dbl pane, that means no GH user-determined input
@@ -146,13 +150,7 @@ for aperture, window_guid, gh_input in zip(apertures, window_guids, gh_inputs):
     # Package up the data onto the 'Aperture' objects' user_data
     new_ap = aperture.duplicate()
     new_ap.properties.energy.construction = window_EP_const
-    user_data = new_ap.user_data
     
-    try:
-        user_data.update( { 'phpp':window_obj.to_dict() } )
-    except AttributeError as e:
-        if new_ap.user_data is None:
-            user_data = { 'phpp':window_obj.to_dict() }
+    new_ap = LBT2PH.helpers.add_to_HB_model( new_ap, 'phpp', window_obj.to_dict(), ghenv, 'overwrite' )
     
-    new_ap.user_data = user_data
     apertures_.append(new_ap)

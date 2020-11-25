@@ -26,7 +26,7 @@ Reference: Shading factors go from 0 (fully shaded) to 1 (fully unshaded) and ar
 Note that this method is much faster, but a bit less accurate than other methods you could use to determine shading factors. Its useful if you just want a quick picture of the shading condition though or if you are trying to match the exact procedure of an older style PHPP document.
 For background and reference on the methodology used, see: "Solar Gains in a Passive House: A Monthly Approach to Calculating Global Irradiaton Entering a Shaded Window" By Andrew Peel, 2007.
 -
-EM November 21, 2020
+EM November 25, 2020
     Args:
         runIt_: (bool) Set to 'True' to run the shading calcuation. May take a few seconds. 
         _latitude: (float) A value for the building's latitude. Use the Ladybug 'ImportEPW' to get this value.
@@ -45,7 +45,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CalcWindowShadingFactors_Simple"
 ghenv.Component.NickName = "Shading Factors | Simple"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_25_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -146,6 +146,7 @@ for room in _HB_rooms:
             # ------------------------------------------------------------------
             # Add the new data back to the aperture
             new_user_data = {'phpp': {} }
+            
             new_user_data['phpp'] = phpp_window.to_dict()
             
             aperture.user_data = new_user_data

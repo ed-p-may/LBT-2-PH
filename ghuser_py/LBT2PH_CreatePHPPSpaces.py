@@ -20,7 +20,9 @@
 # @license GPL-3.0+ <http://spdx.org/licenses/GPL-3.0+>
 #
 """
-EM November 21, 2020
+Note: Be aware that if you plan on setting the Honeybee Ventilation or Occupancy Loads / Schedules using the Honyebee tools, be sure to that BEFORE you use this component. This component will use those loads/schedules to generate the PHPP values. If you apply those Honeybee loads / schedules AFTER this component, those edits will not be taken into account and your PHPP will not match the Honyebee/E+ model.
+-
+EM November 25, 2020
     Args:
         _HB_rooms: The Honeybee Rooms you would like to build the PHPP Spaces for.
         _TFA_surfaces: <list :Surface> The individual space floor surfaces represting each individual 'space' inside the Honeybee Room (zone).
@@ -35,7 +37,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPSpaces"
 ghenv.Component.NickName = "PHPP Spaces"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_25_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -57,18 +59,69 @@ reload(LBT2PH.helpers)
 reload(LBT2PH.spaces)
 reload(LBT2PH.ventilation)
 
+try:
+    from honeybee_energy.load.ventilation import Ventilation
+    from honeybee_energy.lib.schedules import schedule_by_identifier
+    from honeybee_energy.lib.programtypes import program_type_by_identifier
+    from honeybee_energy.programtype import ProgramType
+except ImportError as e:
+    raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
+
+# This is all from Honeybee 'ApplyLoadVals' Component
+#-------------------------------------------------------------------------------
+# get the always on schedule
+always_on = schedule_by_identifier('Always On')
+
+def dup_load(hb_obj, object_name, object_class):
+    """Duplicate a load object assigned to a Room or ProgramType."""
+    # try to get the load object assgined to the Room or ProgramType
+    try:  # assume it's a Room
+        load_obj = hb_obj.properties
+        for attribute in ('energy', object_name):
+            load_obj = getattr(load_obj, attribute)
+    except AttributeError:  # it's a ProgramType
+        load_obj = getattr(hb_obj, object_name)
+
+    load_id = '{}_{}'.format(hb_obj.identifier, object_name)
+    try:  # duplicate the load object
+        dup_load = load_obj.duplicate()
+        dup_load.identifier = load_id
+        return dup_load
+    except AttributeError:  # create a new object
+        try:  # assume it's People, Lighting, Equipment or Infiltration
+            return object_class(load_id, 0, always_on)
+        except:  # it's a Ventilation object
+            return object_class(load_id)
+
+def assign_load(hb_obj, load_obj, object_name):
+    """Assign a load object to a Room or a ProgramType."""
+    try:  # assume it's a Room
+        setattr(hb_obj.properties.energy, object_name, load_obj)
+    except AttributeError:  # it's a ProgramType
+        setattr(hb_obj, object_name, load_obj)
+
+def schedule_object(schedule):
+    """Get a schedule object by its identifier or return it it it's already a schedule."""
+    if isinstance(schedule, str):
+        return schedule_by_identifier(schedule)
+    return schedule
+
+
+#
 #
 # Make it so you can pass in either Rhino geom (Guid) or GH generated Geometry
 #
-# ------------------------------------------------------------------------------
+#
+
 # Get the UD Space Geometry
+# ------------------------------------------------------------------------------
 with LBT2PH.helpers.context_rh_doc(ghdoc):
     space_geom = [rs.coercebrep(guid) for guid in _spaces_geometry]
     rhino_tfa_objects = [LBT2PH.spaces.get_tfa_surface_data_from_Rhino(guid) for guid in _TFA_surfaces]
 
 HB_rooms_ = []
+tfa_objs = {}
 if _HB_rooms:
-    tfa_objs = {}
     for tfa_srfc_geom, tfa_srfc_name, tfa_srfc_params in rhino_tfa_objects:
         # ----------------------------------------------------------------------
         # Find the TFA's host Room/Zone
@@ -86,16 +139,18 @@ if _HB_rooms:
         else: tfa_objs[tfa_dict_key] = d
 
 
-# ------------------------------------------------------------------------------
 # Find all the 'touching' TFA surfaces, organize by 'neighbor' into groups
-for tfa_obj_list in tfa_objs.values():
-    LBT2PH.spaces.find_neighbors( tfa_obj_list )
+# ------------------------------------------------------------------------------
+if tfa_objs:
+    for tfa_obj_list in tfa_objs.values():
+        LBT2PH.spaces.find_neighbors( tfa_obj_list )
 
 tfa_srfcs_grouped_by_neighbor = LBT2PH.spaces.bin_tfa_srfcs_by_neighbor(tfa_objs)
 tfa_srfcs_cleaned = LBT2PH.spaces.join_touching_tfa_groups(tfa_srfcs_grouped_by_neighbor, ghenv)
 
-# ------------------------------------------------------------------------------
+
 # Build the Spaces for each tfa surface
+# ------------------------------------------------------------------------------
 phpp_spaces_dict = {}
 for tfa_srfc in tfa_srfcs_cleaned:
     # See if you can make a closed space Brep
@@ -129,8 +184,8 @@ for tfa_srfc in tfa_srfcs_cleaned:
         phpp_spaces_dict[new_space_vol.dict_key] = [ new_space_vol ]
 
 
-#-------------------------------------------------------------------------------
 # Build the final PHPP-Spaces from all the the Space Volume Objects
+#-------------------------------------------------------------------------------
 phpp_spaces_ = []
 
 for space_volumes in phpp_spaces_dict.values():
@@ -140,67 +195,99 @@ for space_volumes in phpp_spaces_dict.values():
 
 
 
-#-------------------------------------------------------------------------------
 # Set each Space's fresh-air ventilation flow rates
-if 'UD' in str(vent_flowrate_source_).upper(): type = 'UD'
-else: type = 'EP'
+#-------------------------------------------------------------------------------
+if 'UD' in str(vent_flowrate_source_).upper(): flow_type = 'UD'
+else: flow_type = 'EP'
+
+vent_flows_by_phpp_spaces = {}
 for hb_room in _HB_rooms:
-    # 1)  Figure out the Zone's Annual Average Ventilation Flow Rate
-    #     (People + Area) based on HB Program (Load / Schedule)
+    # 1) Figure out the Zone's Annual Average Ventilation Flow Rate
+    #    (People + Area) based on HB Program (Load / Schedule)
     #
     # 2) Set the individual PHPP-Space Flow Rates based on the HB Program, or from Rhino Scene
     #
     # 3) If no UD schedule, Calculate the HB/EP Room Flow rates based on the PHPP-Rooms
+    #
+    # 4) Set the Honeybee Room load / schedule to match the PHPP rates
+    #
     
-    hb_room_avg_vent_rate = LBT2PH.ventilation.calc_hb_room_annual_vent_flow_rate(hb_room, ghenv)
+    room_airflow_sup = 0
+    room_airflow_eta = 0
+    room_airflow_trans = 0
+    
+    rm_hb_flow_rates = LBT2PH.ventilation.calc_room_vent_rates_from_HB(hb_room, ghenv)
     hb_room_tfa = sum([space.space_tfa for space in phpp_spaces_ if space.host_room_name == hb_room.display_name])
     
+    # Calc the PHPP Space flowrates from the Honeybee Room
+    #---------------------------------------------------------------------------
     for space in phpp_spaces_:
-        space_vent_flow_rates = LBT2PH.ventilation.calc_space_vent_flow_rates(space, hb_room, hb_room_tfa, hb_room_avg_vent_rate, type, ghenv)
+        if space.host_room_name != hb_room.display_name:
+            continue
+        
+        space_vent_flow_rates = LBT2PH.ventilation.calc_space_vent_rates(space, hb_room, hb_room_tfa, rm_hb_flow_rates.nominal, flow_type, ghenv)
         if space_vent_flow_rates:
             space.set_phpp_vent_rates( space_vent_flow_rates )
+            room_airflow_sup += space_vent_flow_rates.get('V_sup')
+            room_airflow_eta += space_vent_flow_rates.get('V_eta')
+            room_airflow_trans += space_vent_flow_rates.get('V_trans')
         
         if phpp_vent_schedule_:
             space.vent_sched = phpp_vent_schedule_
         else:
             space.vent_sched = LBT2PH.ventilation.calc_space_vent_schedule(space, hb_room, hb_room_tfa)
+    
+    
+    # Calc the new Honeybee Room Vent Load and Schedule to match the PHPP
+    #---------------------------------------------------------------------------
+    if set_honeybee_loads_:
+        room_max_airflow = max(room_airflow_sup, room_airflow_eta, room_airflow_trans)
+        new_flowrate = ( room_max_airflow / hb_room.floor_area)/3600
+        
+        vent_flows_by_phpp_spaces[hb_room.identifier] = { 'per_area':new_flowrate, 'per_person':0 }
 
 
 
+# Pack the output
 #-------------------------------------------------------------------------------
-# Pack the new space data into the HB Room/Zone object's user_data
 HB_rooms_ = []
 space_breps_ = []
+const_vent_sched = LBT2PH.helpers.create_hb_constant_schedule( 'PHPP_Const_Vent_Sched' )
 for hb_room in _HB_rooms:
-    # Initialize the new param dict
-    user_data = {}
-    user_data['phpp'] = {}
-    user_data['phpp']['vent_system'] = {}
-    user_data['phpp']['spaces'] = {}
-    
-    
-    #---------------------------------------------------------------------------
-    # Build a default ventilation system, apply it to the HB Room
-    # Add the vent system data to the user_data
-    default_ventilation_system = LBT2PH.ventilation.PHPP_Sys_Ventilation(_ghenv=ghenv, _system_id='default')
-    user_data['phpp']['vent_system'] = default_ventilation_system.to_dict()
-    
-    
-    #---------------------------------------------------------------------------
-    # Add the new PHPP Spaces onto the HB Room
-    for phpp_space in phpp_spaces_:
-        if hb_room.display_name == phpp_space.host_room_name:
-            key = '{}_{}'.format(phpp_space.dict_key, phpp_space.id)
-            space = { key : phpp_space.to_dict() }
-            user_data['phpp']['spaces'].update( space )
-        
-        # Grab the brep for preview as well
-        space_breps_.extend(phpp_space.space_breps)
-    
-    
-    #---------------------------------------------------------------------------
-    # Set the user_data dict on the Honeybee Room with all the new param info
     new_hb_room = hb_room.duplicate()
-    new_hb_room.user_data = user_data
+    
+   # Set the PHPP Dict values
+    #---------------------------------------------------------------------------
+    spaces = {}
+    for phpp_space in phpp_spaces_:
+        if new_hb_room.display_name == phpp_space.host_room_name:
+            spaces.update( {phpp_space.dict_key : phpp_space.to_dict()}  )
+            
+            # Grab the brep for preview as well
+            space_breps_.extend(phpp_space.space_breps)
+    
+    new_hb_room = LBT2PH.helpers.add_to_HB_model(new_hb_room, 'spaces', spaces, ghenv)
+    
+    
+    # Set the Honeybee Ventilation load / schedule
+    #---------------------------------------------------------------------------
+    if vent_flows_by_phpp_spaces:
+        vent_per_floor = vent_flows_by_phpp_spaces.get(hb_room.identifier,{}).get('per_area', None)
+        vent_per_person = vent_flows_by_phpp_spaces.get(hb_room.identifier,{}).get('per_person', None)
+        
+        # vent_per_floor_ Load
+        vent = dup_load(new_hb_room, 'ventilation', Ventilation)
+        vent.flow_per_area = vent_per_floor
+        assign_load(new_hb_room, vent, 'ventilation')
+        
+        # vent_per_person_ Load (note: gets zero'd out)
+        vent = dup_load(new_hb_room, 'ventilation', Ventilation)
+        vent.flow_per_person = vent_per_person
+        assign_load(new_hb_room, vent, 'ventilation')
+        
+        ventilation = dup_load(new_hb_room, 'ventilation', 'ventilation_sch_')
+        ventilation.schedule = schedule_object(const_vent_sched)
+        assign_load(new_hb_room, ventilation, 'ventilation')
+    
     
     HB_rooms_.append(new_hb_room)
