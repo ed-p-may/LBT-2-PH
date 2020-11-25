@@ -24,7 +24,7 @@ Read a list of fields from an Excel workbook.
 To configure this module, provide three comma separated lists of the same length for the sheet name, cell name, and the label of the result. Alternatively, use the form entry option.
 -
 Component by Jack Hymowitz, August 29, 2020
-Updated November 21, 2020
+Updated November 24, 2020
     Args:
         excel: A running excel instance
         sheets: A comma separated list of the worksheet to read from for each output.
@@ -37,7 +37,7 @@ Updated November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_XLReadWorkbook"
 ghenv.Component.NickName = "Read XL Workbook"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_24_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "03 | Excel"
@@ -89,6 +89,7 @@ class MyComponent(component):
                 labelList=sc.sticky["displayFields"]
         data=[]
         text=""
+        kvli =[]
         for cell in labelList:
             label=cell[0].strip()
             sheet=cell[1].strip()
@@ -99,6 +100,7 @@ class MyComponent(component):
                     val=str(round(val,3-int(floor(log10(abs(val))))))
                 data.append((label,val))
                 text+=str(label)+": "+str(val)+"\n"
+                kvli.extend( (label, val) )
         return (data,text)
     def RunScript(self, excel, sheets, fields, labels):
         if excel and excel.activeWorkbook and excel.sheetsDict:

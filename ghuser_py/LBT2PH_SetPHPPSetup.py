@@ -22,12 +22,9 @@
 """
 Specify the inputs for 'Verification' and 'Climate' PHPP Worksheet items. Note that for climate, if you do not use this component then the LBT-->PHPP component will try and  automatically locate your building based on the EPW longitude and latitude. If you want to  specify the exact PHPP climate data set to use, you can do that with this component.
 -
-EM November 21, 2020
+EM November 24, 2020
     Args:
         _HB_model: The Honeybee Model
-        num_res_units_: <Optional, Default=1> Number of residential dwelling units in the building. For any non-residential, set to '1'
-        occupancy_: <Optional, :int> Annual average number of people. Only input value here if Non-Residential or in special circumstances. Will automatically calculate default residential occupancy by default.
-        thermalMass_: <Optional, Default=60>  Average Specific Heat Capacity (Wh/k-m2 TFA) of the building. Lightweight=60, Mixed=132, Heavy=204
         
         energyStandard_: <Optional> Input either "1-Passive House", "2-EnerPHit", "3-PHI Low Energy Building" or "4-Other"
         certification_class_: <Optional> Input either "1-Classic", "2-Plus" or "3-Premium"
@@ -40,18 +37,18 @@ EM November 21, 2020
         ighValues_: <Optional> Internal Heat Gains Source. 
 > For Residential, Input either: "2-Standard" or "3-PHPP calculation ('IHG' worksheet)"
 > For Non-Residential, input either: "2-Standard" or "4-PHPP calculation ('IHG non-res' worksheet)"
+        thermalMass_: <Optional, Default=60>  Average Specific Heat Capacity (Wh/k-m2 TFA) of the building. Lightweight=60, Mixed=132, Heavy=204
         
         climateDataSet_: <Optional, Default='DE-9999-PHPP-Standard'> The name of the PHPP climate data set to use. Just type in for now. Maybe a value-list someday...
         altitude_: <Optional, Default='=J23'> Altitude adjustment factor (m) for the climate dataset. Default links to the weather station altidue loaded in the PHPP.
         country_: <Optional, Default = 'US-United States of America	'>
     Returns:
         HB_model_: 
-        
 """
 
 ghenv.Component.Name = "LBT2PH_SetPHPPSetup"
 ghenv.Component.NickName = "PHPP Setup"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_24_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -79,15 +76,8 @@ bldgName = '{} {}'.format(prefix, suffix)
 verification = LBT2PH.phpp_setup.PHPP_Verification()
 verification.BldgName = bldgName
 
-if num_res_units_: verification._num_res_units = num_res_units_ 
 if thermalMass_: verification.SpecCapacity = thermalMass_ 
 if country_: verification.BldgCountry = country_ 
-if buildingType_: verification.BuildingType = buildingType_ 
-if ihgType_: verification.IHG_Type = ihgType_ 
-if ighValues_: verification.IHG_Values = ighValues_
-if occupancy_: verification.occupancy = occupancy_ 
-
-verification.check_non_res(ghenv)
 
 #-------------------------------------------------------------------------------
 # Climate Worksheet

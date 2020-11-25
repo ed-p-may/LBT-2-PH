@@ -22,13 +22,16 @@
 """
 This Component will build out the typical North-American residential appliance set (refrigerator, stove, etc). Note that the default values here will match the PHPP v9.6a and may not be very representative of your specific models / equipment. Refer to your specific equipment for more detailed values to input. Note also that this component will create an appliance set which, by default, is very different than the EnergyPlus values (see the 'PNNL_Resi_Loads' component for detailed E+ values from PNNL sample files.) In many cases, you'll want your PHPP to use the values here for Certification, and then the PNNL values for your EnergyPlus model. You can of course make them both the  same if you want, but usually for Passive House Certification you'll want to use these values here for the PHPP. 
 -
-This will add the appliances to EACH of the Honeybee zones input. If you only want to add the appliances to one zone or another, use the 'BT_filterZonesByName' component to split up the zones before passing in. Use one of these components for each zone (or each 'type' of zone) to add appliances and things like plug-loads (consumer elec). 
+This will add the appliances to the entire model. 
 -
-Note that this component will ONLY modify the PHPP appliance set, not the EnergyPlus appliance set. In order to  apply these appliances to your EnergyPlus model, use the 'Set PHPP Res Loads' component and Honeybee 'Set Zone Loads'  and 'Set Zone Schedules' components.
+Note that by default this component will ONLY modify the PHPP appliance set, not the EnergyPlus appliance set. In order to apply these loads to your Honeybee model as well as the PHPP set the 'set_honeybee_loads_' option to 'True'.
 - 
-EM November 21, 2020
+
+EM November 24, 2020
     Args:
-        _HBZones: The Honeybee Zones
+        _HB_model: The Honeybee Model
+        use_resi_defaults_: (bool) Default=False. Set this to 'True' in order to apply the 'typical' residential appliance package.
+        set_honeybee_loads_: (bool) Default=False. Set this to 'True' in order to apply these load values to the Honybee model in addition to the PHPP model.
         _avg_lighting_efficacy: (Lumens / Watt). Avg. Lamp Efficacy, Default=50. Input of the lighting efficiency averaged over all lamps and their duration of use. The lighting efficiency should be reduced by a factor of 0.5 in case of indirect lighting.
 Examples for lighting efficiency [lm/W]:
 > INCANDESCENT BULB < 25 W: 8 LM/W
@@ -79,7 +82,7 @@ Note: LED strips may have substantially lower efficiencies!
 
 ghenv.Component.Name = "LBT2PH_SetResAppliances"
 ghenv.Component.NickName = "PHPP Res. Appliances"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_24_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -90,66 +93,139 @@ import LBT2PH.appliances
 reload( LBT2PH )
 reload( LBT2PH.appliances )
 
-def create_appliance(use_defaults_, _name, _ud_input, _utilFac, _freq, _type=None):
-    appliance = LBT2PH.appliances.ElecEquipAppliance()
-    appliance.name = _name
-    appliance.utilization_factor = _utilFac
-    appliance.type = _type
-    
-    if _ud_input:
-        appliance.nominal_demand = _ud_input
-    elif use_defaults_:
-        appliance.nominal_demand = appliance.defaults.get( _name )
-    else:
-        return None
-    
-    return appliance
-
 #-------------------------------------------------------------------------------
+# These are copied from the Honeybee 'ApplyLoadVals' component
+try:
+    from honeybee_energy.load.lighting import Lighting
+    from honeybee_energy.load.equipment import ElectricEquipment
+    from honeybee_energy.lib.schedules import schedule_by_identifier
+    from honeybee_energy.lib.programtypes import program_type_by_identifier
+except ImportError as e:
+    raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
+try:
+    from ladybug_rhino.grasshopper import all_required_inputs, longest_list
+except ImportError as e:
+    raise ImportError('\nFailed to import ladybug_rhino:\n\t{}'.format(e))
+
+# get the always on schedule
+always_on = schedule_by_identifier('Always On')
+
+def dup_load(hb_obj, object_name, object_class):
+    """Duplicate a load object assigned to a Room or ProgramType."""
+    # try to get the load object assgined to the Room or ProgramType
+    try:  # assume it's a Room
+        load_obj = hb_obj.properties
+        for attribute in ('energy', object_name):
+            load_obj = getattr(load_obj, attribute)
+    except AttributeError:  # it's a ProgramType
+        load_obj = getattr(hb_obj, object_name)
+
+    load_id = '{}_{}'.format(hb_obj.identifier, object_name)
+    try:  # duplicate the load object
+        dup_load = load_obj.duplicate()
+        dup_load.identifier = load_id
+        return dup_load
+    except AttributeError:  # create a new object
+        try:  # assume it's People, Lighting, Equipment or Infiltration
+            return object_class(load_id, 0, always_on)
+        except:  # it's a Ventilation object
+            return object_class(load_id)
+
+def schedule_object(schedule):
+    """Get a schedule object by its identifier or return it it it's already a schedule."""
+    if isinstance(schedule, str):
+        return schedule_by_identifier(schedule)
+    return schedule
+
+def assign_load(hb_obj, load_obj, object_name):
+    """Assign a load object to a Room or a ProgramType."""
+    try:  # assume it's a Room
+        setattr(hb_obj.properties.energy, object_name, load_obj)
+    except AttributeError:  # it's a ProgramType
+        setattr(hb_obj, object_name, load_obj)
+
+
 # Create Appliances, always include Consumer Electronics
-dw = create_appliance(use_resi_defaults_, 'dishwasher', dishwasher_kWhUse_, 1, 65, dishwasher_type_ )
-cw = create_appliance(use_resi_defaults_, 'clothesWasher', clothesWasher_kWhUse_, 1, 57, clothesWasher_type_ )
-cd = create_appliance(use_resi_defaults_, 'clothesDryer', clothesDryer_kWhUse_, 1, 57, clothesDryer_type_ )
-fr = create_appliance(use_resi_defaults_, 'fridge', refrigerator_kWhDay_, 1, 365 )
-fz = create_appliance(use_resi_defaults_, 'freezer', freezer_kWhDay_, 1, 365 )
-ff = create_appliance(use_resi_defaults_, 'fridgeFreezer', fridgeFreezer_kWhDay_, 1, 365 )
-ck = create_appliance(use_resi_defaults_, 'clothesDryer', cooking_kWhUse_, 1, 500, cooking_Fuel_ )
-ca = create_appliance(use_resi_defaults_, 'consumerElec', consumer_elec_, 1, 0.55)
-
-appliances_list = []
-appliances_list.append( dw )
-appliances_list.append( cw )
-appliances_list.append( cd )
-appliances_list.append( fr )
-appliances_list.append( fz )
-appliances_list.append( ff )
-appliances_list.append( ck )
-appliances_list.append( ca )
-
 #-------------------------------------------------------------------------------
-# Clean up, add some additional info
-hb_room_ids = [room.display_name for room in _HB_rooms]
-appliances_list = list(filter(None, appliances_list)) 
-appliances_obj = LBT2PH.appliances.Appliances( appliances_list, hb_room_ids )
-if _avg_lighting_efficacy:
-    appliances_obj.lighting_efficacy = _avg_lighting_efficacy
+dw = LBT2PH.appliances.ElecEquipAppliance.from_ud(use_resi_defaults_, 'dishwasher', dishwasher_kWhUse_, _type=dishwasher_type_ )
+cw = LBT2PH.appliances.ElecEquipAppliance.from_ud(use_resi_defaults_, 'clothesWasher', clothesWasher_kWhUse_, _type=clothesWasher_type_ )
+cd = LBT2PH.appliances.ElecEquipAppliance.from_ud(use_resi_defaults_, 'clothesDryer', clothesDryer_kWhUse_, _type=clothesDryer_type_ )
+fr = LBT2PH.appliances.ElecEquipAppliance.from_ud(use_resi_defaults_, 'fridge', refrigerator_kWhDay_ )
+fz = LBT2PH.appliances.ElecEquipAppliance.from_ud(use_resi_defaults_, 'freezer', freezer_kWhDay_ )
+ff = LBT2PH.appliances.ElecEquipAppliance.from_ud(use_resi_defaults_, 'fridgeFreezer', fridgeFreezer_kWhDay_ )
+ck = LBT2PH.appliances.ElecEquipAppliance.from_ud(use_resi_defaults_, 'cooking', cooking_kWhUse_, _type=cooking_Fuel_ )
+ca = LBT2PH.appliances.ElecEquipAppliance.from_ud(True, 'consumerElec', consumer_elec_)
 
-#-------------------------------------------------------------------------------
-# Add appliances onto HB Rooms
-HB_rooms_ = []
-for hb_room in _HB_rooms:
-    #---------------------------------------------------------------------------
-    # Add HB-room TFA to the appliance
-    appliances_obj.host_room_tfa = sum(value.get('_tfa') for value in hb_room.user_data.get('phpp', {}).get('spaces', {}).values())
-    
-    new_hb_room = hb_room.duplicate()
-    
+appliances_list = [dw, cw, cd, fr, fz, ff, ck, ca]
+
+for each in other_[0:2]:
     try:
-        user_data = new_hb_room.user_data['phpp'].copy()
-    except:
-        user_data = { }
+        name, demand = each.split(',')
+    except ValueError:
+        name, demand = 'Unnamed', each
+    app = LBT2PH.appliances.ElecEquipAppliance.from_ud(use_resi_defaults_, 'other_kWhYear_', demand)
+    app.name = name
     
-    user_data.update( {'appliances':appliances_obj.to_dict() } )
-    new_hb_room.user_data = {'phpp': user_data}
+    appliances_list.append( app )
+
+
+# Add to the PHPP User_Data Dict
+#-------------------------------------------------------------------------------
+HB_model_ = []
+if _HB_model:
+    # Clean up, add some additional info to the Appliance Set
+    #---------------------------------------------------------------------------
+    hb_room_ids = [ room.display_name for room in _HB_model.rooms ]
+    appliances_list = list(filter(None, appliances_list)) 
+    appliance_list_obj = LBT2PH.appliances.ApplianceSet( appliances_list, hb_room_ids )
+    if _avg_lighting_efficacy: appliance_list_obj.lighting_efficacy = _avg_lighting_efficacy
     
-    HB_rooms_.append( new_hb_room )
+    
+    # Add Appliance List onto HB Model PHPP User_Data Dict
+    #---------------------------------------------------------------------------
+    HB_model_ = _HB_model.duplicate()
+    LBT2PH.helpers.add_to_HB_model(HB_model_, 'appliances', appliance_list_obj.to_dict(), ghenv  )
+
+
+# Add to the Honeybee Rooms
+#-------------------------------------------------------------------------------
+if HB_model_ and set_honeybee_loads_:
+    new_model = HB_model_.duplicate()
+    lighting_schd_ = LBT2PH.helpers.create_hb_constant_schedule('phpp_lighting_sched_constant')
+    epuipment_schd = LBT2PH.helpers.create_hb_constant_schedule('phpp_elec_equip_sched_constant')
+    
+    
+    # Calc the Load values for the Honeybee Model Room
+    #---------------------------------------------------------------------------
+    occupancy_obj = LBT2PH.helpers.get_model_occupancy(new_model, ghenv)
+    occupancy = occupancy_obj.occupancy
+    num_units = occupancy_obj.num_units
+    
+    lighting_per_area = appliance_list_obj.hb_lighting_per_m2(occupancy, new_model.floor_area)
+    equipment_per_area = appliance_list_obj.hb_elec_equip_per_m2(occupancy, num_units, new_model.floor_area)
+    
+    
+    # Assign Loads and Schedules
+    #---------------------------------------------------------------------------
+    for obj in new_model.rooms:
+        lighting = dup_load(obj, 'lighting', Lighting)
+        lighting.watts_per_area = lighting_per_area
+        assign_load(obj, lighting, 'lighting')
+    
+    for obj in new_model.rooms:
+        equip = dup_load(obj, 'electric_equipment', ElectricEquipment)
+        equip.watts_per_area = equipment_per_area
+        assign_load(obj, equip, 'electric_equipment')
+    
+    for obj in new_model.rooms:
+        lighting = dup_load(obj, 'lighting', 'lighting_sch_')
+        lighting.schedule = schedule_object(lighting_schd_)
+        assign_load(obj, lighting, 'lighting')
+    
+    for obj in new_model.rooms:
+        equip = dup_load(obj, 'electric_equipment', 'electric_equip_sch_')
+        equip.schedule = schedule_object(epuipment_schd)
+        assign_load(obj, equip, 'electric_equipment')
+    
+    
+    HB_model_ = new_model

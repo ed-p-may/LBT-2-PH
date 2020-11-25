@@ -17,6 +17,7 @@ import LBT2PH.appliances
 import LBT2PH.climate
 import LBT2PH.summer_vent
 import LBT2PH.heating_cooling
+import LBT2PH.occupancy
 
 reload(LBT2PH.materials)
 reload(LBT2PH.assemblies)
@@ -28,6 +29,7 @@ reload(LBT2PH.appliances)
 reload(LBT2PH.climate)
 reload(LBT2PH.summer_vent)
 reload(LBT2PH.heating_cooling)
+reload(LBT2PH.occupancy)
 
 try:  # import the core honeybee dependencies
     from honeybee.model import Model
@@ -491,14 +493,14 @@ def get_dhw_systems(_model):
 
 def get_appliances(_model):
     appliance_objs = []
-    for room in _model.rooms:
-        try:
-            appliances_dict = room.user_data.get('phpp').get('appliances')
-            new_obj = LBT2PH.appliances.Appliances.from_dict( appliances_dict )
-            appliance_objs.append(new_obj)
-        except AttributeError as e:
-            print(e)
-            print('No Appliance information found on the HB Room: {}'.format(room.display_name) )
+    try:
+        appliances_set_dict = _model.user_data.get('phpp', {}).get('appliances')
+        appliances_set = LBT2PH.appliances.Appliances.from_dict( appliances_set_dict )
+        for app_obj in appliances_set:
+            appliance_objs.append(app_obj)
+    except AttributeError as e:
+        print(e)
+        print('No Appliance information found on the HB Model: {}'.format(_model.display_name) )
 
     return appliance_objs
 
@@ -703,4 +705,13 @@ def get_PER( _model ):
         per_objs.update( {room.display_name:per_params} )
 
     return per_objs
+
+def get_occupancy( _model ):
+
+    d = _model.user_data.get('phpp', {}).get('occupancy', None)
+    if not d:
+        return []
+        
+    return LBT2PH.occupancy.Occupancy.from_dict( d ) 
+
 

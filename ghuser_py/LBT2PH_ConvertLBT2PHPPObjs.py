@@ -21,7 +21,7 @@
 #
 """
 -
-EM Nov. 21, 2020
+EM November 24, 2020
     Args:
         north_: <Optional :float :vector> A number between -360 and 360 for the counterclockwise or a vector pointing 'north'
             difference between the North and the positive Y-axis in degrees.
@@ -51,7 +51,7 @@ EM Nov. 21, 2020
 
 ghenv.Component.Name = "LBT2PH_ConvertLBT2PHPPObjs"
 ghenv.Component.NickName = "LBT-->PHPP"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_24_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -98,6 +98,7 @@ if _model:
     summer_vent             = LBT2PH.lbt_to_phpp.get_summ_vent( _model )
     heating_cooling         = LBT2PH.lbt_to_phpp.get_heating_cooling( _model )
     per                     = LBT2PH.lbt_to_phpp.get_PER( _model )
+    occupancy               = LBT2PH.lbt_to_phpp.get_occupancy( _model )
     
     #---------------------------------------------------------------------------
     # Sort out the inputs
@@ -128,21 +129,22 @@ if _model:
     summer_vent                      = LBT2PH.to_excel.build_summ_vent( summer_vent )
     heating_cooling                  = LBT2PH.to_excel.build_heating_cooling( heating_cooling, hb_room_names )
     per                              = LBT2PH.to_excel.build_PER( per, hb_room_names )
+    occupancy                        = LBT2PH.to_excel.build_occupancy( occupancy )
     
     #---------------------------------------------------------------------------
     # Add all the Excel-Ready Objects to a master Tree for outputting / passing
     excel_objects_.AddRange(uValuesList, GH_Path(0))
-    excel_objects_.AddRange(winComponentsList, GH_Path(1)) 
+    excel_objects_.AddRange(winComponentsList, GH_Path(1))
     excel_objects_.AddRange(areasList, GH_Path(2))
     excel_objects_.AddRange(winSurfacesList, GH_Path(3))
     excel_objects_.AddRange(shadingList, GH_Path(4))
     excel_objects_.AddRange(tfa, GH_Path(5))
     excel_objects_.AddRange(tb_List, GH_Path(6))
     excel_objects_.AddRange(addnlVentRooms, GH_Path(7))
-    excel_objects_.AddRange(vent, GH_Path(8))  
-    excel_objects_.AddRange(airtightness, GH_Path(9))  
-    excel_objects_.AddRange(ground, GH_Path(10)) 
-    excel_objects_.AddRange(dhw, GH_Path(11)) 
+    excel_objects_.AddRange(vent, GH_Path(8))
+    excel_objects_.AddRange(airtightness, GH_Path(9))
+    excel_objects_.AddRange(ground, GH_Path(10))
+    excel_objects_.AddRange(dhw, GH_Path(11))
     excel_objects_.AddRange(nonRes_Elec, GH_Path(12))
     excel_objects_.AddRange(location, GH_Path(13))
     excel_objects_.AddRange(elec_equip_appliance, GH_Path(14))
@@ -152,6 +154,7 @@ if _model:
     excel_objects_.AddRange(summer_vent, GH_Path(18))
     excel_objects_.AddRange(heating_cooling, GH_Path(19))
     excel_objects_.AddRange(per, GH_Path(20))
+    excel_objects_.AddRange(occupancy, GH_Path(21))
     
     #---------------------------------------------------------------------------
     # Give Warnings

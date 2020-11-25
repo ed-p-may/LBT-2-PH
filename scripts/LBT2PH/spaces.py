@@ -616,6 +616,7 @@ class Space:
             vol.set_phpp_vent_rates( _dict )
 
     def to_dict(self):
+
         d = {}
         d.update( {'id': self.id} )
         d.update( {'_tfa':self.space_tfa} )

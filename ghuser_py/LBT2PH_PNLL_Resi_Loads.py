@@ -20,12 +20,13 @@
 # @license GPL-3.0+ <http://spdx.org/licenses/GPL-3.0+>
 #
 """
-This component stores a library of values (Loads and Schedules) which match the typical Single Family (SF) residential loads found in the PNNL sample IDF files provided by the U.S. Dept of Energy. These sample files can be found online at https://www.energycodes.gov/development/residential/iecc_models all values here are from the 2018 IECC, Zone 4a IDF Sampe file.
+This component applies a library of values (Loads and Schedules) which match the typical Single Family (SF) residential loads found in the PNNL sample IDF files provided by the U.S. Dept of Energy. This includes the Lighting Load/Schedule, Occupancy Load/Schedule and Electric-Equipment Load/Schedule. These sample files can be found online at https://www.energycodes.gov/development/residential/iecc_models all values here are from the 2018 IECC, Zone 4a IDF Sample file.
+Using this component will ONLY set the Honeybee EnergyPlus Room loads and schedules. In order to set the PHPP appliance values, use the 'PHPP Res. Appliances' on the Honeybee Model (not on the individual rooms).
 -
-EM November 21, 2020
+EM November 25, 2020
 
     Args:
-        _HBZones: Honeybee Zones to apply this leakage rate to. Note, this should be the set of all the zones which were tested together as part of a Blower Door test. IE: if the blower door test included Zones A, B, and C then all three zones should be passed in here together. Use 'Merge' to combine zones if need be.
+        _HB_rooms: The Honeybee Rooms to apply these values to
         refrigerator_: (W) Default = 91.058
         dishwasher_: (W) Default = 65.699
         clothesWasher_: (W) Default = 28.478 
@@ -35,93 +36,194 @@ EM November 21, 2020
         plugLoads_: (W) Default = 1.544 
     Returns:
         _HBZones:
-        PNNL_ElecEquip_Load_: (W/m2) Connect this the 'equipmentLoadPerArea_' input on a Honeybee 'setEPZoneLoads' Component
-        PNNL_Lighting_Load_: (W//m2) Connect this the 'lightingDensityPerArea_' input on a Honeybee 'setEPZoneLoads' Component
-        PNNL_Occup_Load_: (PPL/m2) Connect this the 'numOfPeoplePerArea_' input on a Honeybee 'setEPZoneLoads' Component
-        PNNL_SF_Occup_Sched_: (Fractional) Hourly values (24). Connect these to the inputs on a new Honeybee 'AnnualSchedule' Component. Set the '_schedTypeLimits' to 'Fraction'. Connect this new schedule to the 'occupancySchedules_' input on a Honeybee 'setEPZoneSchedules' Component.
-        PNNL_SF_Lighting_Sched_: (Fractional) Hourly values (24). Connect these to the inputs on a new Honeybee 'AnnualSchedule' Component. Set the '_schedTypeLimits' to 'Fraction'. Connect this new schedule to the 'lightingSchedules_' input on a Honeybee 'setEPZoneSchedules' Component.
-        PNNL_ElecEquip_Sched_: (Fractional) Hourly values (24). Connect these to the inputs on a new Honeybee 'AnnualSchedule' Component. Set the '_schedTypeLimits' to 'Fraction'. Connect this new schedule to the 'equipmentSchedules_' input on a Honeybee 'setEPZoneSchedules' Component.
+        PNNL_ElecEquip_Load_: (W/m2) ElectricEquipment Load which was applied to the Honeybee Rooms input.
+        PNNL_Lighting_Load_: (W//m2) Lighting Load which was applied to the Honeybee Rooms input.
+        PNNL_Occup_Load_: (PPL/m2) Lighting Load which was applied to the Honeybee Rooms input.
+        PNNL_SF_Occup_Sched_: (Fractional) Hourly values (24). Occupancy Schedule which was applied to the Honeybee Rooms input.
+        PNNL_SF_Lighting_Sched_: (Fractional) Hourly values (24). Lighting Schedule which was applied to the Honeybee Rooms input.
+        PNNL_ElecEquip_Sched_: (Fractional) Hourly values (24). ElectricEquipment Schedule which was applied to the Honeybee Rooms input.
 """
 
 ghenv.Component.Name = "LBT2PH_PNLL_Resi_Loads"
 ghenv.Component.NickName = "PNLL Resi Loads & Schedules"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_25_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
-import scriptcontext as sc
+import LBT2PH
+import LBT2PH.appliances
 
-def calcElecEquip():
-    # ------------------------------------------------------------------------------
-    # Get the HB Zone Floor Area values
-    totalSF = 0
-    for zone in HBZoneObjects:
-        for srfc in zone.surfaces:
-            if srfc.type in [2, 2.25, 2.5, 2.75]:
-                totalSF+=srfc.getTotalArea()
-    
-    # ------------------------------------------------------------------------------
-    # Electric Equipment Load
-    load_ref, load_dw, load_cw, load_cd, load_r, load_mel, load_pl = elec_equip_defalts()
-    
-    wattHr_ref = [load_ref * hour for hour in sched_ref]
-    wattHr_dw = [load_dw * hour for hour in sched_dw]
-    wattHr_clWsh = [load_cw * hour for hour in sched_washer]
-    wattHr_dryer = [load_cd * hour for hour in sched_dryer]
-    wattHr_stove = [load_r * hour for hour in sched_stove]
-    wattHr_mel = [load_mel * hour * totalSF for hour in sched_mels]
-    wattHr_pl = [load_pl * hour * totalSF for hour in sched_plugLoads]
-    
-    hourlyTotalW = []
-    for i in range(24):
-        hourlyTotalW.append(wattHr_ref[i] + wattHr_dw[i] + wattHr_clWsh[i] + wattHr_dryer[i] + wattHr_stove[i] + wattHr_mel[i] + wattHr_pl[i])
-    
-    peakHourlyW = max( hourlyTotalW )
-    PNNL_ElecEquip_Load = peakHourlyW / totalSF
-    PNNL_ElecEquip_Sched = [hourlyWattage / peakHourlyW for hourlyWattage in hourlyTotalW]
-    
-    return PNNL_ElecEquip_Load, PNNL_ElecEquip_Sched
+reload( LBT2PH )
+reload( LBT2PH.appliances )
 
-def elec_equip_defalts():
-    # Default Values taken from PNNL Sample SF Residential IDF file
-    # https://www.energycodes.gov/development/residential/iecc_models
-    
-    ref = refrigerator_ if refrigerator_ else 91.058
-    dw = dishwasher_ if dishwasher_ else 65.699
-    cwash = clothesWasher_ if clothesWasher_ else 28.478
-    cdry = clothesDryer_ if clothesDryer_ else 213.065
-    cooktop = range_ if range_ else 248.154
-    mel = mel_ if mel_ else 1.713
-    pl = plugLoads_ if plugLoads_ else 1.544
-    return ref, dw, cwash, cdry, cooktop, mel, pl
+#-------------------------------------------------------------------------------
+# These are copied from the Honeybee 'ApplyLoadVals' component
+try:
+    from honeybee.room import Room
+except ImportError as e:
+    raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
+try:
+    from honeybee_energy.load.people import People
+    from honeybee_energy.load.lighting import Lighting
+    from honeybee_energy.load.equipment import ElectricEquipment
+    from honeybee_energy.lib.schedules import schedule_by_identifier
+    from honeybee_energy.lib.programtypes import program_type_by_identifier
+    from honeybee_energy.schedule.ruleset import ScheduleRuleset
+    from honeybee_energy.lib.scheduletypelimits import schedule_type_limit_by_identifier
+except ImportError as e:
+    raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
+try:
+    from ladybug_rhino.grasshopper import all_required_inputs, longest_list
+except ImportError as e:
+    raise ImportError('\nFailed to import ladybug_rhino:\n\t{}'.format(e))
+
+# get the always on schedule
+always_on = schedule_by_identifier('Always On')
+
+def dup_load(hb_obj, object_name, object_class):
+    """Duplicate a load object assigned to a Room or ProgramType."""
+    # try to get the load object assgined to the Room or ProgramType
+    try:  # assume it's a Room
+        load_obj = hb_obj.properties
+        for attribute in ('energy', object_name):
+            load_obj = getattr(load_obj, attribute)
+    except AttributeError:  # it's a ProgramType
+        load_obj = getattr(hb_obj, object_name)
+
+    load_id = '{}_{}'.format(hb_obj.identifier, object_name)
+    try:  # duplicate the load object
+        dup_load = load_obj.duplicate()
+        dup_load.identifier = load_id
+        return dup_load
+    except AttributeError:  # create a new object
+        try:  # assume it's People, Lighting, Equipment or Infiltration
+            return object_class(load_id, 0, always_on)
+        except:  # it's a Ventilation object
+            return object_class(load_id)
+
+def schedule_object(schedule):
+    """Get a schedule object by its identifier or return it it it's already a schedule."""
+    if isinstance(schedule, str):
+        return schedule_by_identifier(schedule)
+    return schedule
+
+def assign_load(hb_obj, load_obj, object_name):
+    """Assign a load object to a Room or a ProgramType."""
+    try:  # assume it's a Room
+        setattr(hb_obj.properties.energy, object_name, load_obj)
+    except AttributeError:  # it's a ProgramType
+        setattr(hb_obj, object_name, load_obj)
+
+def build_weekly_hb_schedule(_rm_name, _type, _input_list ):
+    
+    name = '{}_{}'.format(_rm_name, _type)
+    
+    sun = _input_list
+    mon = _input_list
+    tue = _input_list
+    wed = _input_list
+    thu = _input_list
+    fri = _input_list
+    sat = _input_list
+    hol = _input_list
+    
+    type_limit = schedule_type_limit_by_identifier('Fractional')
+     
+    schedule = ScheduleRuleset.from_week_daily_values(
+        name, sun, mon, tue, wed, thu, fri, sat,
+        hol, timestep=1, schedule_type_limit=type_limit,
+        summer_designday_values=None, winter_designday_values=None )
+    
+    return schedule
+
+
+# Sort out what loads to us (defaults or User-Determined) for ElecEquip
 # ------------------------------------------------------------------------------
-# Fraction Schedules from PNNL Example IDF Files
-# https://www.energycodes.gov/development/residential/iecc_models
-sched_ref = [0.80,0.78,0.77,0.74,0.73,0.73,0.76,0.80,0.82,0.83,0.80,0.80,0.84,0.84,0.83,0.84,0.89,0.97,1.00,0.97,0.94,0.93,0.89,0.83]
-sched_dw = [0.12,0.05,0.04,0.03,0.03,0.08,0.15,0.23,0.44,0.49,0.43,0.36,0.31,0.35,0.28,0.27,0.28,0.37,0.66,0.84,0.68,0.50,0.33,0.23]
-sched_washer = [0.08,0.06,0.03,0.03,0.06,0.10,0.19,0.41,0.62,0.73,0.72,0.64,0.57,0.51,0.45,0.41,0.43,0.41,0.41,0.41,0.41,0.40,0.27,0.14]
-sched_dryer = [0.10,0.06,0.04,0.02,0.04,0.06,0.16,0.32,0.49,0.69,0.79,0.82,0.75,0.68,0.61,0.58,0.56,0.55,0.52,0.51,0.53,0.55,0.44,0.24]
-sched_stove = [0.05,0.05,0.02,0.02,0.05,0.07,0.17,0.28,0.31,0.32,0.28,0.33,0.38,0.31,0.29,0.38,0.61,1.00,0.78,0.40,0.24,0.17,0.10,0.07]
-sched_mels = [0.61,0.56,0.55,0.55,0.52,0.59,0.68,0.72,0.61,0.52,0.53,0.53,0.52,0.54,0.57,0.60,0.71,0.86,0.94,0.97,1.00,0.98,0.85,0.73]
-sched_plugLoads = [0.61,0.56,0.55,0.55,0.52,0.59,0.68,0.72,0.61,0.52,0.53,0.53,0.52,0.54,0.57,0.60,0.71,0.86,0.94,0.97,1.00,0.98,0.85,0.73]
-PNNL_SF_Occup_Sched_=[1.00000,1.00000,1.00000,1.00000,1.00000,1.00000,1.00000,0.88310,0.40861,0.24189,0.24189,0.24189,0.24189,0.24189,0.24189,0.2418,0.29498,0.55310,0.89693,0.89693,0.89693,1.00000,1.00000,1.00000]
-PNNL_SF_Lighting_Sched_ =[0.06875,0.06875,0.0687,0.06875,0.20625,0.4296875,0.48125,0.4296875,0.1890625,0.12890625,0.12890625,0.12890625,0.12890625,0.12890625,0.12890625,0.2234375,0.48125,0.6703125,0.90234375,1,1,0.75625,0.42109375,0.171875]
+pnnl_resi = LBT2PH.appliances.PNNL_ResidentialLoads()
 
-# ------------------------------------------------------------------------------
-# Lighting Load
-# 1.15 W/m2 (Hardwired)  + 0.48 W/m2 (Plugin) = 1.63 W/,2
-PNNL_Lighting_Load_ = 1.15 + 0.48
+pnnl_resi.set_load( 'refrigerator', refrigerator_ )
+pnnl_resi.set_load( 'dishwasher', dishwasher_)
+pnnl_resi.set_load( 'clotheswasher', clothesWasher_)
+pnnl_resi.set_load( 'clothesdryer', clothesDryer_)
+pnnl_resi.set_load( 'stove', range_)
+pnnl_resi.set_load( 'mel', mel_)
+pnnl_resi.set_load( 'plugloads', plugLoads_)
+pnnl_resi.set_load( 'lighting', lighting_)
 
-# ------------------------------------------------------------------------------
-# Occupancy (People / m2)
-PNNL_Occup_Load_ = 0.0091 
 
+# Apply new loads and schedules to each Honeybee Room
 # ------------------------------------------------------------------------------
-# Electric Equipment
-if _HBZones:
-    hb_hive = sc.sticky["honeybee_Hive"]()
-    HBZoneObjects = hb_hive.callFromHoneybeeHive(_HBZones)
-    PNNL_ElecEquip_Load_, PNNL_ElecEquip_Sched_ = calcElecEquip()
-    HBZones_ = _HBZones
+
+HB_rooms_ = []
+for hb_room in _HB_rooms:
+    # Duplicate the initial Honeybee Room object
+    #---------------------------------------------------------------------------
+    if isinstance(hb_room, (Room)):
+        new_room = hb_room.duplicate()
+    elif isinstance(hb_room, str):
+        program = program_type_by_identifier(hb_room)
+        new_room = program.duplicate()
+    else:
+        raise TypeError('Expected Honeybee Room or ProgramType. '
+                        'Got {}.'.format(type(hb_room)))
+    
+    
+    # Create the Honeybee-Room Loads
+    #---------------------------------------------------------------------------
+    PNNL_ElecEquip_Load_  = pnnl_resi.calc_elec_equip_load(hb_room.floor_area)
+    PNNL_Lighting_Load_ = pnnl_resi.load('lighting')
+    PNNL_Occup_Load_ = pnnl_resi.load('occupancy')
+    
+    
+    # Create the Honeybee-Room schedules
+    #---------------------------------------------------------------------------
+    sched_vals_occupancy = pnnl_resi.schedule('occupancy')
+    sched_vals_lighting = pnnl_resi.schedule('lighting')
+    sched_vals_elec_equip = pnnl_resi.calc_elec_equip_sched(hb_room.floor_area)
+    
+    PNNL_SF_Occup_Sched_ = build_weekly_hb_schedule(hb_room.display_name, 'Occupancy', sched_vals_occupancy)
+    PNNL_SF_Lighting_Sched_ = build_weekly_hb_schedule(hb_room.display_name, 'Lighting', sched_vals_occupancy)
+    PNNL_ElecEquip_Sched_ = build_weekly_hb_schedule(hb_room.display_name, 'ElecEquip', sched_vals_occupancy)
+    
+    
+    # Apply the new Loads / Schedules to the Honeybee Rooms
+    #---------------------------------------------------------------------------
+    
+    # Loads
+    #---------------------------------------------------------------------------
+    # assign the people_per_floor_
+    people = dup_load(new_room, 'people', People)
+    people.people_per_area = PNNL_Occup_Load_
+    assign_load(new_room, people, 'people')
+    
+    # assign the lighting_per_floor_
+    lighting = dup_load(new_room, 'lighting', Lighting)
+    lighting.watts_per_area = PNNL_Lighting_Load_
+    assign_load(new_room, lighting, 'lighting')
+    
+    # assign the electric_per_floor_
+    equip = dup_load(new_room, 'electric_equipment', ElectricEquipment)
+    equip.watts_per_area = PNNL_ElecEquip_Load_
+    assign_load(new_room, equip, 'electric_equipment')
+    
+    # Schedules
+    #---------------------------------------------------------------------------
+    # assign the occupancy schedule
+    people = dup_load(new_room, 'people', 'occupancy_sch_')
+    people.occupancy_schedule = schedule_object(PNNL_SF_Occup_Sched_)
+    assign_load(new_room, people, 'people')
+    
+    # assign the lighting schedule
+    lighting = dup_load(new_room, 'lighting', 'lighting_sch_')
+    lighting.schedule = schedule_object(PNNL_SF_Lighting_Sched_)
+    assign_load(new_room, lighting, 'lighting')
+    
+    # assign the electric equipment schedule
+    equip = dup_load(new_room, 'electric_equipment', 'electric_equip_sch_')
+    equip.schedule = schedule_object(PNNL_ElecEquip_Sched_)
+    assign_load(new_room, equip, 'electric_equipment')
+    
+    
+    HB_rooms_.append( new_room )

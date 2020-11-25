@@ -1,8 +1,9 @@
-from System import Object
+import statistics
+
+import Grasshopper.Kernel as ghK
 from Grasshopper import DataTree
 from Grasshopper.Kernel.Data import GH_Path
-import Grasshopper.Kernel as ghK
-import statistics
+from System import Object
 
 import LBT2PH
 import LBT2PH.dhw
@@ -1192,112 +1193,73 @@ def combine_DHW_systems(_dhwSystems):
     
     return combinedDHWSys
 
-def build_appliances(_appliance_collections, _hb_room_names, _ghenv):
+def build_appliances(_appliances, _hb_room_names, _ghenv):
+    print("Creating the 'Appliance' objects...")
     
-    def appliances_in_room(_appliance_collections, _hb_room_names):
-        for hb_host_room_name in _appliance_collections.hb_host_room_ids:
-            for hb_room_name in _hb_room_names:
-                if hb_room_name == hb_host_room_name:
-                    return True
-        
-        return False
-
-    if not _appliance_collections:
-        return []
-    
-    print("Creating the 'Appliance' obejcts...")
+    # Setup
+    #---------------------------------------------------------------------------
+    if not _appliances: return []
     apps = []
-    
+    other_count = 0
+
     # First, turn all the appliances 'off'
     useRows = [14, 16, 18, 21, 22, 23, 24, 31, 32, 33]
     for rowNum in useRows:
         apps.append( PHPP_XL_Obj('Electricity', 'F{}'.format(rowNum), 0) )
     
     #---------------------------------------------------------------------------
-    # Basic Appliances
-    for appliance_collection in _appliance_collections:
-        
-        if not appliances_in_room(appliance_collection, _hb_room_names):
-            continue
-        
-        for appliance in appliance_collection.appliance_list:
-            if 'dishwasher' in appliance.name:
+    for appliance in _appliances:
+        if 'dishwasher' in appliance.name:
+            if appliance.nominal_demand:
                 apps.append( PHPP_XL_Obj('Electricity', 'F14', 1) )
                 apps.append( PHPP_XL_Obj('Electricity', 'H14', 1) )
                 apps.append( PHPP_XL_Obj('Electricity', 'J14', appliance.nominal_demand) )
                 apps.append( PHPP_XL_Obj('Electricity', 'D15', appliance.type) )
-            elif 'clothesWasher' in appliance.name:
-                apps.append( PHPP_XL_Obj('Electricity', 'F16', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'H16', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'J16', appliance.nominal_demand) )
-                apps.append( PHPP_XL_Obj('Electricity', 'N16', appliance.utilization_factor) )
-                apps.append( PHPP_XL_Obj('Electricity', 'D17', appliance.type) )
-            elif 'clothesDryer' in appliance.name:
-                apps.append( PHPP_XL_Obj('Electricity', 'F18', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'H18', 1) )
-                if 'GAS' in appliance.type.upper():
-                    apps.append( PHPP_XL_Obj('Electricity', 'J19', appliance.nominal_demand) )
-                else:
-                    apps.append( PHPP_XL_Obj('Electricity', 'J18', appliance.nominal_demand) )
-                apps.append( PHPP_XL_Obj('Electricity', 'D19', appliance.type) )
-                apps.append( PHPP_XL_Obj('Electricity', 'L19', 0.60) )
-            elif 'fridge' == appliance.name:
-                apps.append( PHPP_XL_Obj('Electricity', 'F21', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'H21', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'J21', appliance.nominal_demand) )
-            elif 'freezer' == appliance.name:
-                apps.append( PHPP_XL_Obj('Electricity', 'F22', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'H22', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'J22', appliance.nominal_demand) )
-            elif 'fridgeFreezer' == appliance.name:
-                apps.append( PHPP_XL_Obj('Electricity', 'F23', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'H23', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'J23', appliance.nominal_demand) )
-            elif 'cooking' in appliance.name:
-                apps.append( PHPP_XL_Obj('Electricity', 'F24', 1) )
-                apps.append( PHPP_XL_Obj('Electricity', 'J24', appliance.nominal_demand) )
-                apps.append( PHPP_XL_Obj('Electricity', 'D25', appliance.type) )
-    
-    #---------------------------------------------------------------------------
-    # Harder Appliances
-    #
-    # For consumer elec, figure out the floor area normalized avg value for all HB_rooms
-    #
-    consumer_elec = []
-    hb_room_tfa = []
-    for collection in _appliance_collections:
-        for appliance in collection:
-            if appliance.name == 'consumerElec':
-                consumer_elec.append( appliance )
-                hb_room_tfa.append( collection.host_room_tfa )
-                break
-    
-    if hb_room_tfa:
-        totalCExFA = sum( (a.nominal_demand * tfa) for a, tfa in zip(consumer_elec, hb_room_tfa) )
-        area_weighted_consumer_elec = (totalCExFA / sum(hb_room_tfa))
-        apps.append( PHPP_XL_Obj('Electricity', 'J27', area_weighted_consumer_elec ) )
-
-    #
-    # For 'other' user-determined type elec equip / appliances, take only the first three
-    #
-    others = []
-    for collection in _appliance_collections:
-        for appliance in collection:
-            if 'ud__' in appliance.name:
-                others.append( appliance )
-    
-    if len(others)>3:
-        msg = 'It looks like you have more than 3 "Other" Electric Equipment elements\n'\
-        'that you are trying to add. PHPP "Electricity" worksheet only allows 3 though.\n'\
-        'For now I will just take the first three. Try and consolidate your equipment.'
-        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
-    
-    others = others[0:3]
-    for i, each in enumerate(others):
-        apps.append( PHPP_XL_Obj('Electricity', 'D{}'.format(i+31), each.name) )
-        apps.append( PHPP_XL_Obj('Electricity', 'F{}'.format(i+31), 1) )
-        apps.append( PHPP_XL_Obj('Electricity', 'H{}'.format(i+31), 1) )
-        apps.append( PHPP_XL_Obj('Electricity', 'J{}'.format(i+31), each.nominal_demand) )
+            else:
+                apps.append( PHPP_XL_Obj('Electricity', 'F14', 1) )
+                apps.append( PHPP_XL_Obj('Electricity', 'H14', 1) )
+                apps.append( PHPP_XL_Obj('Electricity', 'J14', appliance.nominal_demand) )
+                apps.append( PHPP_XL_Obj('Electricity', 'D15', appliance.type) )
+        elif 'clothesWasher' in appliance.name:
+            apps.append( PHPP_XL_Obj('Electricity', 'F16', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'H16', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'J16', appliance.nominal_demand) )
+            apps.append( PHPP_XL_Obj('Electricity', 'N16', appliance.utilization_factor) )
+            apps.append( PHPP_XL_Obj('Electricity', 'D17', appliance.type) )
+        elif 'clothesDryer' in appliance.name:
+            apps.append( PHPP_XL_Obj('Electricity', 'F18', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'H18', 1) )
+            if 'GAS' in appliance.type.upper():
+                apps.append( PHPP_XL_Obj('Electricity', 'J19', appliance.nominal_demand) )
+            else:
+                apps.append( PHPP_XL_Obj('Electricity', 'J18', appliance.nominal_demand) )
+            apps.append( PHPP_XL_Obj('Electricity', 'D19', appliance.type) )
+            apps.append( PHPP_XL_Obj('Electricity', 'L19', 0.60) )
+        elif 'fridge' == appliance.name:
+            apps.append( PHPP_XL_Obj('Electricity', 'F21', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'H21', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'J21', appliance.nominal_demand) )
+        elif 'freezer' == appliance.name:
+            apps.append( PHPP_XL_Obj('Electricity', 'F22', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'H22', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'J22', appliance.nominal_demand) )
+        elif 'fridgeFreezer' == appliance.name:
+            apps.append( PHPP_XL_Obj('Electricity', 'F23', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'H23', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'J23', appliance.nominal_demand) )
+        elif 'cooking' in appliance.name:
+            apps.append( PHPP_XL_Obj('Electricity', 'F24', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'J24', appliance.nominal_demand) )
+            apps.append( PHPP_XL_Obj('Electricity', 'D25', appliance.type) )
+        elif 'consumerElec' in appliance.name:
+            apps.append( PHPP_XL_Obj('Electricity', 'J27', appliance.nominal_demand) )
+        else:
+            # Other
+            apps.append( PHPP_XL_Obj('Electricity', 'D{}'.format(other_count+31), appliance.name) )
+            apps.append( PHPP_XL_Obj('Electricity', 'F{}'.format(other_count+31), 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'H{}'.format(other_count+31), 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'J{}'.format(other_count+31), appliance.nominal_demand) )
+            other_count +=1
     
     return apps
 
@@ -1419,7 +1381,6 @@ def build_settings( _settings_objs ):
 
     verification = []
     if settings_obj:
-        verification.append( PHPP_XL_Obj('Verification', 'F28', settings_obj.num_res_units))
         verification.append( PHPP_XL_Obj('Verification', 'K29', settings_obj.spec_capacity, 'WH/KM2', 'BTU/FT2' ))
         verification.append( PHPP_XL_Obj('Verification', 'K4', settings_obj.bldg_name ))
         verification.append( PHPP_XL_Obj('Verification', 'M7', settings_obj.bldg_country ))
@@ -1431,12 +1392,6 @@ def build_settings( _settings_objs ):
         verification.append( PHPP_XL_Obj('Verification', 'R85', settings_obj.enerPHit ))
         verification.append( PHPP_XL_Obj('Verification', 'R87', settings_obj.retrofit ))
         
-        # IHG and Occupancy
-        verification.append( PHPP_XL_Obj('Verification', 'R20', settings_obj.building_type))
-        verification.append( PHPP_XL_Obj('Verification', 'R24', settings_obj.ihg_type))
-        verification.append( PHPP_XL_Obj('Verification', 'R25', settings_obj.ihg_values))
-        verification.append( PHPP_XL_Obj('Verification', 'Q29', settings_obj.occupancy ))
-        verification.append( PHPP_XL_Obj('Verification', 'R29', settings_obj.occupancy_method ))
 
     return verification
 
@@ -1621,4 +1576,17 @@ def build_PER( _per_objs, _hb_room_names ):
     per_.append( PHPP_XL_Obj('PER', 'T10', secondary_fraction ))
 
     return per_
+
+def build_occupancy( _occ_obj ):
+    occupancy = []
+
+    occupancy.append( PHPP_XL_Obj('Verification', 'F28', _occ_obj.num_units))
+    occupancy.append( PHPP_XL_Obj('Verification', 'R20', _occ_obj.building_type))
+    occupancy.append( PHPP_XL_Obj('Verification', 'R24', _occ_obj.ihg_type))
+    occupancy.append( PHPP_XL_Obj('Verification', 'R25', _occ_obj.ihg_values))
+    occupancy.append( PHPP_XL_Obj('Verification', 'Q29', _occ_obj.occupancy ))
+    occupancy.append( PHPP_XL_Obj('Verification', 'R29', _occ_obj.occupancy_method ))
+    
+    return occupancy
+
 
