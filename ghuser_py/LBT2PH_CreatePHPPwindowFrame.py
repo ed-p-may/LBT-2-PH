@@ -22,7 +22,7 @@
 """
 Will combine parameters together to create a new Window Frame object which can be used by the 'PHPP Apertures' component. A PHPP-Style frame includes very detailed information.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         _name: The name for the new Window Frame object
         _frameWidths: (List) Input values for the frame face-widths (m). Input values in order: Left, Right, Bottom, Top. If less than 4 values are input, the first value will be used for all four edges.
@@ -35,39 +35,35 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPwindowFrame"
 ghenv.Component.NickName = "New PHPP Frame"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
-import rhinoscriptsyntax as rs
-import scriptcontext as sc
 import LBT2PH
 import LBT2PH.windows
+import LBT2PH.helpers
 
 reload(LBT2PH)
 reload(LBT2PH.windows)
+reload(LBT2PH.helpers)
 
-def cleanInputs(_inputList, defaultValue):
+def cleanInputs(_inputList, defaultValue, _unit):
     
     if len(_inputList)==4:
-        return _inputList
+        return [LBT2PH.helpers.convert_value_to_metric(val, _unit) for val in _inputList]
     elif len(_inputList)==1:
-        return [_inputList[0], _inputList[0], _inputList[0], _inputList[0]]
+        val = LBT2PH.helpers.convert_value_to_metric(_inputList[0], _unit)
+        return [val]*4
     else:
-        return [defaultValue, defaultValue, defaultValue, defaultValue]
+        return [defaultValue]*4
 
 if _name:
-    _frameWidths= cleanInputs(_frameWidths, 0.12)
-    _frameUvalues= cleanInputs(_frameUvalues, 1.0)
-    _psiGlazings = cleanInputs(_psiGlazings, 0.04)
-    _psiInstalls = cleanInputs(_psiInstalls, 0.04)
-    _name = _name.replace(" ", "_")
+    PHPPFrame_ = LBT2PH.windows.PHPP_Frame()
     
-    PHPPFrame_ = LBT2PH.windows.PHPP_Frame(
-                        _name if _name else 'Unamed_Frame',
-                        _frameUvalues,
-                        _frameWidths,
-                        _psiGlazings, 
-                        _psiInstalls
-                        )
+    if _name: PHPPFrame_.name = _name.replace(" ", "_")
+    if _frameUvalues: PHPPFrame_.uValues = cleanInputs(_frameUvalues, 1.0, 'W/M2K')
+    if _frameWidths: PHPPFrame_.frameWidths = cleanInputs(_frameWidths, 0.12, 'M')
+    if _psiGlazings: PHPPFrame_.PsiGVals = cleanInputs(_psiGlazings, 0.04 , 'W/MK')
+    if _psiInstalls: PHPPFrame_.PsiInstalls = cleanInputs(_psiInstalls, 0.04, 'W/MK')
+    if _chi_glass_carriers: PHPPFrame_.chiGlassCarrier = LBT2PH.helpers.convert_value_to_metric(_chi_glass_carriers, 'W/K')

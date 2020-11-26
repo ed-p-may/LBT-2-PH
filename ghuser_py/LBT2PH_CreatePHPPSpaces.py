@@ -22,7 +22,7 @@
 """
 Note: Be aware that if you plan on setting the Honeybee Ventilation or Occupancy Loads / Schedules using the Honyebee tools, be sure to that BEFORE you use this component. This component will use those loads/schedules to generate the PHPP values. If you apply those Honeybee loads / schedules AFTER this component, those edits will not be taken into account and your PHPP will not match the Honyebee/E+ model.
 -
-EM November 25, 2020
+EM November 26, 2020
     Args:
         _HB_rooms: The Honeybee Rooms you would like to build the PHPP Spaces for.
         _TFA_surfaces: <list :Surface> The individual space floor surfaces represting each individual 'space' inside the Honeybee Room (zone).
@@ -37,7 +37,7 @@ EM November 25, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPSpaces"
 ghenv.Component.NickName = "PHPP Spaces"
-ghenv.Component.Message = 'NOV_25_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -131,6 +131,9 @@ for i, tfa_input in enumerate(_TFA_surfaces):
         rhino_tfa_objects.append( tfa_obj )
 
 
+
+
+
 # Sort the input TFA surfaces depending on which Honeybee Room they are 'in'
 # ------------------------------------------------------------------------------
 HB_rooms_ = []
@@ -144,13 +147,33 @@ if _HB_rooms:
         if host_room is None: LBT2PH.spaces.display_host_error(tfa_obj, ghenv)
         
         
-        # ----------------------------------------------------------------------
         # Add the new TFA Object to the master dict
-        tfa_dict_key = tfa_obj.dict_key
-        
+        # ----------------------------------------------------------------------
         d = { tfa_obj.id : tfa_obj }
-        if tfa_dict_key in tfa_objs: tfa_objs[tfa_dict_key].update(d)
-        else: tfa_objs[tfa_dict_key] = d
+        
+        if tfa_obj.dict_key in tfa_objs:
+            tfa_objs[tfa_obj.dict_key].update(d)
+        else:
+            tfa_objs[tfa_obj.dict_key] = d
+
+
+
+# Build default / auto PHPP-Space for each HB-Room
+# ------------------------------------------------------------------------------
+for hb_room in _HB_rooms:
+    if not _TFA_surfaces:
+        
+        tfa_objs_from_hb = LBT2PH.spaces.TFA_Surface.from_hb_room( hb_room, ghenv )
+        
+        # Add the new TFA Object to the master dict
+        # ----------------------------------------------------------------------
+        for tfa_obj in tfa_objs_from_hb:
+            d = { tfa_obj.id : tfa_obj }
+            
+            if tfa_obj.dict_key in tfa_objs:
+                tfa_objs[tfa_obj.dict_key].update(d)
+            else:
+                tfa_objs[tfa_obj.dict_key] = d
 
 
 # Find all the 'touching' TFA surfaces, organize by 'neighbor' into groups

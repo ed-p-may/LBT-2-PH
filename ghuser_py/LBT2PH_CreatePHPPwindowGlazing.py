@@ -22,7 +22,7 @@
 """
 Will combine parameters together to create a new PHPP Window Glazing object which can be used by the 'PHPP Apertures' component.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         _name: The name for the new Window Glazing object
         _uValue: (List) Input value for the glazing U-Value (W/m2-k). Glass U-Value to be calculate as per EN-673 / ISO 10292
@@ -33,24 +33,23 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPwindowGlazing"
 ghenv.Component.NickName = "New PHPP Glazing"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
-import rhinoscriptsyntax as rs
-import scriptcontext as sc
 import LBT2PH
 import LBT2PH.windows
+import LBT2PH.helpers
 
 reload(LBT2PH)
 reload(LBT2PH.windows)
+reload(LBT2PH.helpers)
 
 if _name:
     _name = _name.replace(" ", "_")
     
-    PHPPGlazing_ = LBT2PH.windows.PHPP_Glazing(
-                        _name if _name else 'Unnamed_Glazing',
-                        float(_gValue) if _gValue else 0.4,
-                        float(_uValue) if _uValue else 1.0
-                        )
+    PHPPGlazing_ = LBT2PH.windows.PHPP_Glazing()
+    if _name:   PHPPGlazing_.name = _name
+    if _gValue: PHPPGlazing_.gValue = LBT2PH.helpers.convert_value_to_metric(_gValue, '-')
+    if _uValue: PHPPGlazing_.uValue = LBT2PH.helpers.convert_value_to_metric(_uValue, 'W/M2K')

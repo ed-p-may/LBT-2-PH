@@ -22,7 +22,7 @@
 """
 Collects and organizes data for a duct for a Ventilation System.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         ductLength_: List<Float | Curve> Input either a number for the length of the duct from the Ventilation Unit to the building enclusure, or geometry representing the duct (curve / line)
         ductWidth_: List<Float> Input the diameter (mm) of the duct. Default is 101mm (4")
@@ -34,7 +34,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateNewPHPPVentDuct"
 ghenv.Component.NickName = "Vent Duct"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -79,7 +79,7 @@ def determineDuctToUse(_inputList, _inputIndexNum):
                 output.append( duct01GUID )
             else:
                 try:
-                    output.append(phpp_convertValueToMetric(ductItem, 'M') )
+                    output.append( LBT2PH.helpers.convert_value_to_metric(ductItem, 'M') )
                 except:
                     output.append( ductItem )
     

@@ -23,7 +23,7 @@
 Collects and organizes data for a DHW System. Hook up inputs from DHW components and this will organize for the excel writere.
 Connect the output to the 'dhw_' input on the 'Create Excel Obj - Setup' component to use.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         usage_: The Usage Profile object decribing DHW litres/person/day of HW at the Design Forward temp (unmixed). Input the result from a 'DHW Usage' component.
         design_frwrd_T: (Deg C) Design Forward Temperature. Default is 60 deg C. Unmixed HW temp.
@@ -44,7 +44,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_DHW_System"
 ghenv.Component.NickName = "DHW"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -54,6 +54,7 @@ import Grasshopper.Kernel as ghK
 
 import LBT2PH
 import LBT2PH.dhw
+from LBT2PH.helpers import add_to_HB_model
 
 reload( LBT2PH )
 reload( LBT2PH.dhw )
@@ -104,13 +105,5 @@ dhw_system_obj = LBT2PH.dhw.PHPP_DHW_System(hb_rooms_assigned_to, _system_name, 
 HB_rooms_ = []
 for hb_room in _HB_rooms:
     new_hb_room = hb_room.duplicate()
-    
-    try:
-        user_data = new_hb_room.user_data['phpp'].copy()
-    except:
-        user_data = { }
-    
-    user_data.update( {'dhw_systems': {dhw_system_obj.id:dhw_system_obj.to_dict() }} )
-    new_hb_room.user_data = {'phpp': user_data}
-    
+    new_hb_room = add_to_HB_model(new_hb_room, 'dhw_systems', {dhw_system_obj.id:dhw_system_obj.to_dict()}, ghenv )
     HB_rooms_.append( new_hb_room )

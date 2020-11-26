@@ -22,7 +22,7 @@
 """
 Creates DHW Tank for the 'DHW+Distribution' PHPP worksheet.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         _tank_type: ("0-No storage tank", "1-DHW and heating", "2-DHW only") The type of use for this tank.
         tank_solar_: (True/False) Is this tank hooked up to a Solar HW system?
@@ -37,83 +37,31 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_DHW_Tank"
 ghenv.Component.NickName = "DHW Tank"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
 import scriptcontext as sc
 import Grasshopper.Kernel as ghK
+
 import LBT2PH
 import LBT2PH.dhw
+import LBT2PH.helpers
 
 reload( LBT2PH )
 reload( LBT2PH.dhw )
+reload( LBT2PH.helpers )
 
-# Classes and Defs
-def cleanInputs(_in, _nm, _default):
-    # Apply defaults if the inputs are Nones
-    out = _in if _in != None else _default
-    
-    # Check that output can be float
-    if out:
-        try:
-            out = float(out)
-            # Check units
-            if _nm == "tank_standby_frac_":
-                if out > 1:
-                    unitWarning = "Standby Units should be decimal fraction. ie: 30% should be entered as 0.30" 
-                    ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, unitWarning)
-                    return out/100
-            return out
-        except:
-            ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, '"{}" input should be a number'.format(_nm))
-            return out
-
-def clean_type(_type):
-    # Clean Inputs
-    if _type == None:
-        return "0-No storage tank"
-    else:
-        try:
-            if "1" == str(_type)[0]:
-                return "1-DHW and heating"
-            elif "2" == str(_type)[0]:
-                return "2-DHW only"
-            elif "0" == str(_type)[0]:
-                return "0-No storage tank"
-            else:
-                raise Exception()
-        except Exception:
-            ttypeWarning = 'Please enter either "0-No storage tank", "1-DHW and heating", "2-DHW only" for the "_tank_type input"'
-            ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, ttypeWarning)
-            return "0-No storage tank"
-
-def clean_location(_in):
-    # Clean Inputs
-    if _in == None:
-        return "1-Inside"
-    else:
-        try:
-            if "1" == str(_in)[0]:
-                return "1-Inside"
-            elif "2" == str(_in)[0]:
-                return "2-Outside"
-            else:
-                raise Exception()
-        except Exception:
-            ttypeWarning = 'Please enter either "1-Inside" or "2-Outside" for the "tank_location_ input"'
-            ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, ttypeWarning)
-            return "1-Inside"
-
-# Clean Inputs and defaults
-ttype = clean_type(_tank_type)
-solar = tank_solar_ if tank_solar_==True else False
-hlRate = cleanInputs(tank_HLrate_, 'tank_HLrate_', 4)
-vol = cleanInputs(tank_volume_, 'tank_volume_', 300)
-stndBy = cleanInputs(tank_standby_frac_, 'tank_standby_frac_', 0.30)
-loc = clean_location(tank_location_)
-locT = cleanInputs(tank_location_T_, 'tank_location_T_', '')
-
+#-------------------------------------------------------------------------------
 # Creat Storage Tank
-storage_tank_ = LBT2PH.dhw.PHPP_DHW_tank(ttype, solar, hlRate, vol, stndBy, loc, locT )
+storage_tank_ = LBT2PH.dhw.PHPP_DHW_tank()
+if _tank_type: storage_tank_.type = _tank_type
+if tank_solar_: storage_tank_.solar = tank_solar_
+if tank_HLrate_: storage_tank_.hl_rate = LBT2PH.dhw.clean_input(tank_HLrate_, 'tank_HLrate_', 'W/K', ghenv)
+if tank_volume_: storage_tank_.vol = LBT2PH.dhw.clean_input(tank_volume_, 'tank_volume_', 'L', ghenv)
+if tank_standby_frac_: storage_tank_.stndbyFrac = LBT2PH.dhw.clean_input(tank_standby_frac_, 'tank_standby_frac_', '-', ghenv)
+if tank_location_: storage_tank_.location = tank_location_
+if tank_location_T_: storage_tank_.location_t = LBT2PH.dhw.clean_input(tank_location_T_, 'tank_location_T_', 'C', ghenv)
+
+LBT2PH.helpers.preview_obj(storage_tank_)

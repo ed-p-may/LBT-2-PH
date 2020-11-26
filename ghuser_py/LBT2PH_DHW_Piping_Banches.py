@@ -22,20 +22,20 @@
 """
 Creates DHW Branch Piping sets for the 'DHW+Distribution' PHPP worksheet. Can create up to 5 branch piping sets. Will take in a DataTree of curves from Rhino and calculate their lengths automatically. Will try and pull curve object attributes from Rhino as well - use attribute setter to assign the pipe diameter, insulation, etc... on the Rhino side.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         pipe_geom_: <Tree> (Curves) A DataTree with each branch containing curves for one 'set' of recirculation piping. PHPP allows up to 5 'sets' of recirc piping. Each 'set' should include the forward and return piping curves for that distribution leg (ideally as a single continuous curve/loop)
         Use the 'Entwine' component to organize geometry into branches before inputing if more than one set of piping. Use an 'ID' component before inputting Rhino geometry.
         diameter_: (m) The nominal size of the branch piping. Default is 0.0127m (1/2").
         tapOpenings_: The number of tap openings / person every day. Default is 6 openings/person/day.
-        utilisation_: The days/year the DHW system is operational. Defauly is 365 days/year.
+        utilisation_: The days/year the DHW system is operational. Default is 365 days/year.
     Returns:
         branch_piping_: The Branch Piping object(s). Connect this to the 'branch_piping_' input on the 'DHW System' component in order to pass along to the PHPP.
 """
 
 ghenv.Component.Name = "LBT2PH_DHW_Piping_Banches"
 ghenv.Component.NickName = "Piping | Branches"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -45,38 +45,22 @@ import ghpythonlib.components as ghc
 import Grasshopper.Kernel as ghK
 
 import LBT2PH
-import LBT2PH.helpers
-import LBT2PH.dhw
+from LBT2PH.helpers import convert_value_to_metric
+from LBT2PH.dhw import PHPP_DHW_branch_piping
+from LBT2PH.dhw import clean_input
 
 reload( LBT2PH )
 reload( LBT2PH.dhw )
+reload( LBT2PH.helpers )
 
 # ------------------------------------------------------------------------------
-# Classes and Defs
-def cleanInputs(_in, _nm, _default):
-    # Apply defaults if the inputs are Nones
-    out = _in if _in != None else _default
-    
-    # Check that output can be float
-    try:
-        out = float(out)
-        # Check units
-        if _nm == "diameter_":
-            if out > 1:
-                unitWarning = "Check diameter units? Should be in METERS not MM." 
-                ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, unitWarning)
-        return out
-    except:
-        ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, '"{}" input should be a number'.format(_nm))
-        return out
-
 def get_pipe_lengths(_input):
     output = []
     
     with LBT2PH.helpers.context_rh_doc( ghdoc ):
         for geom_input in _input:
             try:
-                output.append( float(geom_input) )
+                output.append( float(LBT2PH.helpers.convert_value_to_metric(geom_input, 'M')) )
             except AttributeError as e:
                 crv = rs.coercecurve(geom_input)
                 if crv:
@@ -94,19 +78,18 @@ def get_pipe_lengths(_input):
     return output
 
 # ------------------------------------------------------------------------------
+branch_piping_ = PHPP_DHW_branch_piping()
+
 if pipe_geom_:
-    branch_piping_ = LBT2PH.dhw.PHPP_DHW_branch_piping()
-    
     lengths = get_pipe_lengths( pipe_geom_ )
     branch_piping_.length = lengths
     
     if diameter_:
         print diameter_
-        branch_piping_.diameter = cleanInputs(diameter_, "diameter_", 0.0127)
+        branch_piping_.diameter = clean_input(diameter_, "diameter_", 'M', ghenv)
     if tap_openings_:
-        branch_piping_.tap_openings = cleanInputs(tap_openings_, "tapOpenings_", 6)
+        branch_piping_.tap_openings = clean_input(tap_openings_, "tapOpenings_", '-', ghenv)
     if utilisation_:
-        branch_piping_.utilisation = cleanInputs(utilisation_, "utilisation_", 365)
-else:
-    branch_piping_ = LBT2PH.dhw.PHPP_DHW_branch_piping()
+        branch_piping_.utilisation = clean_input(utilisation_, "utilisation_", '-', ghenv)
 
+LBT2PH.helpers.preview_obj(branch_piping_)

@@ -46,40 +46,6 @@ def add_to_HB_model( _hb_model, _key, _dict, _ghenv, _write='update' ):
     _hb_model.user_data = user_data
     return _hb_model
 
-
-
-#
-#
-#
-# Remove?
-# def add_to_hb_obj_user_data(_hb_obj, key, _val):
-#     if _hb_obj.user_data is None:
-#         _hb_obj.user_data = {}
-    
-#     if not isinstance(_hb_obj.user_data, dict):
-#         raise Exception
-    
-#     # Decided to do a deepcopy here, otherwise ref pointer always
-#     # goes to the same dict which makes it confusing as things are added/edited.
-#     # I dont *think* it would error without the copy? But more predictable with it.
-#     new_user_data = deepcopy(_hb_obj.user_data)
-#     if new_user_data.has_key('phpp'):
-#         if new_user_data['phpp'].has_key(key):
-#             new_user_data['phpp'][key].update(_val)
-#         else:
-#             new_user_data['phpp'][key] = _val
-#     else:
-#         new_user_data['phpp'] = {}
-#         new_user_data['phpp'][key] = _val
-    
-#     _hb_obj.user_data = new_user_data
-    
-#     return _hb_obj
-#
-#
-#
-#
-
 @contextmanager
 def context_rh_doc(_ghdoc):
     ''' Switches the sc.doc to the Rhino Active Doc temporaily '''
@@ -100,11 +66,10 @@ def preview_obj(_classObj):
     	return None
     
     print('-------')
+    print('CLASS:: {}'.format( _classObj.__class__.__name__) )
     for item_key, item in _classObj.__dict__.items():
-        print(item_key, "::", item)
         try:
-            for k, v in item.__dict__.items():
-                print("   > {} :: {}".format(k, v))
+            print('   > {} ::: {}'.format(item_key, item))
         except:
             pass
 
@@ -112,21 +77,31 @@ def find_input_string(_in):
     """ Util func  used by the unit converter """
     
     evalString = str(_in).upper()
-    
-    if 'FT' in evalString or "'" in evalString:
+
+    if 'FT' == evalString or "'" == evalString:
         inputUnit = 'FT'
-    elif 'IN' in evalString or '"' in evalString:
+    elif 'IN' == evalString or '"' == evalString:
         inputUnit = 'IN'
-    elif 'MM' in evalString:
+    elif 'MM' == evalString:
         inputUnit = 'MM'
-    elif 'CM' in evalString:
+    elif 'CM' == evalString:
         inputUnit = 'CM'
-    elif 'M' in evalString and 'MM' not in evalString:
+    elif 'M' == evalString and 'MM' != evalString:
         inputUnit = 'M'
-    elif 'IP' in evalString:
+    elif 'IP' == evalString:
         inputUnit = 'IP'
-    elif 'FT3' in evalString:
+    elif 'FT3' == evalString:
         inputUnit = 'FT3'
+    elif 'F' == evalString:
+        inputUnit = 'F'
+    elif 'CFM' == evalString:
+        inputUnit = 'CFM'
+    elif 'L' == evalString:
+        inputUnit = 'L'
+    elif 'GA' == evalString:
+        inputUnit = 'GA'
+    elif 'GALLON' == evalString:
+        inputUnit = 'GA'
     else:
         inputUnit = 'SI'
     
@@ -139,15 +114,23 @@ def convert_value_to_metric(_inputString, _outputUnit):
         _inputString: String: The input value from the user
         _outputUnit: String: ('M', 'CM', 'MM', 'W/M2K', 'W/MK', 'M3') The desired unit
     """
+
+    # {Unit you want: {unit user input}, {..}, ...}
     schema = {
-                'M':{'SI': 1, 'M':1, 'CM':0.01, 'MM':0.001, 'FT':0.3048, "'":0.3048, 'IN':0.0254, '"':0.0254},
-                'CM':{'SI': 1, 'M':100, 'CM':1, 'MM':0.1, 'FT':30.48, "'":30.48, 'IN':2.54, '"':2.54},
-                'MM':{'SI': 1, 'M':1000, 'CM':10, 'MM':1, 'FT':304.8, "'":304.8, 'IN':25.4, '"':25.4},
-                'W/M2K':{'SI':1, 'IP':5.678264134}, # IP=Btu/hr-sf-F
-                'W/MK':{'SI':1, 'IP':1.730734908}, #IP=Btu/hr-ft-F
-                'M3':{'SI':1, 'FT3':0.028316847},
+                'F':    {'SI':'*(9.0/5.0)+32.0', 'C':'*(9.0/5.0)+32.0', 'F':1, 'IP':1},
+                'C':    {'SI':1, 'C':1, 'K':1, 'F':'-32.0)*(5.0/9.0', 'IP':'-32.0)*(5.0/9.0'},
+                'M':    {'SI': 1, 'M':1, 'CM':0.01, 'MM':0.001, 'FT':0.3048, "'":0.3048, 'IN':0.0254, '"':0.0254},
+                'CM':   {'SI': 1, 'M':100, 'CM':1, 'MM':0.1, 'FT':30.48, "'":30.48, 'IN':2.54, '"':2.54},
+                'MM':   {'SI': 1, 'M':1000, 'CM':10, 'MM':1, 'FT':304.8, "'":304.8, 'IN':25.4, '"':25.4},
+                'W/M2K':{'SI':1, 'W/M2K':1, 'IP':5.678264134, 'BTU/HR-FT2-F':5.678264134, 'HR-FT2-F/BTU':'**-1*5.678264134'},
+                'W/MK': {'SI':1, 'W/MK':1, 'IP':1.730734908, 'BTU/HR-FT-F':1.730734908},
+                'W/K':  {'SI':1, 'W/K':1, 'BTU/HR-F':1.895633976, 'IP':1.895633976},
+                'M3':   {'SI':1, 'FT3':0.028316847},
+                '-' :   {'SI':1, '-':1},
+                'M3/H': {'SI':1, 'CFM':1.699010796, 'IP':1.699010796},
+                'L':    {'SI':1, 'L':1, 'GALLON':0.264172, "GA":0.264172}
               }
-    
+                 
     inputValue = _inputString
     
     if _inputString is None:
@@ -157,15 +140,39 @@ def convert_value_to_metric(_inputString, _outputUnit):
         return float(inputValue)
     except:
         try:
+            string_found, value_found = None, None
+
             # Pull out just the decimal numeric characters, if any
             for each in re.split(r'[^\d\.]', _inputString):
                 if len(each)>0:
-                    inputValue = each
+                    value_found = each
                     break # so it will only take the first number found, "123 ft3" doesn't work otherwise
             
-            inputUnit = find_input_string(_inputString)
-            conversionFactor = schema.get(_outputUnit, {}).get(inputUnit, 1)
-            return float(inputValue) * float(conversionFactor)
+            # Pull out just the NON decimal numeric characters, if any
+            for each in re.split(r'[^\D\.]', _inputString):
+                if each == '.':
+                    continue
+                
+                if len(each) == 0:
+                    continue
+                
+                string_found = each.upper().lstrip().rstrip()
+                break
+            
+            if string_found or value_found:
+                input_unit = find_input_string(string_found)
+                conversion_factor = schema.get(_outputUnit, {}).get(input_unit, 1)
+
+                try:
+                    output_val = float(value_found) * float(conversion_factor)
+                    print('Converting input "{}" >>> {} * {} = {} {}'.format(inputValue, value_found, conversion_factor, output_val, _outputUnit)) 
+                except ValueError as e:
+                    output_val = float(eval('({}{})'.format(value_found, conversion_factor)))   
+                    print('Converting input "{}" >>> ({}{}) = {} {}'.format(inputValue, value_found, conversion_factor, output_val, _outputUnit))
+                                     
+                return output_val
+            else:
+                return _inputString
         except:
             return inputValue
 

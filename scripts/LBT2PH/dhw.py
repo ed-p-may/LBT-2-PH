@@ -1,5 +1,7 @@
 import random
 from System import Object
+from LBT2PH.helpers import convert_value_to_metric
+import Grasshopper.Kernel as ghK
 
 class PHPP_DHW_System:
     def __init__(self, _rms_assigned=[], _name='DHW', _usage=None, _fwdT=60,
@@ -210,7 +212,7 @@ class PHPP_DHW_RecircPipe(Object):
         self.insul_thicknesses = _t
         self.insul_conductivities = _lam
         self.insul_reflectives = _ref
-        self.quality = _q
+        self._quality = _q
         self.period = _p
     
     def _len_weighted(self, _input_list, _default_value):
@@ -255,6 +257,19 @@ class PHPP_DHW_RecircPipe(Object):
     @property
     def insul_lambda(self):
         return self._len_weighted( self.insul_conductivities, 0.04 )
+
+    @property
+    def quality(self):
+        return self._quality
+
+    @quality.setter
+    def quality(self, _in):
+        if '2' in str(_in):
+            self._quality = '2-Moderate'
+        elif '3' in str(_in):
+            self._quality = '3-Good'
+        else:
+            self._quality = '1-None'
 
     def to_dict(self):
         d = {}
@@ -395,17 +410,41 @@ class PHPP_DHW_branch_piping(Object):
                self.utilisation)
 
 class PHPP_DHW_tank(Object):
-    def __init__(self, _type=None, _solar=None, _hl_rate=None,
+    def __init__(self, _type='0-No storage tank', _solar=False, _hl_rate=None,
                     _vol=None, _stndby_frac=None, _loc='1-Inside', _loc_T=''):
         self.id = random.randint(1000,9999)
-        self.type = _type
+        self._type = _type
         self.solar = _solar
         self.hl_rate = _hl_rate
         self.vol = _vol
         self.stndbyFrac = _stndby_frac
-        self.loction = _loc
-        self.locaton_t = _loc_T
-        
+        self._location = _loc
+        self.location_t = _loc_T
+    
+    @property
+    def type(self):
+        return self._type
+
+    @type.setter
+    def type(self, _in):
+        if '1' in str(_in):
+            self._type = '1-DHW and heating'
+        elif '2' in str(_in):
+            self._type = '2-DHW only'
+        else:
+            self._type = '0-No storage tank'
+
+    @property
+    def location(self):
+        return self._location
+
+    @location.setter
+    def location(self, _in):
+        if '2' in str(_in):
+            self._location = '2-Outside'
+        else:
+            self._location = '1-Inside'
+
     def to_dict(self):
         d = {}
 
@@ -415,8 +454,8 @@ class PHPP_DHW_tank(Object):
         d.update( {'hl_rate':self.hl_rate} )
         d.update( {'vol':self.vol} )
         d.update( {'stndbyFrac':self.stndbyFrac} )
-        d.update( {'loction':self.loction} )
-        d.update( {'locaton_t':self.locaton_t} )
+        d.update( {'location':self.location} )
+        d.update( {'location_t':self.location_t} )
 
         return d
 
@@ -430,8 +469,8 @@ class PHPP_DHW_tank(Object):
         new_obj.hl_rate = _dict.get('hl_rate')
         new_obj.vol = _dict.get('vol')
         new_obj.stndbyFrac = _dict.get('stndbyFrac')
-        new_obj.locaton = _dict.get('loction')
-        new_obj.locaton_t = _dict.get('locaton_t')
+        new_obj.location = _dict.get('location')
+        new_obj.location_t = _dict.get('location_t')
 
         return new_obj
     
@@ -451,3 +490,24 @@ class PHPP_DHW_tank(Object):
                self.loction,
                self.locaton_t)
 
+def clean_input(_in, _nm, _unit='-', _ghenv=None):
+    
+    try:
+        out = float(convert_value_to_metric(_in, _unit) )
+        
+        if _nm == "tank_standby_frac_":
+            if out > 1:
+                msg = "Standby Units should be decimal fraction. ie: 30% should be entered as 0.30" 
+                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
+                return out/100
+        elif _nm == "diameter_":
+            if out > 1:
+                unitWarning = "Check diameter units? Should be in METERS not MM." 
+                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, unitWarning)
+            
+        return out
+
+    except:
+        msg = '"{}" input should be a number'.format(_nm)
+        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
+        return _in

@@ -1036,22 +1036,22 @@ def build_DHW_system(_dhw_systems, _hb_rooms):
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J191', dhw_.tank1.hl_rate, 'W/K', 'BTU/HR-F'))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J192', dhw_.tank1.vol, 'LITER', 'GALLON'))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J193', dhw_.tank1.stndbyFrac))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J195', dhw_.tank1.loction))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J198', dhw_.tank1.locaton_t, 'C', 'F'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J195', dhw_.tank1.location))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J198', dhw_.tank1.location_t, 'C', 'F'))
         if dhw_.tank2:
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M186', dhw_.tank2.type) )
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M189', 'x' if dhw_.tank2.solar==True else ''))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M191', dhw_.tank2.hl_rate, 'W/K', 'BTU/HR-F'))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M192', dhw_.tank2.vol, 'LITER', 'GALLON'))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M193', dhw_.tank2.stndbyFrac))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M195', dhw_.tank2.loction))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M198', dhw_.tank2.locaton_t, 'C', 'F'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M195', dhw_.tank2.location))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M198', dhw_.tank2.location_t, 'C', 'F'))
         if dhw_.tank_buffer:
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P186', dhw_.tank_buffer.type))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P191', dhw_.tank_buffer.hl_rate, 'W/K', 'BTU/HR-F'))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P192', dhw_.tank_buffer.vol, 'LITER', 'GALLON'))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P195', dhw_.tank_buffer.loction))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P198', dhw_.tank_buffer.locaton_t, 'C', 'F'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P195', dhw_.tank_buffer.location))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P198', dhw_.tank_buffer.location_t, 'C', 'F'))
         
     return dhwSystem
 
@@ -1335,16 +1335,15 @@ def build_location( _locationObjs ):
 
 def build_footprint(_fps):
     print('Creating the Building Footprint Object...')
-    
-    fp_area = 0
-    try:
-        for footprint in _fps:
-            fp_area += footprint.Footprint_area
 
-        fpObj = PHPP_XL_Obj('Areas', 'V33', fp_area)
-    except:
-        fpObj = PHPP_XL_Obj('Areas', 'V33', fp_area)
-    
+    fp_area = 0
+
+    try:
+        fp_area = _fps.Footprint_area
+    except Exception as e:
+        print(e)
+
+    fpObj = PHPP_XL_Obj('Areas', 'V33', fp_area)
     return [ fpObj ]
 
 def build_thermal_bridges(_tb_objects, _start_rows):
@@ -1457,8 +1456,6 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
         hp_heating = params.get('hp_heating', None)
         if hp_heating:
             hp_count +=1
-            print('here')
-            print [hp_heating]
             hc_equip.append( PHPP_XL_Obj('HP', 'J21', '4-' + hp_heating.name))
             hc_equip.append( PHPP_XL_Obj('HP', 'I635', hp_heating.name)) 
             hc_equip.append( PHPP_XL_Obj('HP', 'I637', hp_heating.source)) 

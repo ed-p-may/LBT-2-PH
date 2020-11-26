@@ -24,7 +24,7 @@ Collects and organizes data for an Exhaust Ventilaiton Object such as a Kitchen 
 For guidance on modeling and design of exhaust air systems, see PHI's guidebook:
 "https://passiv.de/downloads/05_extractor_hoods_guideline.pdf"
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         _name: (String) A Name to describe the Exhaust Vent item. This will be the name given in the 'Additional
         airFlowRate_On: <Optional> (Int) The airflow (m3/h) of the exhaust ventilation devide when ON.
@@ -41,7 +41,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateNewPHPPExhaustVentilator"
 ghenv.Component.NickName = "Exhaust Vent"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -60,9 +60,9 @@ exhaustVent_ = LBT2PH.ventilation.PHPP_Sys_ExhaustVent()
 if _name:
     exhaustVent_.name = _name
 if airFlowRate_On:
-    exhaustVent_.airFlowRate_On = airFlowRate_On
+    exhaustVent_.airFlowRate_On = LBT2PH.helpers.convert_value_to_metric(airFlowRate_On, 'M3/H')
 if airFlowRate_Off:
-    exhaustVent_.airFlowRate_Off = airFlowRate_Off
+    exhaustVent_.airFlowRate_Off = LBT2PH.helpers.convert_value_to_metric(airFlowRate_Off, 'M3/H')
 if hrsPerDay_On:
     exhaustVent_.hrsPerDay_On = hrsPerDay_On
 if daysPerWeek_On:

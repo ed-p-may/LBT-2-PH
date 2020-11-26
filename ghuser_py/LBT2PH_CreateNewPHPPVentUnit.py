@@ -22,7 +22,7 @@
 """
 Collects and organizes data for a Ventilator Unit (HRV/ERV). Used to build up a PHPP-Style Ventilation System.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         name_: <Optional> The name of the Ventilator Unit
         HR_Eff_: <Optional> Input the Ventialtion Unit's Heat Recovery %. Default is 75% 
@@ -34,7 +34,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateNewPHPPVentUnit"
 ghenv.Component.NickName = "Ventilator"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -64,10 +64,10 @@ if checkInput(HR_eff_):
     ventUnit_.HR_eff = checkInput(HR_eff_) 
 if checkInput(MR_eff_):
     ventUnit_.MR_eff = checkInput(MR_eff_) 
-if checkInput(elec_eff_):
-    ventUnit_.elec_eff = checkInput(elec_eff_) 
-if checkInput(frost_temp_):
-    ventUnit_.frost_temp = checkInput(frost_temp_) 
+if elec_eff_:
+    ventUnit_.elec_eff = elec_eff_
+if frost_temp_:
+    ventUnit_.frost_temp = LBT2PH.helpers.convert_value_to_metric(frost_temp_, 'C')
 if exterior_:
     ventUnit_.exterior = 'x'
 

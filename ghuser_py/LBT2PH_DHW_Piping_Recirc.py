@@ -22,7 +22,7 @@
 """
 Creates DHW Recirculation loops for the 'DHW+Distribution' PHPP worksheet. Can create up to 5 recirculation loops. Will take in a DataTree of curves from Rhino and calculate their lengths automatically. Will try and pull curve object attributes from Rhino as well - use attribute setter to assign the pipe diameter, insulation, etc... on the Rhino side.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         pipe_geom_: <Tree> A DataTree where each branch describes one 'set' of recirculation piping. 
         PHPP allows up to 5 'sets' of recirc piping. Each 'set' should include the forward and return piping lengths for that distribution leg.
@@ -45,22 +45,23 @@ The input here will accept either:
 
 ghenv.Component.Name = "LBT2PH_DHW_Piping_Recirc"
 ghenv.Component.NickName = "Piping | Recirc"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
 import Rhino
 import rhinoscriptsyntax as rs
-import ghpythonlib.components as ghc
 import Grasshopper.Kernel as ghK
 from collections import namedtuple
 
 import LBT2PH
-import LBT2PH.dhw
+from LBT2PH.dhw import PHPP_DHW_RecircPipe
+from LBT2PH.helpers import convert_value_to_metric
 
 reload( LBT2PH )
 reload( LBT2PH.dhw )
+reload( LBT2PH.helpers )
 
 # Classes and Defs
 def get_values_from_Rhino(_inputs):
@@ -77,18 +78,19 @@ def get_values_from_Rhino(_inputs):
         
         return _diam, _thickness
     
-    # First, if its just a number, use that as the length
-    # Otherwise, see if I can pull any data from the Rhino scene?
+    # First, see if I can pull any data from the Rhino scene?
+    # Otherwise, if its just a number, use that as the length
     lengths, diams, insul_thks, insul_lambdas, refectives = [], [], [], [], []
     for i, input in enumerate( _inputs ):
         try:
-            lengths.append( float( input ) )
+            lengths.append( float(LBT2PH.helpers.convert_value_to_metric( input, 'M' )) )
         except AttributeError as e:
             try:
-                rhinoGuid = ghenv.Component.Params.Input[0].VolatileData[0][i].ReferenceID#.ToString()
+                rhinoGuid = ghenv.Component.Params.Input[0].VolatileData[0][i].ReferenceID
                 rh_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( rhinoGuid )
                 
-                length = rh_obj.CurveGeometry.GetLength()
+                length = float(rh_obj.CurveGeometry.GetLength())
+                
                 k = rs.GetUserText(rh_obj, 'insulation_conductivity')
                 r = rs.GetUserText(rh_obj, 'insulation_reflective')
                 t = rs.GetUserText(rh_obj, 'insulation_thickness')
@@ -100,48 +102,23 @@ def get_values_from_Rhino(_inputs):
                 insul_thks.append(t)
                 insul_lambdas.append(k)
                 refectives.append(r)
-                
-            except AttributeError as e:
-                print(e)
-                print type(e)
-                msg = "Sorry, I am not sure what to do with the input: {} in 'pipe_geom_'?\n"\
+            except Exception as e:
+                msg = str(e)
+                msg += "\nSorry, I am not sure what to do with the input: {} in 'pipe_geom_'?\n"\
                       "Please input either a Curve or a number/numbers representing the pipe segments.".format(input)
                 ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg )
-    
+            
     Output = namedtuple('Output', ['lengths', 'diams', 'insul_thicknesses', 'insul_conductivities', 'insul_reflectives'])
     return Output(lengths, diams, insul_thks, insul_lambdas, refectives)
 
-def checkFloat(_input, _nm):
-    if not _input:
-        return None
-    else:
-        try:
-            if isinstance(_input, list):
-                return [ float(val) for val in _input]
-            else:
-                return float(_input)
-        except:
-            unitWarning = "Inputs for '{}' should be numbers.".format(_nm)
-            ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, unitWarning)
-            return _input
-
-# ------------------------------------------------------------------------------
-# Default Inputs, Clean Inputs
-if insul_quality_:
-    if "3" in str(insul_quality_)  or "Good" in str(insul_quality_): insulQual = "3-Good"
-    elif "2" in str(insul_quality_) or "Moderate" in str(insul_quality_): insulQual = "2-Moderate"
-    else: insulQual = "1-None"
-else:
-    insulQual = "1-None"
-
-dlyperiod = daily_period_ if daily_period_ != None else 18
-if dlyperiod:
-    try: float(dlyperiod)
-    except: ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, '"daily_period_" should be a number.')
+def clean_input(_input, _unit):
+    val_list = [ convert_value_to_metric(val, _unit) for val in _input]
+    
+    return val_list
 
 # ------------------------------------------------------------------------------
 # Build the Default Re-Circulation Pipe Object
-circulation_piping_ = LBT2PH.dhw.PHPP_DHW_RecircPipe()
+circulation_piping_ = PHPP_DHW_RecircPipe()
 
 if pipe_geom_:
     # Get Rhino scene inputs
@@ -157,17 +134,20 @@ if pipe_geom_:
         circulation_piping_.insul_conductivities = rhino_values.insul_conductivities
     if rhino_values.insul_reflectives:
         circulation_piping_.insul_reflectives = rhino_values.insul_reflectives
-    
-    # Get GH Component inputs
-    if pipe_diam_:
-        circulation_piping_.diams = checkFloat( pipe_diam_, 'pipe_diam_')
-    if insulThickness_:
-        circulation_piping_.insul_thicknesses = checkFloat( insulThickness_, 'insulThickness_')
-    if insulConductivity_:
-        circulation_piping_.insul_conductivities = checkFloat( insulConductivity_, 'insulConductivity_') 
-    if insulReflective_:
-        circulation_piping_.insul_reflectives = checkFloat( insulReflective_, 'insulReflective_') 
-    if insulQual:
-        circulation_piping_.quality = insulQual
-    if dlyperiod:
-        circulation_piping_.period = checkFloat( dlyperiod, 'dlyperiod')
+
+# ------------------------------------------------------------------------------
+# Get GH Component inputs
+if pipe_diam_:
+    circulation_piping_.diams = clean_input( pipe_diam_, 'MM')
+if insulThickness_:
+    circulation_piping_.insul_thicknesses = clean_input( insulThickness_, 'MM')
+if insulConductivity_:
+    circulation_piping_.insul_conductivities = clean_input( insulConductivity_, 'W/MK') 
+if insulReflective_:
+    circulation_piping_.insul_reflectives = insulReflective_
+if insul_quality_:
+    circulation_piping_.quality = insul_quality_
+if daily_period_:
+    circulation_piping_.period = daily_period_
+
+LBT2PH.helpers.preview_obj(circulation_piping_)

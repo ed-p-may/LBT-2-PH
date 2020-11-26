@@ -5,7 +5,9 @@ import Grasshopper.Kernel as ghK
 import Rhino
 from System import Object
 
+from ladybug_rhino.fromgeometry import from_face3d 
 from ladybug_geometry.geometry3d import Point3D
+
 import LBT2PH
 import LBT2PH.ventilation
 
@@ -15,8 +17,8 @@ reload(LBT2PH.ventilation)
 class TFA_Surface(Object):
     ''' Represents an individual TFA Surface floor element '''
     
-    def __init__(self, _surface=None, _host_room_name=None, _params=None, _sub_surfaces=[]):
-        self._inset = 0.1
+    def __init__(self, _surface=None, _host_room_name=None, _params={}, _sub_surfaces=[]):
+        self._inset = 0.150
         self._neighbors = None
         self._area_gross = None
         self._depth = None
@@ -29,6 +31,18 @@ class TFA_Surface(Object):
 
     def __eq__(self, other):
         return self.id == other.id
+
+    @property
+    def inset(self):
+        return self._inset
+
+    @inset.setter
+    def inset(self, _in):
+        try:
+            self._inset = float(_in)
+        except ValueError as e:
+            print(e)
+            print( 'Cannot set inset to {}'.format(_in) )
 
     @property
     def non_res_usage(self):
@@ -158,6 +172,11 @@ class TFA_Surface(Object):
         if not self.params:
             self.params = {}
         
+        if _type not in ['V_sup', 'V_eta', 'V_trans']:
+            print("Error setting Vent Flow? Please input flow type:\n"\
+                "'V_sup', 'V_eta' or 'V_trans'")
+            return None
+
         self.params[_type] = float(_val)
 
     def get_surface_param(self, _key, _default=None):
@@ -177,6 +196,52 @@ class TFA_Surface(Object):
             print(e)
             print('Error setting "{}" Parameter on TFA Surface "{}"?'.format(_key, _val))
     
+    @staticmethod
+    def _find_hb_room_floor_surfaces( _hb_room, _ghenv ):
+        '''Looks at a single input Honeybee room, finds the floor surface(s) '''
+
+        floor_surfaces = [srfc for srfc in _hb_room.faces if str(srfc.type) == 'Floor']
+        if not floor_surfaces:
+            msg = 'Could not find any Floor surfacs in HB-Room: "{}"?\n'\
+            'Check the room surfaces and types to be sure there is at least one Floor.'.format(_hb_room.display_name)
+            _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Remark, msg)
+
+        return floor_surfaces
+
+    @staticmethod
+    def _inset_floor_surfaces( _floor_surface, _inset_dist, _ghenv ):
+        '''Shrinks/Insets the surface by the specified amount '''
+
+        try:
+            rh_srfc = from_face3d(_floor_surface.geometry)
+        except Exception as e:
+            msg = 'Error. Can not convert floor surface: "{}" to Rhino geometry?'.format( _floor_surface )
+            _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Remark, msg)
+            return None
+
+        if _inset_dist < 0.001:
+            return rh_srfc
+        
+        #-----------------------------------------------------------------------
+        srfcPerim = ghc.JoinCurves( ghc.BrepEdges(rh_srfc)[0], preserve=False )
+        
+        # Get the inset Curve
+        srfcCentroid = Rhino.Geometry.AreaMassProperties.Compute(rh_srfc).Centroid
+        plane = ghc.XYPlane(srfcCentroid)
+        srfcPerim_Inset_Pos = ghc.OffsetCurve(srfcPerim, _inset_dist, plane, 1)
+        srfcPerim_Inset_Neg = ghc.OffsetCurve(srfcPerim, _inset_dist*-1, srfcCentroid, 1)
+        
+        # Choose the right Offset Curve. The one with the smaller area
+        srfcInset_Pos = ghc.BoundarySurfaces( srfcPerim_Inset_Pos )
+        srfcInset_Neg = ghc.BoundarySurfaces( srfcPerim_Inset_Neg )
+        area_Pos = ghc.Area(srfcInset_Pos).area
+        area_neg = ghc.Area(srfcInset_Neg).area
+        
+        if area_Pos < area_neg:
+            return srfcInset_Pos
+        else:
+            return srfcInset_Neg
+
     @property
     def depth(self):
         if self._depth:
@@ -244,6 +309,29 @@ class TFA_Surface(Object):
         new_tfa_obj._depth = _dict_tfa.get('depth', None)
 
         return new_tfa_obj
+
+    @classmethod
+    def from_hb_room(cls, _hb_room, _ghenv):
+        '''Creates a LIST of Tfa-Surface objects from a Honeybee Room '''
+        
+        new_objs = []
+        
+        floor_surfaces = cls._find_hb_room_floor_surfaces(_hb_room, _ghenv)
+        
+        for srfc in floor_surfaces:
+            new_obj = cls()
+        
+            tfa_surface = new_obj._inset_floor_surfaces( srfc, new_obj.inset, _ghenv )
+            new_obj.tfa_factor = 1.0
+            new_obj.space_number = '0000'
+            new_obj.space_name = _hb_room.display_name
+            new_obj.surface = tfa_surface
+            new_obj.host_room_name = _hb_room.display_name
+
+            new_objs.append( new_obj )
+
+        return new_objs
+
 
     def __unicode__(self):
         return u'A PHPP Treated Floor Area (TFA) Object: < {} >'.format(self.id)

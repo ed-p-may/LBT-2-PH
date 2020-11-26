@@ -495,7 +495,7 @@ def get_appliances(_model):
     appliance_objs = []
     try:
         appliances_set_dict = _model.user_data.get('phpp', {}).get('appliances')
-        appliances_set = LBT2PH.appliances.Appliances.from_dict( appliances_set_dict )
+        appliances_set = LBT2PH.appliances.ApplianceSet.from_dict( appliances_set_dict )
         for app_obj in appliances_set:
             appliance_objs.append(app_obj)
     except AttributeError as e:
@@ -673,7 +673,6 @@ def get_heating_cooling(_model):
             elif 'panel_cooling' in k:
                 this_room['panel_cooling'] =  LBT2PH.heating_cooling.PHPP_Cooling_Panel.from_dict(v)
             elif 'hp_heating' in k:
-                print v
                 this_room['hp_heating'] = LBT2PH.heating_cooling.PHPP_HP_AirSource.from_dict(v)
             elif 'hp_DHW_' in k:
                 this_room['hp_DHW'] = LBT2PH.heating_cooling.PHPP_HP_AirSource.from_dict(v)

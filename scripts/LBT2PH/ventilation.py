@@ -439,6 +439,7 @@ class PHPP_Sys_ExhaustVent(Object):
 
     def to_dict(self):
         d = {}
+        
         d.update( { 'id':self.id} )
         d.update( { '_name':self.name } )
         d.update( { 'vent_floor_area':self.vent_floor_area } )
