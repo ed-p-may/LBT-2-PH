@@ -27,7 +27,7 @@ This will add the appliances to the entire model.
 Note that by default this component will ONLY modify the PHPP appliance set, not the EnergyPlus appliance set. In order to apply these loads to your Honeybee model as well as the PHPP set the 'set_honeybee_loads_' option to 'True'.
 - 
 
-EM November 24, 2020
+EM November 27, 2020
     Args:
         _HB_model: The Honeybee Model
         use_resi_defaults_: (bool) Default=False. Set this to 'True' in order to apply the 'typical' residential appliance package.
@@ -82,16 +82,20 @@ Note: LED strips may have substantially lower efficiencies!
 
 ghenv.Component.Name = "LBT2PH_SetResAppliances"
 ghenv.Component.NickName = "PHPP Res. Appliances"
-ghenv.Component.Message = 'NOV_24_2020'
+ghenv.Component.Message = 'NOV_27_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
 import LBT2PH
 import LBT2PH.appliances
+import LBT2PH.schedules
+import LBT2PH.occupancy
 
 reload( LBT2PH )
 reload( LBT2PH.appliances )
+reload( LBT2PH.schedules )
+reload( LBT2PH.occupancy )
 
 #-------------------------------------------------------------------------------
 # These are copied from the Honeybee 'ApplyLoadVals' component
@@ -191,13 +195,13 @@ if _HB_model:
 #-------------------------------------------------------------------------------
 if HB_model_ and set_honeybee_loads_:
     new_model = HB_model_.duplicate()
-    lighting_schd_ = LBT2PH.helpers.create_hb_constant_schedule('phpp_lighting_sched_constant')
-    epuipment_schd = LBT2PH.helpers.create_hb_constant_schedule('phpp_elec_equip_sched_constant')
+    lighting_schd_ = LBT2PH.schedules.create_hb_constant_schedule('phpp_lighting_sched_constant')
+    epuipment_schd = LBT2PH.schedules.create_hb_constant_schedule('phpp_elec_equip_sched_constant')
     
     
     # Calc the Load values for the Honeybee Model Room
     #---------------------------------------------------------------------------
-    occupancy_obj = LBT2PH.helpers.get_model_occupancy(new_model, ghenv)
+    occupancy_obj = LBT2PH.occupancy.get_model_occupancy(new_model, ghenv)
     occupancy = occupancy_obj.occupancy
     num_units = occupancy_obj.num_units
     

@@ -904,6 +904,7 @@ def join_touching_tfa_groups(_tfa_surface_groups, _ghenv=None):
     return tfa_srfcs_joined
 
 def display_host_error(_tfa_obj, _ghenv):
+
     try:
         tfa_id = _tfa_obj.get_dict_key()
         msg = "Couldn't figure out which room/zone the tfa surface '{}' should "\
@@ -917,3 +918,12 @@ def display_host_error(_tfa_obj, _ghenv):
         _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
 
     return None
+
+def get_model_tfa(_model):
+    tfa = 0
+    for room in _model.rooms:
+        for space in room.user_data.get('phpp', {}).get('spaces').values():
+            space_obj = Space.from_dict( space )
+            tfa += space_obj.space_tfa
+    
+    return tfa

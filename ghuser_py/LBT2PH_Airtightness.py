@@ -24,7 +24,7 @@ Will calculate the PHPP Envelope Airtightness using the PHPP Rooms as the refere
 -
 Note: The results shown here will be a fair bit different than the Honeybee 'ACH2m3/s-m2 Calculator' standard component because for PH Cert we are supposed to use the Net Internal Volume (v50) NOT the gross volume. E+ / HB use the gross volume and so given the same ACH, they will arrive at different infiltration flow rates (flow = ACH * Volume). For PH work, use this component.
 -
-EM Nov. 21, 2020
+EM Nov. 27, 2020
 
     Args:
         _HBZones: Honeybee Zones to apply this leakage rate to. Note, this should be the set of all the zones which were tested together as part of a Blower Door test. IE: if the blower door test included Zones A, B, and C then all three zones should be passed in here together. Use 'Merge' to combine zones if need be.
@@ -39,7 +39,7 @@ EM Nov. 21, 2020
 
 ghenv.Component.Name = "LBT2PH_Airtightness"
 ghenv.Component.NickName = "Airtightness"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_27_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -55,12 +55,14 @@ import LBT2PH.helpers
 import LBT2PH.spaces
 import LBT2PH.ventilation
 import LBT2PH.airtightness
+import LBT2PH.schedules
 
 reload(LBT2PH)
 reload(LBT2PH.helpers)
 reload(LBT2PH.spaces)
 reload(LBT2PH.ventilation)
 reload(LBT2PH.airtightness)
+reload(LBT2PH.schedules)
 
 # ------------------------------------------------------------------------------
 # These defs are from Honeybee 'ApplyLoadVals' component
@@ -128,7 +130,7 @@ for room in _HB_rooms:
     infilt_load.flow_per_exterior_area = infilt_per_exterior_
     assign_load(new_hb_room, infilt_load, 'infiltration')
     
-    infiltration_sch_ = LBT2PH.helpers.create_hb_constant_schedule( 'Infilt_Const_Sched' )
+    infiltration_sch_ = LBT2PH.schedules.create_hb_constant_schedule( 'Infilt_Const_Sched' )
     infilt_sched = dup_load(new_hb_room, 'infiltration', 'infiltration_sch_')
     infilt_sched.schedule = infiltration_sch_
     assign_load(new_hb_room, infilt_sched, 'infiltration')

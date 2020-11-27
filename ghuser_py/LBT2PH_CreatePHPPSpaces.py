@@ -22,7 +22,7 @@
 """
 Note: Be aware that if you plan on setting the Honeybee Ventilation or Occupancy Loads / Schedules using the Honyebee tools, be sure to that BEFORE you use this component. This component will use those loads/schedules to generate the PHPP values. If you apply those Honeybee loads / schedules AFTER this component, those edits will not be taken into account and your PHPP will not match the Honyebee/E+ model.
 -
-EM November 26, 2020
+EM November 27, 2020
     Args:
         _HB_rooms: The Honeybee Rooms you would like to build the PHPP Spaces for.
         _TFA_surfaces: <list :Surface> The individual space floor surfaces represting each individual 'space' inside the Honeybee Room (zone).
@@ -37,7 +37,7 @@ EM November 26, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPSpaces"
 ghenv.Component.NickName = "PHPP Spaces"
-ghenv.Component.Message = 'NOV_26_2020'
+ghenv.Component.Message = 'NOV_27_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -53,11 +53,13 @@ import LBT2PH
 import LBT2PH.helpers
 import LBT2PH.spaces
 import LBT2PH.ventilation
+import LBT2PH.schedules
 
 reload(LBT2PH)
 reload(LBT2PH.helpers)
 reload(LBT2PH.spaces)
 reload(LBT2PH.ventilation)
+reload(LBT2PH.schedules)
 
 try:
     from honeybee_energy.load.ventilation import Ventilation
@@ -292,7 +294,7 @@ for hb_room in _HB_rooms:
 #-------------------------------------------------------------------------------
 HB_rooms_ = []
 space_breps_ = []
-const_vent_sched = LBT2PH.helpers.create_hb_constant_schedule( 'PHPP_Const_Vent_Sched' )
+const_vent_sched = LBT2PH.schedules.create_hb_constant_schedule( 'PHPP_Const_Vent_Sched' )
 for hb_room in _HB_rooms:
     new_hb_room = hb_room.duplicate()
     

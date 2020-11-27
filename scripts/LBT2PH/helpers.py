@@ -6,16 +6,6 @@ from copy import deepcopy
 import re
 import Grasshopper.Kernel as ghK
 
-import spaces
-import occupancy
-reload( spaces )
-reload( occupancy )
-
-from honeybee.typing import clean_and_id_ep_string
-from honeybee_energy.schedule.ruleset import ScheduleRuleset
-from honeybee_energy.lib.scheduletypelimits import schedule_type_limit_by_identifier
-
-
 def add_to_HB_model( _hb_model, _key, _dict, _ghenv, _write='update' ):
 
     user_data = deepcopy( _hb_model.user_data )
@@ -185,42 +175,4 @@ def convert_value_to_metric(_inputString, _outputUnit):
                 return _inputString
         except:
             return inputValue
-
-def create_hb_constant_schedule(_name, _type_limit='Fractional'):
-    type_limit = schedule_type_limit_by_identifier( _type_limit )
-
-    schedule = ScheduleRuleset.from_constant_value(
-        clean_and_id_ep_string(_name), 1, type_limit)
-
-    schedule.display_name = _name
-
-    return schedule
-
-def get_model_tfa(_model):
-    tfa = 0
-    for room in _model.rooms:
-        for space in room.user_data.get('phpp', {}).get('spaces').values():
-            space_obj = spaces.Space.from_dict( space )
-            tfa += space_obj.space_tfa
-    
-    return tfa
- 
-def get_model_occupancy(_model, _ghenv):
-    try:
-        occ_dict = _model.user_data.get('phpp', {}).get('occupancy', None)
-        
-        if not occ_dict:
-            raise ValueError
-        
-        occ_obj = occupancy.Occupancy.from_dict( occ_dict )
-        
-        return occ_obj
-    except ValueError:
-        msg = "Error getting Occupancy from the Honeybee Model? Please use an LBT2PH 'Occupancy'\n"\
-        "component before using this one in order to set the number of units and the occupancy level of the\n"\
-        "building. For now, I will assume 1-Unit and calculate the occupancy based on the model's gross floor area"
-        _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg  )
-        
-        occ_obj = occupancy.Occupancy( _tfa=_model.floor_area  )
-        return occ_obj
 

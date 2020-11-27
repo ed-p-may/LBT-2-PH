@@ -24,7 +24,7 @@ Use this component to set the 'occupancy' of the building for the PHPP. Be sure 
 -
 Note that by default this component will ONLY set the PHPP values, not the Honeybee load and schedue. If  you would like to set the Honeybee load / schedule to match the PHPP, set the 'set_honeybee_loads_' value to TRUE. This will set the Honyebee occupancy schedule to a 'Constant' schdedule in order to try and approximate the PHPP as closely as possible.
 -
-EM November 26, 2020
+EM November 27, 2020
     Args:
         _HB_model: The Honeybee Model
         set_honeybee_loads_: (bool) Default=False. Set this to TRUE if you would like to set the Honeybee occupant load / schedule to match the PHPP values.
@@ -44,7 +44,7 @@ EM November 26, 2020
 
 ghenv.Component.Name = "LBT2PH_SetPHPPOccupancy"
 ghenv.Component.NickName = "PHPP Occupancy"
-ghenv.Component.Message = 'NOV_26_2020'
+ghenv.Component.Message = 'NOV_27_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -52,10 +52,14 @@ ghenv.Component.SubCategory = "01 | Model"
 import LBT2PH
 import LBT2PH.occupancy
 import LBT2PH.helpers
+import LBT2PH.spaces
+import LBT2PH.schedules
 
 reload( LBT2PH )
 reload( LBT2PH.occupancy )
 reload( LBT2PH.helpers )
+reload( LBT2PH.spaces )
+reload( LBT2PH.schedules )
 
 #-------------------------------------------------------------------------------
 # These are copied from the Honeybee 'ApplyLoadVals' component
@@ -118,7 +122,7 @@ if _HB_model:
     phpp_occupancy.ihg_type = ihgType_
     phpp_occupancy.ihg_values = ihgValues_
     
-    tfa = LBT2PH.helpers.get_model_tfa(_HB_model)
+    tfa = LBT2PH.spaces.get_model_tfa(_HB_model)
     phpp_occupancy.tfa = tfa
     
     phpp_occupancy.check_non_res( ghenv )
@@ -129,7 +133,7 @@ if _HB_model:
     HB_model_ = _HB_model.duplicate()
     
     if set_honeybee_loads_:
-        occupancy_sch_ = LBT2PH.helpers.create_hb_constant_schedule('phpp_occ_sched_constant')
+        occupancy_sch_ = LBT2PH.schedules.create_hb_constant_schedule('phpp_occ_sched_constant')
         ppl_per_area_ = phpp_occupancy.occupancy / _HB_model.floor_area
         
         for obj in HB_model_.rooms:

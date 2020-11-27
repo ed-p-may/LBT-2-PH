@@ -1,4 +1,6 @@
 import statistics
+import sys
+print(sys.path)
 
 import Grasshopper.Kernel as ghK
 from Grasshopper import DataTree

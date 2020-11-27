@@ -15,6 +15,8 @@ from ladybug.dt import Date
 import LBT2PH
 import LBT2PH.helpers
 
+reload( LBT2PH )
+reload( LBT2PH.helpers )
 
 class PHPP_Sys_Duct(Object):
     def __init__(self, _duct_input=[], _wMM=[], _iThckMM=[], _iLambda=[], _ghdoc=[]):

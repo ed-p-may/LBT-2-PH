@@ -166,3 +166,22 @@ class Occupancy(Object):
                 "_typ={!r}, _ighT={!r}, ighV={!r} )".format(
                self.__class__.__name__, self.num_units, self.occupancy,
                self.tfa, self.building_type, self.ihg_type, self.ihg_values )
+
+def get_model_occupancy(_model, _ghenv):
+    try:
+        occ_dict = _model.user_data.get('phpp', {}).get('occupancy', None)
+        
+        if not occ_dict:
+            raise ValueError
+        
+        occ_obj = Occupancy.from_dict( occ_dict )
+        
+        return occ_obj
+    except ValueError:
+        msg = "Error getting Occupancy from the Honeybee Model? Please use an LBT2PH 'Occupancy'\n"\
+        "component before using this one in order to set the number of units and the occupancy level of the\n"\
+        "building. For now, I will assume 1-Unit and calculate the occupancy based on the model's gross floor area"
+        _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg  )
+        
+        occ_obj = Occupancy( _tfa=_model.floor_area  )
+        return occ_obj
