@@ -22,7 +22,7 @@
 """
 Set the control options for a Air- or Water-Source Heat Pump (HP). Sets the values on the 'HP' worksheet.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         _designForwardWaterTemp: (Deg C) Default=35. If using the PHI 'Heat Pump Tool', input the Design Forward Temp from the 'Main Results' worksheet here. Usually like 25-30 Deg C. This value will get set back on the 'DHW' worksheet. Don't ask me what this is or why it's done this way. I'm just just followin' the tool here...
         hp_distribution_: The Heat Pump heating distribution method. Input either:
@@ -49,27 +49,32 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_Heating_ASHP_Options"
 ghenv.Component.NickName = "Heating | HP Options"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
 import LBT2PH
 import LBT2PH.heating_cooling
+from LBT2PH.helpers import preview_obj
+from LBT2PH.helpers import convert_value_to_metric
 
 reload( LBT2PH )
 reload( LBT2PH.heating_cooling )
+reload(LBT2PH.helpers)
 
 #-------------------------------------------------------------------------------
 hp_options_ = LBT2PH.heating_cooling.PHPP_HP_Options()
 
-if _design_forward_water_temp:  hp_options_.frwd_temp = _design_forward_water_temp
+if _design_forward_water_temp:  hp_options_.frwd_temp = convert_value_to_metric(_design_forward_water_temp, 'C')
 if hp_distribution_:            hp_options_.hp_distribution = hp_distribution_
-if nom_power_:                  hp_options_.nom_power = nom_power_
+if nom_power_:                  hp_options_.nom_power = convert_value_to_metric(nom_power_, 'KW')
 if rad_exponent_:               hp_options_.rad_exponent = rad_exponent_
 if backup_type_:                hp_options_.backup_type = backup_type_
-if dT_elec_flow_water_:         hp_options_.dT_elec_flow = dT_elec_flow_water_
+if dT_elec_flow_water_:         hp_options_.dT_elec_flow = convert_value_to_metric(dT_elec_flow_water_, 'C')
 if hp_priority_:                hp_options_.hp_priority = hp_priority_
 if hp_control_:                 hp_options_.hp_control = hp_control_
-if depth_groundwater_:          hp_options_.depth_groundwater = depth_groundwater_
-if power_groundpump_:           hp_options_.power_groundwater = power_groundpump_
+if depth_groundwater_:          hp_options_.depth_groundwater = convert_value_to_metric(depth_groundwater_, 'M')
+if power_groundpump_:           hp_options_.power_groundwater = convert_value_to_metric(power_groundpump_, 'KW')
+
+preview_obj(hp_options_)

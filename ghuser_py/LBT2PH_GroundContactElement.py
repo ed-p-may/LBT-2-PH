@@ -23,7 +23,7 @@
 Create a ground contact 'Floor Element' for use in writing to the 'Ground' worksheet. By Default, this will just create a single floor element. You can input up to 3 of these (as a flattened list) into the 'grndFloorElements_' input on the 'Create Excel Obj - Geom' component. 
 However, if you also pass in the Honeybee Zones (into _HBZones) this will try and sort out the right ground element from the HB Geometry and parameters for each zone input. This info will be automatcally passed through to the Excel writer. If you have a simple situation, you can pass all of the Honeybee zones in at once, but if you need to set detailed parameters for multiple different floor types, first explode the Honeybee Zone object and then apply one of these components to each zone one at a time. Merge the zones back together before passing along.
 -
-EM November 21, 2020
+EM November 27, 2020
     Args:
         _HBZones: (list) <Optional> The Honeybee Zone Objects. 
         _type: (string): Input a floor element 'type'. Choose either:
@@ -40,7 +40,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_GroundContactElement"
 ghenv.Component.NickName = "Create Floor Element"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_27_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -51,6 +51,9 @@ from ladybug_rhino.fromgeometry import from_face3d
 import LBT2PH
 import LBT2PH.ground
 import LBT2PH.helpers
+from LBT2PH.helpers import convert_value_to_metric
+from LBT2PH.helpers import preview_obj
+from LBT2PH.helpers import add_to_HB_model
 
 reload( LBT2PH )
 reload( LBT2PH.ground )
@@ -59,55 +62,10 @@ reload( LBT2PH.helpers )
 #-------------------------------------------------------------------------------
 # Classes and Defs
 
-def convertUnits(_inputString, _outputUnit):
-    schema = {
-                'M':{'SI': 1, 'M':1, 'CM':0.01, 'MM':0.001, 'FT':0.3048, "'":0.3048, 'IN':0.0254, '"':0.0254},
-                'W/M2K':{'SI':1, 'IP':5.678264134},
-                'W/MK':{'SI':1, 'IP':1.730734908},
-                'M3':{'SI':1, 'FT3':0.028316847},
-              }
-    
-    inputValue = _inputString
-    
-    try:
-        # Pull out just the decimal numeric characters, if any
-        for each in re.split(r'[^\d\.]', _inputString):
-            if len(each)>0:
-                inputValue = each
-                break # will only take the first number found, 'ft3' doesn't work otherwise
-        
-        inputUnit = findInputStringUnit(_inputString)
-        conversionFactor = schema.get(_outputUnit, {}).get(inputUnit, 1)
-        return float(inputValue) * float(conversionFactor)
-    except:
-        return inputValue
-
-def findInputStringUnit(_in):
-    evalString = str(_in).upper()
-    
-    if 'FT' in evalString or "'" in evalString:
-        inputUnit = 'FT'
-    elif 'IN' in evalString or '"' in evalString:
-        inputUnit = 'IN'
-    elif 'MM' in evalString:
-        inputUnit = 'MM'
-    elif 'CM' in evalString:
-        inputUnit = 'CM'
-    elif 'M' in evalString and 'MM' not in evalString:
-        inputUnit = 'M'
-    elif 'IP' in evalString:
-        inputUnit = 'IP'
-    elif 'FT3' in evalString:
-        inputUnit = 'FT3'
-    else:
-        inputUnit = 'SI'
-    
-    return inputUnit
-
-def cleanInputs(_in, _nm, _default, _units=None):
+def cleanInputs(_in, _nm, _default, _units='-'):
     # Apply defaults if the inputs are Nones
     out = _in if _in != None else _default
-    out = convertUnits(str(out), _units)
+    out = convert_value_to_metric(str(out), _units)
     
     # Check that output can be float
     try:
@@ -321,37 +279,7 @@ def build_crawl_space( _floor_elements, _inputs ):
 setup_component_input(_type)
 ghenv.Component.Attributes.Owner.OnPingDocument()
 
-#-------------------------------------------------------------------------------
 # Sort out what input geometry to use
-"""
-# If nothing is input, try and pull the 'floors' from the _HB_rooms
-floor_surfaces = []
-perim_curves = []
-for room in _HB_rooms:
-    for face in room.faces:
-        if str(face.type)=='Floor':
-            face_surface = from_face3d(face.geometry)
-            
-            floor_surfaces.append( face_surface )
-            perim_curves += list(face_surface.DuplicateEdgeCurves())
-# If ony a floor surface is input, use that for both the area and the perim curve
-
-if _floor_surfaces:
-    floor_surfaces = []
-    perim_curves = []
-
-for surface in _floor_surfaces:
-    floor_surfaces.append(surface)
-    perim_curves.append(surface)
-
-if _floor_surfaces and _exposedPerimCrvs:
-    floor_surfaces = []
-    perim_curves = []
-
-for surface, curve in zip(_floor_surfaces, _exposedPerimCrvs):
-    floor_surfaces.append(surface)
-    perim_curves.append(curve)
-"""
 # If both a floor surface and a perim_curve are input, use them both
 #-------------------------------------------------------------------------------
 ground_elements_ = []
@@ -365,6 +293,7 @@ if _type:
         for hb_room in _HB_rooms:
             if does_not_have_exposed_floor(hb_room):
                 HB_rooms_.append( hb_room )
+                print('Room "{}" does not have any exposed floor surfaces. Skipping this room'.format(hb_room.display_name))
                 continue
             
             floor_element = LBT2PH.ground.PHPP_Ground_Floor_Element( ghenv )
@@ -404,13 +333,8 @@ if _type:
             #-------------------------------------------------------------------
             # Add the ground element onto the HB-Room
             new_room = hb_room.duplicate()
-            
-            try:
-                user_data = new_room.user_data['phpp']
-            except:
-                user_data = { }
-            
-            user_data.update( {'ground': ground_element.to_dict() } )
-            new_room.user_data = {'phpp': user_data}
-            
+            add_to_HB_model(new_room, 'ground', ground_element.to_dict(), ghenv)
             HB_rooms_.append( new_room )
+            
+            #-------------------------------------------------------------------
+            preview_obj( ground_element )

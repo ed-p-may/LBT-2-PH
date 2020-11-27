@@ -22,7 +22,7 @@
 """
 Will combine parameters together to create a new Window Frame object which can be used by the 'PHPP Apertures' component. A PHPP-Style frame includes very detailed information.
 -
-EM November 26, 2020
+EM November 27, 2020
     Args:
         _name: The name for the new Window Frame object
         _frameWidths: (List) Input values for the frame face-widths (m). Input values in order: Left, Right, Bottom, Top. If less than 4 values are input, the first value will be used for all four edges.
@@ -35,14 +35,15 @@ EM November 26, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPwindowFrame"
 ghenv.Component.NickName = "New PHPP Frame"
-ghenv.Component.Message = 'NOV_26_2020'
+ghenv.Component.Message = 'NOV_27_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
 import LBT2PH
 import LBT2PH.windows
-import LBT2PH.helpers
+from LBT2PH.helpers import convert_value_to_metric
+from LBT2PH.helpers import preview_obj
 
 reload(LBT2PH)
 reload(LBT2PH.windows)
@@ -67,3 +68,5 @@ if _name:
     if _psiGlazings: PHPPFrame_.PsiGVals = cleanInputs(_psiGlazings, 0.04 , 'W/MK')
     if _psiInstalls: PHPPFrame_.PsiInstalls = cleanInputs(_psiInstalls, 0.04, 'W/MK')
     if _chi_glass_carriers: PHPPFrame_.chiGlassCarrier = LBT2PH.helpers.convert_value_to_metric(_chi_glass_carriers, 'W/K')
+    
+    preview_obj(PHPPFrame_)

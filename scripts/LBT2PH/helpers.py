@@ -76,36 +76,43 @@ def preview_obj(_classObj):
 def find_input_string(_in):
     """ Util func  used by the unit converter """
     
-    evalString = str(_in).upper()
+    codes = {
+        'FT':'FT', "'":'FT',
+        'IN':'IN', '"':'IN',
+        'MM':'MM',
+        'CM':'CM',
+        'M':'M:',
+        'IP':'IP',
+        'FT3':'FT3',
+        'M3':'M3',
+        'F':'F', 'DEG F':'F',
+        'C':'C', 'DEG C':'C',
+        'CFM':'CFM', 'FT3/M':'CFM', 'FT3M':'CFM',
+        'CFH':'CFH', 'FT3/H':'CFH', 'FT3H':'CFH',
+        'L':'L',
+        'GA':'GA', 'GALLON':'GA',
+        'BTU/H':'BTUH', 'BTUH':'BTUH',
+        'KBTU/H':'KBTUH', 'KBTUH':'KBTUH', 
+        'TON':'TON',
+        'W':'W',
+        'WH':'WH',
+        'KW':'KW',
+        'KWH':'KWH',
+        'W/M2K':'W/M2K', 'WM2K':'WM2K',
+        'W/MK':'W/MK',
+        'W/K':'W/K',
+        'M3/H':'M3/H', 'M3H':'M3/H', 'CMH':'M3/H',
+        'W/W':'W/W',
+        'BTU/WH':'BTU/WH', 'BTUH/W':'BTU/WH', 'BTU/W':'BTU/WH',
+        'R/IN':'R/IN', 'R-IN':'R/IN'
+    }
+    # Note: BTU/W conversion isnt really right, but I think many folks use that 
+    # when they mean Btu/Wh (or Btu-h/W)
 
-    if 'FT' == evalString or "'" == evalString:
-        inputUnit = 'FT'
-    elif 'IN' == evalString or '"' == evalString:
-        inputUnit = 'IN'
-    elif 'MM' == evalString:
-        inputUnit = 'MM'
-    elif 'CM' == evalString:
-        inputUnit = 'CM'
-    elif 'M' == evalString and 'MM' != evalString:
-        inputUnit = 'M'
-    elif 'IP' == evalString:
-        inputUnit = 'IP'
-    elif 'FT3' == evalString:
-        inputUnit = 'FT3'
-    elif 'F' == evalString:
-        inputUnit = 'F'
-    elif 'CFM' == evalString:
-        inputUnit = 'CFM'
-    elif 'L' == evalString:
-        inputUnit = 'L'
-    elif 'GA' == evalString:
-        inputUnit = 'GA'
-    elif 'GALLON' == evalString:
-        inputUnit = 'GA'
-    else:
-        inputUnit = 'SI'
-    
-    return inputUnit
+    _input_string = str(_in).upper()
+    input_unit = codes.get(_input_string, 'SI')
+   
+    return input_unit
 
 def convert_value_to_metric(_inputString, _outputUnit):
     """ Will convert a string such as "12 FT" into the corresponding Metric unit
@@ -123,12 +130,15 @@ def convert_value_to_metric(_inputString, _outputUnit):
                 'CM':   {'SI': 1, 'M':100, 'CM':1, 'MM':0.1, 'FT':30.48, "'":30.48, 'IN':2.54, '"':2.54},
                 'MM':   {'SI': 1, 'M':1000, 'CM':10, 'MM':1, 'FT':304.8, "'":304.8, 'IN':25.4, '"':25.4},
                 'W/M2K':{'SI':1, 'W/M2K':1, 'IP':5.678264134, 'BTU/HR-FT2-F':5.678264134, 'HR-FT2-F/BTU':'**-1*5.678264134'},
-                'W/MK': {'SI':1, 'W/MK':1, 'IP':1.730734908, 'BTU/HR-FT-F':1.730734908},
+                'W/MK': {'SI':1, 'W/MK':1, 'IP':1.730734908, 'BTU/HR-FT-F':1.730734908, 'R/IN':'**-1*0.144227909'},
                 'W/K':  {'SI':1, 'W/K':1, 'BTU/HR-F':1.895633976, 'IP':1.895633976},
                 'M3':   {'SI':1, 'FT3':0.028316847},
                 '-' :   {'SI':1, '-':1},
-                'M3/H': {'SI':1, 'CFM':1.699010796, 'IP':1.699010796},
-                'L':    {'SI':1, 'L':1, 'GALLON':0.264172, "GA":0.264172}
+                'M3/H': {'SI':1, 'CFM':1.699010796, 'IP':1.699010796, 'CFH':101.9406477},
+                'L':    {'SI':1, 'L':1, 'GALLON':0.264172, "GA":0.264172},
+                'KW':   {'SI':1, 'KW':1, 'W':1000, 'BTUH':3412.141156, 'KBTUH':3.412141156, 'TON':0.284345096},
+                'W':    {'SI':1, 'W':1, 'KW':0.001, 'BTUH':3.412141156, 'KBTUH':0.003412141, 'TON':0.000284345},
+                'W/W':  {'SI':1, 'BTU/WH':0.293071111, 'IP':0.293071111}
               }
                  
     inputValue = _inputString

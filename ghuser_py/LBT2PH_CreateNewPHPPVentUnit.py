@@ -57,7 +57,9 @@ def checkInput(_in):
     except:
         return None
 
+#------------------------------------------------------------------------------
 ventUnit_ = LBT2PH.ventilation.PHPP_Sys_VentUnit()
+
 if name_: 
     ventUnit_.name = name_
 if checkInput(HR_eff_):

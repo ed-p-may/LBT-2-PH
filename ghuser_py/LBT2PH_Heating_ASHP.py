@@ -22,7 +22,7 @@
 """
 Set the parameters for a Air- or Water-Source Heat Pump (HP). Sets the values on the 'HP' worksheet.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         _unit_name: The name for the heat pump unit
         _source: The Heat Pump exterior 'source'. Input either:
@@ -42,7 +42,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_Heating_ASHP"
 ghenv.Component.NickName = "Heating | HP"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -51,9 +51,12 @@ import Grasshopper.Kernel as ghK
 
 import LBT2PH
 import LBT2PH.heating_cooling
+from LBT2PH.helpers import preview_obj
+from LBT2PH.helpers import convert_value_to_metric
 
 reload( LBT2PH )
 reload( LBT2PH.heating_cooling )
+reload(LBT2PH.helpers)
 
 #-------------------------------------------------------------------------------
 def check_input_lengths(*args):
@@ -93,18 +96,21 @@ if _temps_source:       tsrcs = _temps_source
 if _temps_sink:         tsnks = _temps_sink
 if _heating_capacities: hcs   = _heating_capacities
 if _COPs:               cops  = _COPs
-print tsrcs
+
 #-------------------------------------------------------------------------------
 # Create the Heat Pump Object
 
 heat_pump_ = LBT2PH.heating_cooling.PHPP_HP_AirSource()
-if _unit_name: heat_pump_.name = _unit_name
+
+if _unit_name: heat_pump_.name =  _unit_name
 if _source: heat_pump_.source = _source
-if tsrcs: heat_pump_.temps_sources = tsrcs
-if tsnks: heat_pump_.temps_sinks = tsnks
-if hcs: heat_pump_.heating_capacities = hcs
-if cops: heat_pump_.cops = cops
-if dt_sink_: heat_pump_.sink_dt = dt_sink_
+if tsrcs: heat_pump_.temps_sources = [ convert_value_to_metric(val, 'C') for val in tsrcs ]
+if tsnks: heat_pump_.temps_sinks = [ convert_value_to_metric(val, 'C') for val in tsnks ]
+if hcs: heat_pump_.heating_capacities = [ convert_value_to_metric(val, 'KW') for val in hcs ]
+if cops: heat_pump_.cops = [ convert_value_to_metric(val, 'W/W') for val in cops ]
+if dt_sink_: heat_pump_.sink_dt = convert_value_to_metric(dt_sink_, 'C')
 
 for warning in heat_pump_.warnings:
     ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
+
+preview_obj(heat_pump_)

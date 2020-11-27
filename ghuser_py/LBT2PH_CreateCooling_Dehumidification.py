@@ -22,7 +22,7 @@
 """
 Set the parameters for an Additional Dehumidification Element. Sets the values on the 'Cooling Unit' worksheet.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         wasteHeatToRoom_: ('x' or '') Default=''. If this field is checked, then the waste heat from the dehumidification unit will be considered as an internal heat gain. On the contrary, dehumidification has no influence on the thermal balance.
         SEER_: Default=1. 1 litre water per kWh electricity result in an energy efficiency ratio of 0.7. Good devices, e.g. with internal heat recovery, achieve values of up to 2.
@@ -32,7 +32,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateCooling_Dehumidification"
 ghenv.Component.NickName = "Cooling | Dehumid"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -40,12 +40,17 @@ ghenv.Component.SubCategory = "01 | Model"
 
 import LBT2PH
 import LBT2PH.heating_cooling
+from LBT2PH.helpers import preview_obj
+from LBT2PH.helpers import convert_value_to_metric
 
 reload( LBT2PH )
 reload( LBT2PH.heating_cooling )
+reload(LBT2PH.helpers)
 
 # ------------------------------------------------------------------------------
 dehumid_cooling_ = LBT2PH.heating_cooling.PHPP_Cooling_Dehumid()
 
 if waste_heat_to_room_: dehumid_cooling_.waste_to_room = waste_heat_to_room_
-if SEER_:               dehumid_cooling_.seer = SEER_
+if SEER_:               dehumid_cooling_.seer = convert_value_to_metric(SEER_, 'W/W')
+
+preview_obj(dehumid_cooling_)

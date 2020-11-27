@@ -22,7 +22,7 @@
 """
 Set the parameters for a Panel Cooling Element. Sets the values on the 'Cooling Unit' worksheet.
 -
-EM November 21, 2020
+EM November 26, 2020
     Args:
         SEER_: (W/W) Default=3
     Returns:
@@ -31,16 +31,22 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateCooling_Panel"
 ghenv.Component.NickName = "Cooling | Panel"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_26_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
 import LBT2PH
 import LBT2PH.heating_cooling
+from LBT2PH.helpers import preview_obj
+from LBT2PH.helpers import convert_value_to_metric
 
 reload( LBT2PH )
 reload( LBT2PH.heating_cooling )
+reload(LBT2PH.helpers)
 
+#-------------------------------------------------------------------------------
 panel_cooling_ = LBT2PH.heating_cooling.PHPP_Cooling_Panel()
-if SEER_: panel_cooling_.seer = SEER_
+if SEER_: panel_cooling_.seer = convert_value_to_metric(SEER_, 'W/W')
+
+preview_obj(panel_cooling_)
