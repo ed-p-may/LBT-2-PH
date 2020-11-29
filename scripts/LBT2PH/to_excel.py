@@ -1,6 +1,4 @@
 import statistics
-import sys
-print(sys.path)
 
 import Grasshopper.Kernel as ghK
 from Grasshopper import DataTree
@@ -289,7 +287,7 @@ def build_components(_inputBranch):
         
         # ----------------------------------------------------------------------
         # Frames 
-        fNm = eachWin.frame.display_name
+        fNm = eachWin.frame.name
         uF_L, uF_R, uF_B, uF_T  = eachWin.frame.uLeft, eachWin.frame.uRight, eachWin.frame.uBottom, eachWin.frame.uTop
         wF_L, wF_R, wF_B, wF_T  = eachWin.frame.fLeft, eachWin.frame.fRight, eachWin.frame.fBottom, eachWin.frame.fTop
         psiG_L, psiG_R, psiG_B, psiG_T  = eachWin.frame.psigLeft, eachWin.frame.psigRight, eachWin.frame.psigBottom, eachWin.frame.psigTop
@@ -558,6 +556,9 @@ def build_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):
     for i, phpp_space in enumerate(_inputBranch):
         # ----------------------------------------------------------------------
         # find the right ventilation system to use
+        if not _vent_systems:
+            continue
+        
         for s in _vent_systems:
             if phpp_space.phpp_vent_system_id == s.system_id:
                 vent_system = s
@@ -820,7 +821,7 @@ def build_addnl_vent_systems(_inputBranch, _ventUnitsUsed, _startRows):
 
     return vent
 
-def build_infiltration(_inputBranch, _zones_to_include):
+def build_infiltration(_hb_rooms, _zones_to_include):
     #---------------------------------------------------------------------------
     # Envelope Airtightness
     
@@ -835,17 +836,22 @@ def build_infiltration(_inputBranch, _zones_to_include):
     space_vn50s = []
     spaces_weighted_airflows = []
     
-    for phpp_space in _inputBranch:
+    for phpp_space in _hb_rooms:
         if phpp_space.ZoneName not in _zones_to_include:
             continue
         
-        spaces_weighted_airflows.append( phpp_space.n50 * phpp_space.vn50 )
-        space_vn50s.append( phpp_space.vn50 )
-    
+        if phpp_space.vn50:
+            spaces_weighted_airflows.append( phpp_space.n50 * phpp_space.vn50 )
+            space_vn50s.append( phpp_space.vn50 )
+
+        
     #---------------------------------------------------------------------------
     bld_vn50 = sum(space_vn50s)
-    bldg_weighted_ACH = sum(spaces_weighted_airflows) / bld_vn50
-    
+    if bld_vn50:
+        bldg_weighted_ACH = sum(spaces_weighted_airflows) / bld_vn50
+    else:
+        bldg_weighted_ACH = None
+
     #---------------------------------------------------------------------------
     airtightness = []
     print("Creating the Airtightness Objects...")
@@ -949,7 +955,10 @@ def build_ground(_ground_objs, _zones, _ghenv):
             
     return ground
 
-def build_DHW_system(_dhw_systems, _hb_rooms):
+def build_DHW_system(_dhw_systems, _hb_rooms, _ghenv):
+    if not _dhw_systems:
+        return []
+    
     #---------------------------------------------------------------------------
     # If more that one system are to be used, combine them into a single system
     
@@ -1013,7 +1022,7 @@ def build_DHW_system(_dhw_systems, _hb_rooms):
                 dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 159), recirc_line.period ) )
             else:
                 dhwRecircWarning = "Too many recirculation loops. PHPP only allows up to 5 loops to be entered.\nConsolidate the loops before moving forward"
-                ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
+                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
         
         #-----------------------------------------------------------------------
         # Branch Piping
@@ -1028,7 +1037,7 @@ def build_DHW_system(_dhw_systems, _hb_rooms):
                 dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 172), branch_line.utilisation))
             else:
                 dhwRecircWarning = "Too many branch piping sets. PHPP only allows up to 5 sets to be entered.\nConsolidate the piping sets before moving forward"
-                ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
+                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
         
         #-----------------------------------------------------------------------
         # Tanks
@@ -1266,7 +1275,9 @@ def build_appliances(_appliances, _hb_room_names, _ghenv):
     return apps
 
 def build_lighting(_lighting_objects, _hb_room_names):
-
+    if not _lighting_objects:
+        return []
+        
     weighted_efficacy = []
     tfas = []
     for obj in _lighting_objects:
@@ -1541,6 +1552,8 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
     return hc_equip
 
 def build_PER( _per_objs, _hb_room_names, _ghenv ):
+    if not _per_objs:
+        return []
 
     #---------------------------------------------------------------------------
     #  Need to combine PER together somehow. Use a floor-area weighted average?
@@ -1592,6 +1605,9 @@ def build_PER( _per_objs, _hb_room_names, _ghenv ):
     return per_
 
 def build_occupancy( _occ_obj ):
+    if not _occ_obj:
+        return []
+    
     occupancy = []
 
     occupancy.append( PHPP_XL_Obj('Verification', 'F28', _occ_obj.num_units))

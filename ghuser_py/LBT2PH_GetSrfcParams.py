@@ -37,7 +37,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_GetSrfcParams"
 ghenv.Component.NickName = "Get Surface Params"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'NOV_28_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -105,7 +105,7 @@ hb_constructions = LBT2PH.assemblies.generate_all_HB_constructions(rh_doc_constr
 
 #-------------------------------------------------------------------------------
 # Create the surface objects
-hb_surfaces = [LBT2PH.surfaces.hb_surface(srfc, hb_constructions, ghenv) for srfc in rh_surfaces]
+hb_surfaces = (LBT2PH.surfaces.hb_surface(srfc, hb_constructions, ghenv) for srfc in rh_surfaces)
 
 #-------------------------------------------------------------------------------
 # Outputs

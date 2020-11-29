@@ -5,6 +5,7 @@ from System import Object
 
 class PHPP_Shading_Dims(Object):
     """ PHPP-Style dimensions to shading objects """
+    
     Horizon = namedtuple('Horizon', ['h_hori', 'd_hori', 'checkline'])
     Overhang = namedtuple('Overhang', ['d_over', 'o_over', 'checkline'])
     Reveal = namedtuple('Reveal', ['o_reveal', 'd_reveal', 'checkline1', 'checkline2'])

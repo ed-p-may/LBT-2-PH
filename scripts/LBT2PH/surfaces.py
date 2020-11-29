@@ -2,14 +2,18 @@ import System
 import rhinoscriptsyntax as rs
 import helpers
 import Grasshopper.Kernel as ghK
-from collections import namedtuple
 import Rhino
 import math
 
-
+try:  # import the core honeybee dependencies
+    from honeybee.model import Model
+    from honeybee.boundarycondition import Surface, Outdoors, Ground, Adiabatic
+    from honeybee.facetype import Wall, RoofCeiling, Floor
+except ImportError as e:
+    raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
 class Temp_Surface:
-    ''' A temporary holder for some surface stuff. Used to be just a nametuple.. '''
+    """ A temporary holder for some surface stuff. Used to be just a nametuple.. """
 
     def __init__(self, _geom=None, _params=None):
         self.geom = _geom
@@ -19,7 +23,7 @@ class Temp_Surface:
         return (i for i in (self.geom, self.params))
 
 class hb_surface:
-    ''' Simple class to organize data for a 'surface'. Used to set up data for a HB-Face Component
+    """ Simple class to organize data for a 'surface'. Used to set up data for a HB-Face Component
     
     Args:
         _srfc: <Surface> A single 'Surface' object with .geom and .param properties
@@ -33,8 +37,8 @@ class hb_surface:
         * bc
         * const 
         * rad_mod   
-    '''
-    __slots__ = ('_geo', '_params', '_constructions', 'rad_mod')
+    """
+    __slots__ = ('srfc_type_schema', '_geo', '_params', '_constructions', 'rad_mod')
 
     srfc_type_schema = {
         'Wall': {'legacy':0, 'lbt1': 'Wall'},
@@ -74,6 +78,7 @@ class hb_surface:
     
     def _add_ext_flag_to_name(self, _ud_value):
         """ So that the EP Results can be properly sorted at the very end, add an EXT or INT flag to the srfc"""
+        
         if self.bc is None:
             return 'EXT_' + str(_ud_value)
         elif 'Adiabatic' in self.bc:
@@ -108,6 +113,8 @@ class hb_surface:
 
     @property
     def type_legacy(self):
+        """Exposure type used by old 'Legacy' Honeybee """
+        
         ud_value = self._params.get('srfType', 'Wall')
         return self._get_srfc_type(ud_value, 'legacy')
 
@@ -124,9 +131,199 @@ class hb_surface:
         ud_value = 'PHPP_CONST_' + str(ud_value).upper()
         ud_value = ud_value.replace(' ', '_')
         return self._constructions.get(ud_value, ud_value)
+
+class PHPP_Surface:
+    def __init__(self, _lbt_face, _rm_name, _rm_id, _scene_north_vec, _ghenv):
+        self.lbt_srfc = _lbt_face
+        self.HostZoneName = _rm_name
+        self.HostZoneID = _rm_id
+        self.scene_north_vector = self.calc_scene_north_vector()
+        self.ghenv = _ghenv
+        self.Factor_Shading = 0.5
+        self.Factor_Absorptivity = 0.6
+        self.Factor_Emissivity = 0.9
+    
+    def calc_scene_north_vector(_input_vector):
+        ''' 
+        Arguments:
+            _input_vector: Vector2d or an anlge representing the scene's North direction 
+        Returns:
+            north_vector:
+        '''
         
+        default_north_vector = north_vec = Rhino.Geometry.Vector2d(0,1)
+        
+        if _input_vector is None:
+            return default_north_vector
+        
+        if isinstance(_input_vector, Rhino.Geometry.Vector2d):
+            return _input_vector
+        
+        try:
+            angle = float(_input_vector)
+            return default_north_vector
+        except:
+            return default_north_vector
+
+    @property
+    def Name(self):
+        try:
+            lbt_srfc_name = self.lbt_srfc.display_name
+            clean_name = lbt_srfc_name.replace('EXT_', '')
+            return clean_name
+        except Exception as e:
+            print('Error getting name from the LBT Face?', e)
+            return 'NameError'
+
+    @property
+    def AssemblyName(self):
+        try:
+            lbt_val = self.lbt_srfc.properties.energy.construction.display_name
+            return lbt_val
+        except Exception as e:
+            print('Error getting the LBT Face Construction?', e)
+            return None
+
+    @property
+    def Assembly_ID(self):
+        try:
+            lbt_val = self.lbt_srfc.properties.energy.construction.identifier
+            return lbt_val
+        except Exception as e:
+            print('Error getting the LBT Face Construction Identifier?', e)
+            return None
+
+    @property
+    def exposure(self):
+        try:
+            lbt_exposure = self.lbt_srfc.boundary_condition
+            return lbt_exposure
+        except Exception as e:
+            print('Error getting the LBT BC?', e)
+            return None
+
+    @property
+    def type(self):
+        try:
+            lbt_type = self.lbt_srfc.type
+            return lbt_type
+        except Exception as e:
+            print('Error getting the LBT Surface Type?', e)
+            return None
+
+    @property
+    def GroupNum(self):
+        ''' Figure out the 'Group Number' for PHPP based on the Srfc exposure & type '''
+        
+        bc = self.exposure
+        face_type = self.type
+        
+        if isinstance(bc, (Surface)):
+            return None
+        elif isinstance(face_type, Wall) and isinstance(bc, (Outdoors)):
+            return 8
+        elif isinstance(face_type, Wall) and isinstance(bc, (Ground)):
+            return 9
+        elif isinstance(face_type, RoofCeiling) and isinstance(bc, (Outdoors)):
+            return 10
+        elif isinstance(face_type, Floor) and isinstance(bc, (Ground)):
+            return 11
+        elif isinstance(face_type, Floor) and isinstance(bc, (Outdoors)):
+            return 12
+        elif isinstance(bc, (Adiabatic)):
+            return 18
+        else:
+            groupWarning = "Couldn't figure out the Group Number for surface '{self.Name}'?\n"\
+                "It appears to have an exposure of: '{self.exposure}' and a type of: '{self.type}'?\n"\
+                "I will give this surface a group type of 13. You may want to overwrite that in PHPP.".format(self=self)
+            self.ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, groupWarning)
+            return 13
+
+    @property
+    def SurfaceArea(self):
+        try:
+            lbt_val = self.lbt_srfc.area
+            return lbt_val
+        except Exception as e:
+            print('Error getting the LBT Surface Area?', e)
+            return None
+
+    @property
+    def NormalVector(self):
+        try:
+            lbt_val = self.lbt_srfc.normal
+            return lbt_val
+        except Exception as e:
+            print('Error getting the LBT Surface Normal?', e)
+            return None
+
+    @property
+    def Srfc(self):
+        try:
+            lbt_val = self.lbt_srfc.geometry
+            return lbt_val
+        except Exception as e:
+            print('Error getting the LBT Surface Geometry?', e)
+            return None
+
+    @property
+    def AngleFromHoriz(self):
+        up_vec = Rhino.Geometry.Vector3d(0,0,1)
+        face_normal_vec = self.NormalVector
+        
+        angle = rs.VectorAngle(up_vec, face_normal_vec)
+        return angle 
+
+    @property
+    def AngleFromNorth(self):
+        ''' Uses the Surface's Normal Vector and the project's north angle
+        vector and computes the clockwise orientation angle 0--360 between them
+        
+        http://frasergreenroyd.com/obtaining-the-angle-between-two-vectors-for-360-degrees/
+        Results 0=north, 90=east, 180=south, 270=west
+        Arguments:
+            None
+        Returns: 
+            angle: the angle off North for the surface (Degrees) clockwise from 0
+        '''
+
+        # Get the input Vector's X and Y parts
+        x1 = self.NormalVector.x
+        y1 = self.NormalVector.y
+        
+        x2 = self.scene_north_vector.X
+        y2 = self.scene_north_vector.Y
+        
+        # Calc the angle between the vectors
+        angle = math.atan2(y2, x2) - math.atan2(y1, x1)
+        angle = angle * 360 / (2 * math.pi)
+        
+        if angle < 0:
+            angle = angle + 360
+        
+        # Return Angle in Degrees
+        return angle
+
+    @property
+    def Centroid(self):
+        try:
+            lbt_val = self.lbt_srfc.geometry.centroid
+            return lbt_val
+        except Exception as e:
+            print('Error getting the LBT Surface Centroid?', e)
+            return None
+
+    def __unicode__(self):
+        return u'A PHPP-Style Surface Object: < {self.Name} >'.format(self=self)
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+       return "{}(_lbt_face={!r})".format(
+            self.__class__.__name__, self.lbt_srfc)
+
+
 def get_rh_srfc_params(_srfc_GUIDs, _ghenv, _ghdoc):
-    ''' Pulls geom and UserText params from the Rhino scene.
+    """ Pulls geom and UserText params from the Rhino scene.
 
     Args:
         _srfc_GUIDs: <list: Guid:> A list of the surface GUID numbers.
@@ -134,7 +331,7 @@ def get_rh_srfc_params(_srfc_GUIDs, _ghenv, _ghdoc):
         _ghdoc: The <ghDoc> object from the Grasshopper component calling this function
     Returns:
         surfaces: A List of surface objects. Each object has a .geom and a .param property
-    '''
+    """
     
     surfaces = []
     
@@ -152,13 +349,13 @@ def get_rh_srfc_params(_srfc_GUIDs, _ghenv, _ghdoc):
     return surfaces
 
 def determine_surface_type_by_orientation(_surfaces):
-    ''' Determines the 'type' of surface automatically, based on its surface normal.
+    """ Determines the 'type' of surface automatically, based on its surface normal.
 
     Args:
         _surfaces: <List: Surface:> A List of Surface objects with a .geom and a .params attribute.
     Returns:
         surface_type: A new list of Surface objs with their Surface Type modified as appropriate
-    '''
+    """
     
     assert type(_surfaces) == list, "'_surfaces' input should be a list"
     
@@ -218,14 +415,16 @@ def determine_surface_type_by_orientation(_surfaces):
     return surfaces
 
 def _get_surface_rh_userText(_srfc_GUID, _ghdoc, _ghenv):
-    ''' Takes in an objects GUID and returns the full dictionary of
+    """ Takes in an objects GUID and returns the full dictionary of
     Attribute UserText Key and Value pairs. Cleans up a bit as well.
     
     Args:
         _GUID: <Guid> the Rhino GUID of the surface object to try and read from
+        _ghdoc: The Grasshopper Component 'ghdoc' object
+        _ghenv: The Grasshopper Component 'ghenv' object
     Returns:
         output_dict: a dictionary object with all the keys / values found in the Object's UserText
-    '''
+    """
     output_dict = {}
     
     if _srfc_GUID.GetType() != System.Guid:
@@ -236,7 +435,7 @@ def _get_surface_rh_userText(_srfc_GUID, _ghdoc, _ghenv):
         return output_dict
     
     with helpers.context_rh_doc(_ghdoc):
-        output_dict['Object Name'] = rs.ObjectName(_srfc_GUID) # Always get the name
+        output_dict['Object Name'] = rs.ObjectName(_srfc_GUID)
         
         for eachKey in rs.GetUserText(_srfc_GUID):
             if 'Object Name' not in eachKey:

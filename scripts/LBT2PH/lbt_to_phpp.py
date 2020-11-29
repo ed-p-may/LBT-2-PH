@@ -31,20 +31,12 @@ reload(LBT2PH.summer_vent)
 reload(LBT2PH.heating_cooling)
 reload(LBT2PH.occupancy)
 
-try:  # import the core honeybee dependencies
-    from honeybee.model import Model
-    from honeybee.boundarycondition import Surface, Outdoors, Ground, Adiabatic
-    from honeybee.facetype import Wall, RoofCeiling, Floor
-except ImportError as e:
-    raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
-
 try:
     import ladybug.epw as epw  
     from ladybug_rhino.fromgeometry import from_face3d
     from ladybug_rhino.togeometry import to_vector2d
 except ImportError as e:
     raise ImportError('\nFailed to import ladybug:\n\t{}'.format(e))
-
 
 class PHPP_Zone:
     def __init__(self, _room):
@@ -80,9 +72,12 @@ class PHPP_Zone:
         factor =  math.pow((blower_pressure/normal_avg_pressure), 0.63)
         infil_flow_rate_at_50PA = factor * infil_flow_rate_at_normal_pressure   # m3/s
         infil_flow_rate_at_50PA = infil_flow_rate_at_50PA * 3600                # m3/hr
-        n50 = infil_flow_rate_at_50PA / self.vn50
-
-        return n50
+        
+        if self.vn50:
+            n50 = infil_flow_rate_at_50PA / self.vn50
+            return n50
+        else:
+            return None
 
     @property
     def vn50(self):
@@ -91,8 +86,12 @@ class PHPP_Zone:
 
     def _create_phpp_spaces(self):
         spaces = []
+        if not self.hb_room.user_data:
+            return spaces
+        
         try:
-            for space_dict in self.hb_room.user_data['phpp']['spaces'].values():
+            phpp_spaces = self.hb_room.user_data.get('phpp', {}).get('spaces', {})
+            for space_dict in phpp_spaces.values():
                 new_space = LBT2PH.spaces.Space.from_dict(space_dict)
                 spaces.append( new_space )
         except KeyError as e:
@@ -107,195 +106,6 @@ class PHPP_Zone:
     def __repr__(self):
        return "{}(_room={!r})".format(
             self.__class__.__name__, self.hb_room)
-
-class PHPP_Surface:
-    def __init__(self, _lbt_face, _rm_name, _rm_id, _scene_north_vec, _ghenv):
-        self.lbt_srfc = _lbt_face
-        self.HostZoneName = _rm_name
-        self.HostZoneID = _rm_id
-        self.scene_north_vector = self.calc_scene_north_vector()
-        self.ghenv = _ghenv
-        self.Factor_Shading = 0.5
-        self.Factor_Absorptivity = 0.6
-        self.Factor_Emissivity = 0.9
-    
-    def calc_scene_north_vector(_input_vector):
-        ''' 
-        Arguments:
-            _input_vector: Vector2d or an anlge representing the scene's North direction 
-        Returns:
-            north_vector:
-        '''
-        
-        default_north_vector = north_vec = Rhino.Geometry.Vector2d(0,1)
-        
-        if _input_vector is None:
-            return default_north_vector
-        
-        if isinstance(_input_vector, Rhino.Geometry.Vector2d):
-            return _input_vector
-        
-        try:
-            angle = float(_input_vector)
-            return default_north_vector
-        except:
-            return default_north_vector
-
-    @property
-    def Name(self):
-        try:
-            lbt_srfc_name = self.lbt_srfc.display_name
-            clean_name = lbt_srfc_name.replace('EXT_', '')
-            return clean_name
-        except Exception as e:
-            print('Error getting name from the LBT Face?', e)
-            return 'NameError'
-
-    @property
-    def AssemblyName(self):
-        try:
-            lbt_val = self.lbt_srfc.properties.energy.construction.display_name
-            return lbt_val
-        except Exception as e:
-            print('Error getting the LBT Face Construction?', e)
-            return None
-
-    @property
-    def Assembly_ID(self):
-        try:
-            lbt_val = self.lbt_srfc.properties.energy.construction.identifier
-            return lbt_val
-        except Exception as e:
-            print('Error getting the LBT Face Construction Identifier?', e)
-            return None
-
-    @property
-    def exposure(self):
-        try:
-            lbt_exposure = self.lbt_srfc.boundary_condition
-            return lbt_exposure
-        except Exception as e:
-            print('Error getting the LBT BC?', e)
-            return None
-
-    @property
-    def type(self):
-        try:
-            lbt_type = self.lbt_srfc.type
-            return lbt_type
-        except Exception as e:
-            print('Error getting the LBT Surface Type?', e)
-            return None
-
-    @property
-    def GroupNum(self):
-        ''' Figure out the 'Group Number' for PHPP based on the Srfc exposure & type '''
-        
-        bc = self.exposure
-        face_type = self.type
-        
-        if isinstance(bc, (Surface)):
-            return None
-        elif isinstance(face_type, Wall) and isinstance(bc, (Outdoors)):
-            return 8
-        elif isinstance(face_type, Wall) and isinstance(bc, (Ground)):
-            return 9
-        elif isinstance(face_type, RoofCeiling) and isinstance(bc, (Outdoors)):
-            return 10
-        elif isinstance(face_type, Floor) and isinstance(bc, (Ground)):
-            return 11
-        elif isinstance(face_type, Floor) and isinstance(bc, (Outdoors)):
-            return 12
-        elif isinstance(bc, (Adiabatic)):
-            return 18
-        else:
-            groupWarning = "Couldn't figure out the Group Number for surface '{self.Name}'?\n"\
-                "It appears to have an exposure of: '{self.exposure}' and a type of: '{self.type}'?\n"\
-                "I will give this surface a group type of 13. You may want to overwrite that in PHPP.".format(self=self)
-            self.ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, groupWarning)
-            return 13
-
-    @property
-    def SurfaceArea(self):
-        try:
-            lbt_val = self.lbt_srfc.area
-            return lbt_val
-        except Exception as e:
-            print('Error getting the LBT Surface Area?', e)
-            return None
-
-    @property
-    def NormalVector(self):
-        try:
-            lbt_val = self.lbt_srfc.normal
-            return lbt_val
-        except Exception as e:
-            print('Error getting the LBT Surface Normal?', e)
-            return None
-
-    @property
-    def Srfc(self):
-        try:
-            lbt_val = self.lbt_srfc.geometry
-            return lbt_val
-        except Exception as e:
-            print('Error getting the LBT Surface Geometry?', e)
-            return None
-
-    @property
-    def AngleFromHoriz(self):
-        up_vec = Rhino.Geometry.Vector3d(0,0,1)
-        face_normal_vec = self.NormalVector
-        
-        angle = rs.VectorAngle(up_vec, face_normal_vec)
-        return angle 
-
-    @property
-    def AngleFromNorth(self):
-        ''' Uses the Surface's Normal Vector and the project's north angle
-        vector and computes the clockwise orientation angle 0--360 between them
-        
-        http://frasergreenroyd.com/obtaining-the-angle-between-two-vectors-for-360-degrees/
-        Results 0=north, 90=east, 180=south, 270=west
-        Arguments:
-            None
-        Returns: 
-            angle: the angle off North for the surface (Degrees) clockwise from 0
-        '''
-
-        # Get the input Vector's X and Y parts
-        x1 = self.NormalVector.x
-        y1 = self.NormalVector.y
-        
-        x2 = self.scene_north_vector.X
-        y2 = self.scene_north_vector.Y
-        
-        # Calc the angle between the vectors
-        angle = math.atan2(y2, x2) - math.atan2(y1, x1)
-        angle = angle * 360 / (2 * math.pi)
-        
-        if angle < 0:
-            angle = angle + 360
-        
-        # Return Angle in Degrees
-        return angle
-
-    @property
-    def Centroid(self):
-        try:
-            lbt_val = self.lbt_srfc.geometry.centroid
-            return lbt_val
-        except Exception as e:
-            print('Error getting the LBT Surface Centroid?', e)
-            return None
-
-    def __unicode__(self):
-        return u'A PHPP-Style Surface Object: < {self.Name} >'.format(self=self)
-    def __str__(self):
-        return unicode(self).encode('utf-8')
-    def __repr__(self):
-       return "{}(_lbt_face={!r})".format(
-            self.__class__.__name__, self.lbt_srfc)
 
 def _find_north( _north ):
     if _north:
@@ -326,7 +136,7 @@ def get_exposed_surfaces_from_model(_model, _north, _ghenv):
             bc = face.boundary_condition
 
             if bc != 'Surface':
-                phpp_srfc = PHPP_Surface(face, room_name, room_id, _north, _ghenv )
+                phpp_srfc = LBT2PH.surfaces.PHPP_Surface(face, room_name, room_id, _north, _ghenv )
                 exposed_surfaces.append(phpp_srfc)
     
     return exposed_surfaces
@@ -394,7 +204,7 @@ def get_aperture_surfaces_from_model(_model, _ghdoc):
             window_dict = hb_aperture.user_data['phpp']
             new_phpp_aperture = LBT2PH.windows.PHPP_Window.from_dict( window_dict )
             new_phpp_aperture.aperture = hb_aperture
-            new_phpp_aperture.rh_library = LBT2PH.windows.get_rh_doc_window_library(_ghdoc)
+            #new_phpp_aperture.rh_library = LBT2PH.windows.get_rh_doc_window_library(_ghdoc)
             
             phpp_apertures.append(new_phpp_aperture)
         except KeyError as e:
@@ -433,31 +243,29 @@ def get_spaces_from_model(_model, _ghdoc):
 def get_ventilation_systems_from_model(_model, _ghenv):
     model_vent_systems = set()
     for hb_room in _model.rooms:
-        if not hb_room.user_data.has_key('phpp'):
-            return []
+        if not hb_room.user_data:
+            continue
+
+        vent_system_dict = hb_room.get('phpp', {}).get('vent_system', {})
         
-        if not hb_room.user_data['phpp'].has_key('vent_system'):
-            return []
-        
-        vent_system_dict = hb_room.user_data['phpp']['vent_system']
-        room_vent_system = LBT2PH.ventilation.PHPP_Sys_Ventilation.from_dict(vent_system_dict, _ghenv)
-        model_vent_systems.add(room_vent_system)
+        if vent_system_dict:
+            room_vent_system = LBT2PH.ventilation.PHPP_Sys_Ventilation.from_dict(vent_system_dict, _ghenv)
+            model_vent_systems.add(room_vent_system)
 
     return list(model_vent_systems)
 
-def get_ground_from_model(_model, _ghenv):
+def get_ground_from_model(_model, _ghenv):  
     ground_objs = []
     
     for hb_room in _model.rooms:      
-        phpp_dict = hb_room.user_data.get('phpp')
-        if not phpp_dict:
+        if not hb_room.user_data:
             continue
 
-        ground_dict = phpp_dict.get('ground')
+        ground_dict = hb_room.user_data.get('phpp', {}).get('ground', {})
         if not ground_dict:
             continue
 
-        ground_type = ground_dict.get('type')
+        ground_type = ground_dict.get('type', {})
         if '1' in ground_type:
             obj = LBT2PH.ground.PHPP_Ground_Slab_on_Grade.from_dict( ground_dict, _ghenv )
         elif '2' in ground_type:
@@ -478,14 +286,11 @@ def get_dhw_systems(_model):
     dhw_systems = []
 
     for hb_room in _model.rooms:
-        phpp_dict = hb_room.user_data.get('phpp')
-        if not phpp_dict:
-            continue
-        
-        dhw_dict = phpp_dict.get('dhw_systems')
-        if not dhw_dict:
+        if not hb_room.user_data:
             continue
 
+        dhw_dict = hb_room.user_data.get('phpp', {}).get('dhw_systems', {})
+        
         for system in dhw_dict.values():
             dhw_systems.append( LBT2PH.dhw.PHPP_DHW_System.from_dict( system ))
 
@@ -509,6 +314,9 @@ def get_lighting(_model):
 
     out = []
     for room in _model.rooms:
+        if not room.user_data:
+            continue
+        
         name = room.display_name
         efficacy =  float( room.user_data.get('phpp', {}).get('appliances', {}).get('lighting_efficacy', 50) )
 
@@ -522,17 +330,21 @@ def get_lighting(_model):
     return out
 
 def get_climate(_model, _epw_file):
-    ud_climate_params = _model.user_data.get('phpp', {}).get('climate', None)
-    if ud_climate_params:
-        # Build a ud climate obj
-        for climate_dict in ud_climate_params.values():
-            return [ LBT2PH.climate.PHPP_ClimateDataSet.from_dict( climate_dict ) ]
-    else:
+    if not _model.user_data:
+        print('No User_Data dict found on the model. Using automatic climate for now.')
         # Auto-find the nearest climate based on the EPW file location
         return find_nearest_phpp_climate( _epw_file )
+    else:
+        ud_climate_params = _model.user_data.get('phpp', {}).get('climate', None)
+        if ud_climate_params:
+            # Build a ud climate obj
+            for climate_dict in ud_climate_params.values():
+                return [ LBT2PH.climate.PHPP_ClimateDataSet.from_dict( climate_dict ) ]
+        else:
+            return find_nearest_phpp_climate( _epw_file )  
 
 def find_nearest_phpp_climate(_epw_file):
-    """ Finds the nearest PHPP Climate zone to the EPW Lat /Long 
+    """ Finds the nearest PHPP Climate zone to the EPW Lat / Long 
     
     Methodology copied from the PHPP v 9.6a (SI) Climate worksheet
     """
@@ -603,7 +415,9 @@ def get_footprint( _surfaces ):
         return Footprint(None, None)
     
     #------- Find Corners, Find 'bottom' (lowest Z)
+    return Footprint(bldg_mass, 4)
     bldg_mass_corners = [v for v in ghc.BoxCorners(bldg_mass)]
+
     bldg_mass_corners.sort(reverse=False, key=lambda point3D: point3D.Z)
     rect_pts = bldg_mass_corners[0:3]
     
@@ -622,30 +436,44 @@ def get_footprint( _surfaces ):
 def get_thermal_bridges(_model, _ghenv):
     results = []
     try:
-        tb_dict = _model.user_data.get('phpp').get('tb')
+        if not _model.user_data:
+            raise ValueError
+        
+        tb_dict = _model.user_data.get('phpp', {}).get('tb', {})
         for tb_obj_dict in tb_dict.values():
             new_obj = LBT2PH.tb.PHPP_ThermalBridge.from_dict( tb_obj_dict )
             results.append( new_obj )
     except TypeError as e:
         msg = 'Error getting the PHPP/tb dict from the model.user_data?'
-        msg += e
+        msg += str(e)
         _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg)
+    except ValueError:
+        print('No User_Data dict found on the model. Ignoring Thermal Bridging for now.')
 
     return results
 
 def get_settings(_model):
+    settings_obj = []
+    if not _model.user_data:
+        print('No User_Data dict found on the model. Ignoring PHPP Settings for now.')
+        return settings_obj
+
+
     settings_dict = _model.user_data.get('phpp',{}).get('settings',None)
     if settings_dict:
-        settings_obj = []
+        
         for settings_params in settings_dict.values():
             settings_obj.append( LBT2PH.phpp_setup.PHPP_Verification.from_dict( settings_params ) )
         return settings_obj
     else:
-        return []
+        return settings_obj
 
 def get_summ_vent(_model):
     summ_vent_objs = []
     for room in _model.rooms:
+        if not room.user_data:
+            continue
+        
         summ_vent_d = room.user_data.get('phpp', {}).get('summ_vent', None)
         if summ_vent_d:
             for summ_vent_params in summ_vent_d.values():
@@ -657,6 +485,8 @@ def get_summ_vent(_model):
 def get_heating_cooling(_model):
     hc_objs = {}
     for room in _model.rooms:
+        if not room.user_data:
+            continue
 
         d = room.user_data.get('phpp', {}).get('heating_cooling')
         if not d:
@@ -695,6 +525,9 @@ def get_PER( _model ):
     per_objs = {}
 
     for room in _model.rooms:
+        if not room.user_data:
+            continue
+        
         d = room.user_data.get('phpp', {}).get('PER')
         if not d:
             continue
@@ -707,6 +540,9 @@ def get_PER( _model ):
     return per_objs
 
 def get_occupancy( _model ):
+    if not _model.user_data:
+        print('No User_Data dict found on the model. Ignoring PHPP Occupanyc for now.')
+        return []
 
     d = _model.user_data.get('phpp', {}).get('occupancy', None)
     if not d:

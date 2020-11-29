@@ -22,12 +22,11 @@
 """
 Use this component AFTER a Honeybee 'Aperture' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant.
 -
-EM Nov. 25, 2020
+EM Nov. 29, 2020
     Args:
         apertures: <list> The HB Aperture objects from a 'Aperture' component
         frames_: <list> Optional. PHPP Frame Object or Objects
         glazings_: <list> Optional. PHPP Glazing Object or Objects
-        psi_installs_: <list> Optional. An optional entry for user-defined Psi-Install Values (W/m-k). Either pass in a single number which will be used for all edges, or a list of 4 numbers (left, right, bottom, top) - one for each edge.
         installs_: <list> Optional. An optional entry for user-defined Install Conditions (1|0) for each window edge (1=Apply Psi-Install, 0=Don't apply Psi-Install). Either pass in a single number which will be used for all edges, or a list of 4 numbers (left, right, bottom, top) - one for each edge.
     Return:
         apertures_: HB Aperture objects with new PHPP data. Pass along to any other HB component as usual.
@@ -35,21 +34,21 @@ EM Nov. 25, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPAperture"
 ghenv.Component.NickName = "PHPP Aperture"
-ghenv.Component.Message = 'NOV_25_2020'
+ghenv.Component.Message = 'NOV_29_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
-import System
-import Rhino
-import rhinoscriptsyntax as rs
-import json
+from itertools import izip
 
+import System
 import LBT2PH
 import LBT2PH.windows
+import LBT2PH.helpers
 
 reload(LBT2PH)
 reload(LBT2PH.windows)
+reload(LBT2PH.helpers)
 
 def aperture_sources():
     ''' Find the component input source with the name "apertures" '''
@@ -97,50 +96,84 @@ def cleanInput(_inputList, targetListLength,):
     
     return output
 
-#-------------------------------------------------------------------------------
+
 # Clean the GH component inputs
+#-------------------------------------------------------------------------------
 ud_frames = cleanInput(frames_, len(apertures))
 ud_glazings = cleanInput(glazings_, len(apertures))
-ud_psi_installs = cleanInput(psi_installs_, len(apertures))
 ud_installs = cleanInput(installs_, len(apertures))
-gh_inputs = zip(ud_frames, ud_glazings, ud_psi_installs,  ud_installs)
+gh_inputs = izip(ud_frames, ud_glazings,  ud_installs)
 
-#-------------------------------------------------------------------------------
+
 # Get the Rhino Scene UserText (window Library)
-rh_doc_window_library = LBT2PH.windows.get_rh_doc_window_library(ghdoc)
+# Build Glazing, Frame and Install objects for everything that is found there
+#-------------------------------------------------------------------------------
+rh_doc_frame_and_glass_objs = LBT2PH.windows.build_frame_and_glass_objs_from_RH_doc(ghdoc)
 
+
+# Build the new Aperture and PHPP Window Objects
+#-------------------------------------------------------------------------------
 apertures_ = []
 window_guids = []
 
 if apertures:
     window_guids = window_rh_Guids()
 
-for aperture, window_guid, gh_input in zip(apertures, window_guids, gh_inputs):
-    # Get the Window data from the scene (name, params, etc)
-    # If its a generic dbl pane, that means no GH user-determined input
+for aperture, window_guid, gh_input in izip(apertures, window_guids, gh_inputs):
+    # Get the Aperture from the Grasshopper scene
+    # If its a generic dbl pane construtction, that means no GH/HB user-determined input
     # so go try and find values from the Rhino scene instead
     if aperture.properties.energy.construction.display_name == 'Generic Double Pane':
-        aperture_params = LBT2PH.windows.get_rh_window_obj_params(ghdoc, window_guid )
+        aperture_params = LBT2PH.helpers.get_rh_obj_UserText_dict(ghdoc, window_guid )
     else:
         aperture_params = {}
     
     #---------------------------------------------------------------------------
-    # Apply any Grasshopper Scene user-determined values
-    ud_f, ud_g, ud_psi, ud_i = gh_input
+    # Override params with any Grasshopper Component user-determined values
+    ud_f, ud_g, ud_i = gh_input
     
-    if ud_f: aperture_params['FrameType'] = json.dumps(ud_f.to_dict())
-    if ud_g: aperture_params['GlazingType'] = json.dumps(ud_g.to_dict())
-    if ud_psi: aperture_params['FrameType'] = ud_psi
+    if ud_f: aperture_params['FrameType'] = ud_f
+    if ud_g: aperture_params['GlazingType'] = ud_g
     if ud_i:
         aperture_params['InstallLeft'] = ud_i
         aperture_params['InstallRight'] = ud_i
         aperture_params['InstallBottom'] = ud_i
         aperture_params['InstallTop'] = ud_i
     
+    
+    
+    # build the right glazing
+    # 1) First build a glazing from the HB Mat / Construction
+    # 2) if any UD (Rhino or GH) side Objects, overide the obj with those instead
+    
+    glazing = LBT2PH.windows.PHPP_Glazing.from_HB_Const( aperture.properties.energy.construction )
+    ud_glazing = rh_doc_frame_and_glass_objs.get('lib_GlazingTypes', {}).get(aperture_params['GlazingType'], None)
+    if ud_glazing: glazing = ud_glazing
+    
+    
+    frame = LBT2PH.windows.PHPP_Frame.from_HB_Const( aperture.properties.energy.construction )
+    ud_frame = rh_doc_frame_and_glass_objs.get('lib_FrameTypes', {}).get(aperture_params['FrameType'], None)
+    if ud_frame: frame = ud_frame
+    
+    install = LBT2PH.windows.PHPP_Installs()
+    install.install_L = aperture_params['InstallLeft']
+    install.install_R = aperture_params['InstallRight']
+    install.install_B = aperture_params['InstallBottom']
+    install.install_T = aperture_params['InstallTop']
+    
     #---------------------------------------------------------------------------
-    # Create a new 'Window' Object based on the aperture, params, component library
+    # Create a new 'Window' Object based on the aperture, Frame, Glass, Installs
     # Create EP Constructions for each window (based on frame / glass)
-    window_obj = LBT2PH.windows.PHPP_Window(aperture, aperture_params, rh_doc_window_library)
+    
+    window_obj = LBT2PH.windows.PHPP_Window()
+    
+    window_obj.aperture = aperture
+    window_obj.name = aperture.display_name
+    window_obj.frame = frame
+    window_obj.glazing = glazing
+    window_obj.installs = install
+    window_obj.install_depth = aperture_params.get('InstallDepth', 0.1)
+    
     window_EP_material = LBT2PH.windows.create_EP_window_mat( window_obj )
     window_EP_const = LBT2PH.windows.create_EP_const( window_EP_material )
     
@@ -148,8 +181,13 @@ for aperture, window_guid, gh_input in zip(apertures, window_guids, gh_inputs):
     #---------------------------------------------------------------------------
     # Create a new Aperture object and modify it's properties
     # Package up the data onto the 'Aperture' objects' user_data
+    
     new_ap = aperture.duplicate()
+    
     new_ap.properties.energy.construction = window_EP_const
+    new_name = aperture_params.get('Object Name', None)
+    if new_name:
+        new_ap.display_name = new_name
     
     new_ap = LBT2PH.helpers.add_to_HB_model( new_ap, 'phpp', window_obj.to_dict(), ghenv, 'overwrite' )
     

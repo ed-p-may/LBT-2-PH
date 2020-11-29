@@ -5,6 +5,8 @@ import Rhino
 from copy import deepcopy
 import re
 import Grasshopper.Kernel as ghK
+import rhinoscriptsyntax as rs
+from timeit import default_timer
 
 def add_to_HB_model( _hb_model, _key, _dict, _ghenv, _write='update' ):
 
@@ -176,3 +178,51 @@ def convert_value_to_metric(_inputString, _outputUnit):
         except:
             return inputValue
 
+class code_timer:
+    __slots__ = ('display_type', 'count', 'timer')
+
+    def __init__(self, _display_type='time'):
+        self.display_type = _display_type
+        self.count = 1
+        self.time = default_timer()
+        
+    def mark(self, pos_name):
+        new_time = default_timer()
+        elapsed_time = new_time - self.time
+        
+        if self.display_type == 'off':
+            return
+        elif self.display_type == 'time':
+            print('{:.012f}'.format(elapsed_time))
+        elif self.display_type == 'position':
+            print('{} {}'.format(self.count, pos_name))
+        
+        self.count += 1
+        self.time = new_time
+ 
+
+def get_rh_obj_UserText_dict(_ghdoc, _rh_obj_guid):
+    """ Get any Rhino-side parameter data for the Object/Element
+
+    Note: this only works in Rhino v6.0+ I believe...
+    
+    Args:
+        _ghdoc (ghdoc): The 'ghdoc' object from the Grasshopper document.
+        _rh_obj_guid (Rhino Guid): The Rhino Guid of the Object/Element.
+    Returns:
+        object_rh_UserText_dict (dict): A dictionary of all the data found
+            in the Rhino object's UserText library.
+    """
+    
+    if not _rh_obj_guid:
+        return {}
+
+    with context_rh_doc(_ghdoc):
+        rh_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( _rh_obj_guid )
+        object_rh_UserText_dict = {k:rs.GetUserText(rh_obj, k) for k in rs.GetUserText(rh_obj)}
+        
+        # Fix the name
+        object_name = rs.ObjectName(_rh_obj_guid)
+        object_rh_UserText_dict['Object Name'] = object_name
+
+    return object_rh_UserText_dict
