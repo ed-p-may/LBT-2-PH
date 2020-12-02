@@ -599,7 +599,7 @@ class PHPP_Frame(Object):
     def to_dict(self):
         d = {}
 
-        d.update( {'name':self.display_name} )
+        d.update( {'name':self.name} )
         d.update( {'uValues':self.uValues} )
         d.update( {'frameWidths':self.frameWidths} )
         d.update( {'PsiGVals':self.PsiGVals} )

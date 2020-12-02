@@ -523,25 +523,29 @@ def build_shading(_inputBranch, _surfacesIncluded):
         
     return shading_list
 
-def build_TFA( spaces_branch, _hb_room_names):
+def build_TFA( spaces_branch, _hb_room_names, _use_estimated, _model):
     tfa = []
-    
-    print("Trying to find any Honeybee Zone Room TFA info...")
-    try:
-        tfaSurfaceAreas = [ 0 ]
-        for space in spaces_branch:
-            if space.host_room_name not in _hb_room_names:
-                break
-            
-            roomTFA = space.space_tfa
-            tfaSurfaceAreas.append( roomTFA )
+    if _use_estimated:
+        print(r"Using estimated TFA (80% of the Honeybee Model Floor Area)")
+        estimated_tfa = float(_model.floor_area) * 0.75
+        tfa.append( PHPP_XL_Obj('Areas', 'V34', estimated_tfa, 'M2', 'FT2' ))
+    else:       
+        print("Trying to find any Honeybee Zone Room TFA info...")
+        try:
+            tfaSurfaceAreas = [ 0 ]
+            for space in spaces_branch:
+                if space.host_room_name not in _hb_room_names:
+                    break
+                
+                roomTFA = space.space_tfa
+                tfaSurfaceAreas.append( roomTFA )
 
-        tfaTotal = sum(tfaSurfaceAreas)
-        tfa.append( PHPP_XL_Obj('Areas', 'V34', tfaTotal, 'M2', 'FT2' )) # TFA (m2)
-    except Exception as e:
-        print(e)
-        print('Error getting TFA value from spaces?')
-    
+            tfaTotal = sum(tfaSurfaceAreas)
+            tfa.append( PHPP_XL_Obj('Areas', 'V34', tfaTotal, 'M2', 'FT2' )) # TFA (m2)
+        except Exception as e:
+            print(e)
+            print('Error getting TFA value from spaces?')
+        
     return tfa
 
 def build_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):

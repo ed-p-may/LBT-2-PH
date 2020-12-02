@@ -21,7 +21,7 @@
 #
 """
 -
-EM November 29, 2020
+EM December 2, 2020
     Args:
         north_: <Optional :float :vector> A number between -360 and 360 for the counterclockwise or a vector pointing 'north'
             difference between the North and the positive Y-axis in degrees.
@@ -51,7 +51,7 @@ EM November 29, 2020
 
 ghenv.Component.Name = "LBT2PH_ConvertLBT2PHPPObjs"
 ghenv.Component.NickName = "LBT-->PHPP"
-ghenv.Component.Message = 'NOV_29_2020'
+ghenv.Component.Message = 'DEC_02_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -73,6 +73,7 @@ excel_objects_ = DataTree[Object]()
 #-------------------------------------------------------------------------------
 # Get all the info from the LBT Model
 if _model:
+    print('- '*25)
     materials_opaque        = LBT2PH.lbt_to_phpp.get_opaque_materials_from_model(_model, ghenv)
     constructions_opaque    = LBT2PH.lbt_to_phpp.get_opaque_constructions_from_model(_model, ghenv)
     surfaces_opaque         = LBT2PH.lbt_to_phpp.get_exposed_surfaces_from_model(_model, LBT2PH.lbt_to_phpp._find_north(north_), ghenv)
@@ -80,10 +81,10 @@ if _model:
     materials_windows       = LBT2PH.lbt_to_phpp.get_aperture_materials_from_model(_model)
     constructions_windows   = LBT2PH.lbt_to_phpp.get_aperture_constructions_from_model(_model)
     surfaces_windows        = LBT2PH.lbt_to_phpp.get_aperture_surfaces_from_model(_model, ghdoc)
-    
     hb_rooms                = LBT2PH.lbt_to_phpp.get_zones_from_model(_model)
     phpp_spaces             = LBT2PH.lbt_to_phpp.get_spaces_from_model(_model, ghdoc)
     ventilation_system      = LBT2PH.lbt_to_phpp.get_ventilation_systems_from_model(_model, ghenv)
+    
     ground_objs             = LBT2PH.lbt_to_phpp.get_ground_from_model(_model, ghenv)
     thermal_bridges         = LBT2PH.lbt_to_phpp.get_thermal_bridges(_model, ghenv)
     
@@ -102,18 +103,20 @@ if _model:
     
     #---------------------------------------------------------------------------
     # Sort out the inputs
+    print('- '*25)
     hb_room_names = LBT2PH.to_excel.include_rooms( hb_rooms, rooms_included_, rooms_excluded_, ghenv)
     start_row_dict = LBT2PH.to_excel.start_rows( ud_row_starts_, ghenv )
     
     #---------------------------------------------------------------------------
     # Create Xl Objects
+    print('- '*25)
     uValuesList, uValueUID_Names     = LBT2PH.to_excel.build_u_values( constructions_opaque, materials_opaque )
     winComponentsList                = LBT2PH.to_excel.build_components( surfaces_windows )
     areasList, surfacesIncluded      = LBT2PH.to_excel.build_areas( surfaces_opaque, hb_room_names, uValueUID_Names )
     tb_List                          = LBT2PH.to_excel.build_thermal_bridges( thermal_bridges, start_row_dict)
     winSurfacesList                  = LBT2PH.to_excel.build_windows( surfaces_windows, surfacesIncluded, surfaces_opaque )   
     shadingList                      = LBT2PH.to_excel.build_shading( surfaces_windows, surfacesIncluded )
-    tfa                              = LBT2PH.to_excel.build_TFA (phpp_spaces, hb_room_names)
+    tfa                              = LBT2PH.to_excel.build_TFA (phpp_spaces, hb_room_names, estimated_tfa_, _model)
     addnlVentRooms, ventUnitsUsed    = LBT2PH.to_excel.build_addnl_vent_rooms( phpp_spaces, ventilation_system, hb_room_names, start_row_dict )
     vent                             = LBT2PH.to_excel.build_addnl_vent_systems( ventilation_system, ventUnitsUsed, start_row_dict )
     airtightness                     = LBT2PH.to_excel.build_infiltration( hb_rooms, hb_room_names)

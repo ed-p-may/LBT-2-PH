@@ -147,19 +147,19 @@ for aperture, window_guid, gh_input in izip(apertures, window_guids, gh_inputs):
     # 2) if any UD (Rhino or GH) side Objects, overide the obj with those instead
     
     glazing = LBT2PH.windows.PHPP_Glazing.from_HB_Const( aperture.properties.energy.construction )
-    ud_glazing = rh_doc_frame_and_glass_objs.get('lib_GlazingTypes', {}).get(aperture_params['GlazingType'], None)
+    ud_glazing = rh_doc_frame_and_glass_objs.get('lib_GlazingTypes', {}).get(aperture_params.get('GlazingType'))
     if ud_glazing: glazing = ud_glazing
     
     
     frame = LBT2PH.windows.PHPP_Frame.from_HB_Const( aperture.properties.energy.construction )
-    ud_frame = rh_doc_frame_and_glass_objs.get('lib_FrameTypes', {}).get(aperture_params['FrameType'], None)
+    ud_frame = rh_doc_frame_and_glass_objs.get('lib_FrameTypes', {}).get(aperture_params.get('FrameType'))
     if ud_frame: frame = ud_frame
     
     install = LBT2PH.windows.PHPP_Installs()
-    install.install_L = aperture_params['InstallLeft']
-    install.install_R = aperture_params['InstallRight']
-    install.install_B = aperture_params['InstallBottom']
-    install.install_T = aperture_params['InstallTop']
+    install.install_L = aperture_params.get('InstallLeft', 1)
+    install.install_R = aperture_params.get('InstallRight', 1)
+    install.install_B = aperture_params.get('InstallBottom', 1)
+    install.install_T = aperture_params.get('InstallTop', 1)
     
     #---------------------------------------------------------------------------
     # Create a new 'Window' Object based on the aperture, Frame, Glass, Installs

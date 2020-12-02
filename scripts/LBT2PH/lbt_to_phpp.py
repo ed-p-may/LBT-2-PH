@@ -194,47 +194,39 @@ def get_aperture_constructions_from_model(_model):
     
     return phpp_constructions        
 
-def get_aperture_surfaces_from_model(_model, _ghdoc):
+def get_aperture_surfaces_from_model(_model, _ghenv):
     ''' Returns a list of PHPP_Window objects found in the HB Model '''
     
     phpp_apertures = []
     
     for hb_aperture in _model.apertures:
         try:
-            window_dict = hb_aperture.user_data['phpp']
+            window_dict = hb_aperture.user_data.get('phpp', {})
             new_phpp_aperture = LBT2PH.windows.PHPP_Window.from_dict( window_dict )
             new_phpp_aperture.aperture = hb_aperture
             
             phpp_apertures.append(new_phpp_aperture)
-        except KeyError as e:
-            print(e)
+        except AttributeError as e:
+            msg = 'Error trying to read window information for Aperture < {} >.\n'\
+                'Make sure that you use a PH-Tools "Create PHPP Aperture" Component\n'\
+                'to apply the PHPP style information to this element.'.format(hb_aperture.display_name)
+            _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg)    
 
     return phpp_apertures
 
 def get_spaces_from_model(_model, _ghdoc):
     ''' Returns a list of PHPP_Space objects found in the HB Model '''
-    rooms = []
+    rooms = [] 
 
     for room in _model.rooms:
-        if isinstance(room.user_data, dict):
-            spaces_dict = room.user_data
-        elif isinstance(room.user_data, str):
-            spaces_dict = json.loads(room.user_data)
-        else:
-            print('Error loading PHPP space data')
-            spaces_dict = {}
+        if not room.user_data:
+            print('No User_Data dict found for room < {} >.\n'\
+            'Ignoring any Space/Room/TFA/Volume info for now.'.format(room.display_name))
             return []
-
-        if not spaces_dict.has_key('phpp'):
-            print('Honeybee Room has no "phpp" data?')
-            return []
-
-        if not spaces_dict['phpp'].has_key('spaces'):
-            print('Honeybee Room user_data.phpp has no key "spaces"?')
-            return []
-
-        for space_data in spaces_dict['phpp']['spaces'].values():
-            space_obj = LBT2PH.spaces.Space.from_dict(space_data)
+        
+        spaces_dict = room.user_data.get('phpp', {}).get('spaces', {})
+        for space_data in spaces_dict.values():
+            space_obj = LBT2PH.spaces.Space.from_dict( space_data )
             rooms.append(space_obj)
     
     return rooms
@@ -297,14 +289,15 @@ def get_dhw_systems(_model):
 
 def get_appliances(_model):
     appliance_objs = []
-    try:
-        appliances_set_dict = _model.user_data.get('phpp', {}).get('appliances')
-        appliances_set = LBT2PH.appliances.ApplianceSet.from_dict( appliances_set_dict )
-        for app_obj in appliances_set:
-            appliance_objs.append(app_obj)
-    except AttributeError as e:
-        print(e)
-        print('No Appliance information found on the HB Model: {}'.format(_model.display_name) )
+
+    if not _model.user_data:
+        print('No User_Data dict found on the model. Ignoring Appliances for now')
+        return appliance_objs
+
+    appliances_set_dict = _model.user_data.get('phpp', {}).get('appliances', {})
+    appliances_set = LBT2PH.appliances.ApplianceSet.from_dict( appliances_set_dict )
+    for app_obj in appliances_set:
+        appliance_objs.append(app_obj)
 
     return appliance_objs
 
