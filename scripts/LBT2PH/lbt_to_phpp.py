@@ -133,7 +133,7 @@ def get_exposed_surfaces_from_model(_model, _north, _ghenv):
         room_id = room.identifier
         
         for face in room:       
-            bc = face.boundary_condition
+            bc = str(face.boundary_condition)
 
             if bc != 'Surface':
                 phpp_srfc = LBT2PH.surfaces.PHPP_Surface(face, room_name, room_id, _north, _ghenv )
@@ -204,7 +204,6 @@ def get_aperture_surfaces_from_model(_model, _ghdoc):
             window_dict = hb_aperture.user_data['phpp']
             new_phpp_aperture = LBT2PH.windows.PHPP_Window.from_dict( window_dict )
             new_phpp_aperture.aperture = hb_aperture
-            #new_phpp_aperture.rh_library = LBT2PH.windows.get_rh_doc_window_library(_ghdoc)
             
             phpp_apertures.append(new_phpp_aperture)
         except KeyError as e:

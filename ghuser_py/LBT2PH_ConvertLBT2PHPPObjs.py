@@ -105,7 +105,6 @@ if _model:
     hb_room_names = LBT2PH.to_excel.include_rooms( hb_rooms, rooms_included_, rooms_excluded_, ghenv)
     start_row_dict = LBT2PH.to_excel.start_rows( ud_row_starts_, ghenv )
     
-    
     #---------------------------------------------------------------------------
     # Create Xl Objects
     uValuesList, uValueUID_Names     = LBT2PH.to_excel.build_u_values( constructions_opaque, materials_opaque )

@@ -28,7 +28,7 @@ except ImportError as e:
 
 
 
-
+#-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 class PHPP_Window(Object):
     '''A PHPP Style 'Window'.
@@ -73,11 +73,14 @@ class PHPP_Window(Object):
         self._shading_factor_summer = None
         self.shading_dimensions = None
         
-        self.name = None
         self.frame = None
         self.glazing = None
         self.installs = None
         self.install_depth = None
+
+    @property
+    def name(self):
+        return self.aperture.display_name
 
     @property
     def window_edges(self):
@@ -392,7 +395,6 @@ class PHPP_Window(Object):
         d = {}
 
         d.update( {'quantity':self.quantity} )
-        d.update( {'name':self.name} ) 
         d.update( {'_tolerance':self._tolerance} )
         d.update( {'aperture':self.aperture.to_dict()} )
         d.update( {'_shading_factor_winter':self._shading_factor_winter } )
@@ -421,7 +423,6 @@ class PHPP_Window(Object):
         
         new_obj = cls()
         new_obj.quantity = _dict.get('quantity')
-        new_obj.name = _dict.get('name')
         new_obj._tolerance = _dict.get('_tolerance')
         new_obj.aperture = Aperture.from_dict( _dict.get('aperture') )
         new_obj._shading_factor_winter =_dict.get('_shading_factor_winter')
@@ -443,15 +444,10 @@ class PHPP_Window(Object):
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
-       return "{}( _aperture={!r}, _params={!r}, _rh_doc_library={!r})".format(
-            self.__class__.__name__,
-            self.aperture,
-            self.params,
-            self.rh_library)
+       return "{}( _aperture={!r})".format(
+            self.__class__.__name__, self.aperture)
     def ToString(self):
         return str(self)
-
-
 
 
 #-------------------------------------------------------------------------------
@@ -651,8 +647,6 @@ class PHPP_Frame(Object):
 
 
 
-
-
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 class PHPP_Glazing(Object):
@@ -730,9 +724,6 @@ class PHPP_Glazing(Object):
                self.uValue)
     def ToString(self):
         return str(self)
-
-
-
 
 
 
@@ -839,10 +830,10 @@ class PHPP_Installs(Object):
     def from_dict(cls, _dict):
         new_obj = cls()
 
-        new_obj._install_L = _dict.get('install_L')
-        new_obj._install_R = _dict.get('install_R')
-        new_obj._install_T = _dict.get('install_T')
-        new_obj._install_B = _dict.get('install_B')
+        new_obj._install_L = _dict.get('_install_L')
+        new_obj._install_R = _dict.get('_install_R')
+        new_obj._install_T = _dict.get('_install_T')
+        new_obj._install_B = _dict.get('_install_B')
 
         return new_obj
 
@@ -855,7 +846,6 @@ class PHPP_Installs(Object):
                self.__class__.__name__, self._install_L)
     def ToString(self):
         return str(self)
-
 
 
 #-------------------------------------------------------------------------------
@@ -882,7 +872,6 @@ def create_EP_window_mat(_win_obj):
     mat.display_name = name
 
     return mat
-
 
 
 #-------------------------------------------------------------------------------
@@ -919,7 +908,6 @@ def create_EP_const(_win_EP_material):
     constr.display_name = name
 
     return constr
-
 
 
 #-------------------------------------------------------------------------------

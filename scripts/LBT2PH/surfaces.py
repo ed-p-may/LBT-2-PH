@@ -169,7 +169,7 @@ class PHPP_Surface:
     def Name(self):
         try:
             lbt_srfc_name = self.lbt_srfc.display_name
-            clean_name = lbt_srfc_name.replace('EXT_', '')
+            clean_name = lbt_srfc_name.replace('EXT_', '').replace('INT_', '')
             return clean_name
         except Exception as e:
             print('Error getting name from the LBT Face?', e)
