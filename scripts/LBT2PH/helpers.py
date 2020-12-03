@@ -200,7 +200,6 @@ class code_timer:
         self.count += 1
         self.time = new_time
  
-
 def get_rh_obj_UserText_dict(_ghdoc, _rh_obj_guid):
     """ Get any Rhino-side parameter data for the Object/Element
 

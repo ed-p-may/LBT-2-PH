@@ -22,7 +22,7 @@
 """
 Use this component AFTER a Honeybee 'Aperture' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant.
 -
-EM December 2, 2020
+EM December 3, 2020
     Args:
         apertures: <list> The HB Aperture objects from a 'Aperture' component
         frames_: <list> Optional. PHPP Frame Object or Objects
@@ -34,7 +34,7 @@ EM December 2, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPAperture"
 ghenv.Component.NickName = "PHPP Aperture"
-ghenv.Component.Message = 'DEC_02_2020'
+ghenv.Component.Message = 'DEC_03_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -149,7 +149,6 @@ for aperture, window_guid, gh_input in izip(apertures, window_guids, gh_inputs):
     glazing = LBT2PH.windows.PHPP_Glazing.from_HB_Const( aperture.properties.energy.construction )
     ud_glazing = rh_doc_frame_and_glass_objs.get('lib_GlazingTypes', {}).get(aperture_params.get('GlazingType'))
     if ud_glazing: glazing = ud_glazing
-    
     
     frame = LBT2PH.windows.PHPP_Frame.from_HB_Const( aperture.properties.energy.construction )
     ud_frame = rh_doc_frame_and_glass_objs.get('lib_FrameTypes', {}).get(aperture_params.get('FrameType'))

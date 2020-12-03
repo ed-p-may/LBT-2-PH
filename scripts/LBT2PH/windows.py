@@ -15,18 +15,15 @@ reload(LBT2PH.helpers)
 reload( LBT2PH.shading )
 
 try:  # import the core honeybee dependencies
-    from ladybug_rhino.fromgeometry import from_face3d 
+    from ladybug_geometry.geometry3d.line import LineSegment3D
+    from ladybug_geometry.geometry3d.face import Face3D
+    from ladybug_rhino.fromgeometry import from_face3d
+    from ladybug_rhino.togeometry import to_face3d    
     from honeybee.aperture import Aperture
     from honeybee.typing import clean_and_id_ep_string
-except ImportError as e:
-    raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
-
-try:  # import the honeybee-energy dependencies
     from honeybee_energy.material.glazing import EnergyWindowMaterialSimpleGlazSys
 except ImportError as e:
-    raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
-
-
+    raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -399,11 +396,18 @@ class PHPP_Window(Object):
         d.update( {'aperture':self.aperture.to_dict()} )
         d.update( {'_shading_factor_winter':self._shading_factor_winter } )
         d.update( {'_shading_factor_summer':self._shading_factor_summer} )
-        d.update( {'_window_edges':self.window_edges} )
-        d.update( {'_glazing_edge_lengths':self.glazing_edge_lengths})
-        d.update( {'_glazing_surface':self.glazing_surface} )
         d.update( {'install_depth':self.install_depth} )
 
+        _edges = {}
+        for k, v in self.window_edges._asdict().iteritems():
+            _edges.update( {k:v.to_dict()} )
+        d.update( {'_window_edges':_edges} )
+        d.update( {'_glazing_edge_lengths':self.glazing_edge_lengths})
+        
+        _glazing_srfc = to_face3d(self.glazing_surface)
+        if _glazing_srfc:
+            d.update( {'_glazing_surface':_glazing_srfc[0].to_dict()} )
+        
         if self.frame:
             d.update( {'_frame':self.frame.to_dict()} )
 
@@ -427,9 +431,30 @@ class PHPP_Window(Object):
         new_obj.aperture = Aperture.from_dict( _dict.get('aperture') )
         new_obj._shading_factor_winter =_dict.get('_shading_factor_winter')
         new_obj._shading_factor_summer =_dict.get('_shading_factor_summer')
-        new_obj._window_edges = _dict.get('_window_edges')
         new_obj._glazing_edge_lengths = _dict.get('_glazing_edge_lengths')
-        new_obj._glazing_surface = _dict.get('_glazing_surface')
+
+        #----
+        _edges = _dict.get('_window_edges', {})
+        _left = _edges.get('Left')
+        _left = LineSegment3D.from_dict( _left )
+
+        _right = _edges.get('Right')
+        _right = LineSegment3D.from_dict( _right )
+
+        _bottom = _edges.get('Bottom')
+        _bottom = LineSegment3D.from_dict( _bottom )
+
+        _top = _edges.get('Top')
+        _top = LineSegment3D.from_dict( _top )      
+        
+        new_obj._window_edges = cls.Output(_left, _right, _bottom, _top)
+        #----
+        
+        _glazing_surface = _dict.get('_glazing_surface')
+        _glazing_surface = Face3D.from_dict(_glazing_surface)
+        _glazing_surface = from_face3d(_glazing_surface)
+        new_obj._glazing_surface = _glazing_surface
+
         new_obj.install_depth = _dict.get('install_depth')
 
         new_obj.frame = LBT2PH.windows.PHPP_Frame.from_dict( _dict.get('_frame') )
@@ -959,7 +984,7 @@ def build_frame_and_glass_objs_from_RH_doc(_ghdoc):
             elif 'PHPP_lib_Frame' in eachKey:
                 tempDict = json.loads(rs.GetDocumentUserText(eachKey))
                 newFrameObject = PHPP_Frame()
-                newFrameObject.display_name = tempDict['Name']
+                newFrameObject.name = tempDict['Name']
                 newFrameObject.uValues = [
                                 tempDict['uFrame_L'], tempDict['uFrame_R'],
                                 tempDict['uFrame_B'], tempDict['uFrame_T'] ]
