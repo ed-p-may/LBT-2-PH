@@ -3,8 +3,20 @@ import json
 import rhinoscriptsyntax as rs
 import Grasshopper.Kernel as ghK
 import scriptcontext as sc
+from collections import namedtuple
+
+try:  # import the honeybee dependencies
+    from honeybee.typing import clean_and_id_ep_string
+    from honeybee_energy.material.opaque import EnergyMaterial
+    from honeybee_energy.material.opaque import EnergyMaterialNoMass
+    from honeybee_energy.construction.opaque import OpaqueConstruction
+#    from honeybee_energy.lib.materials import opaque_material_by_identifier
+except ImportError as e:
+    raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
 
 class PHPP_Construction:
+    Layer = namedtuple('Layer', ['layer_number', 'layer_name'])
+    
     def __init__(self, _hb_const):
         self.hb_const = _hb_const
 
@@ -13,31 +25,40 @@ class PHPP_Construction:
         return self.hb_const.u_value
 
     @property
-    def Name(self):
-        return self.hb_const.display_name.replace('__Int__', '')
+    def hb_display_name(self):
+        return self.hb_const.display_name
 
     @property
-    def ID(self):
+    def identifier(self):
         return self.hb_const.identifier
 
     @property
     def IntInsul(self):
-        if '__Int__' in self.hb_const.display_name:
+        if '__Int__' in self.hb_const.identifier:
             return 'x'
         else:
             return None
+
+    @property
+    def phpp_name(self):
+        nm = self.hb_const.display_name
+        nm = nm.replace('__Int__', '')
+        nm = nm.replace('PHPP_CONST_', '')
+        nm = nm.replace(' ', '_')
+
+        return nm
 
     @property
     def Layers(self):
         layers = []
         for i, layer in enumerate(self.hb_const.layers):
             mat = self.hb_const.materials[i]
-            layers.append( [i, mat.display_name]  ) 
+            layers.append( self.Layer(i, mat.display_name )  )
 
         return layers
     
     def __unicode__(self):
-        return u'A PHPP-Style Construction Object: < {} >'.format(self.Name)
+        return u'A PHPP-Style Construction Object: < {} >'.format(self.phpp_name)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
@@ -61,7 +82,7 @@ def get_constructions_from_rh(_ghdoc):
         
         return constructions_
 
-def generate_all_HB_constructions(_rh_doc_constructions, _ghenv, _sticky):
+def generate_all_HB_constructions(_rh_doc_constructions, _ghenv):
     ''' Returns a list of HB Construction Objects. One for each Construction found in the Rhino UserText '''
     
     assert type(_rh_doc_constructions) is dict, '"create_HB_construction" input should be type: dict'
@@ -111,24 +132,14 @@ def generate_all_HB_constructions(_rh_doc_constructions, _ghenv, _sticky):
         # Build the Construction
         construction_layers = [hb_mass_layer, hb_no_mass_materal, hb_mass_layer]
         new_EP_Construction = create_HB_construction(name_construction, construction_layers)
-        constructions[name_construction] = new_EP_Construction
+        k = name_construction.replace(intInsulFlag, '') # Scrub the flag for the dict only
+        constructions[k] = new_EP_Construction
 
     return constructions
 
 def create_std_mass_material():
     ''' Simple 'Mass' Layer for inside/outside of simple constuctions '''
-    
-    try:  # import the core honeybee dependencies
-        from honeybee.typing import clean_and_id_ep_string
-    except ImportError as e:
-        raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
-    
-    try:  # import the honeybee-energy dependencies
-        from honeybee_energy.material.opaque import EnergyMaterial
-    except ImportError as e:
-        raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
-    
-    # --------------------------------------------------------------------------
+
     try:
         # Set the default material properties
         roughness = 'MediumRough'
@@ -154,18 +165,7 @@ def create_std_mass_material():
 
 def create_HB_material_no_mass(_material_name, _material_r_value):   
     ''' Creates an HB Style "No-Mass" Material '''
-    
-    try:  # import the core honeybee dependencies
-        from honeybee.typing import clean_and_id_ep_string
-    except ImportError as e:
-        raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
-    
-    try:  # import the honeybee-energy dependencies
-        from honeybee_energy.material.opaque import EnergyMaterialNoMass
-    except ImportError as e:
-        raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
-    
-    # --------------------------------------------------------------------------
+
     try:
         # set the default material properties
         name = _material_name
@@ -189,18 +189,6 @@ def create_HB_material_no_mass(_material_name, _material_r_value):
 def create_HB_construction(_name, _layers):
     ''' Builds a HB Style Construction Object from a list of HB-Material layers'''
 
-    try:  # import the core honeybee dependencies
-        from honeybee.typing import clean_and_id_ep_string
-    except ImportError as e:
-        raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
-    
-    try:  # import the honeybee-energy dependencies
-        from honeybee_energy.construction.opaque import OpaqueConstruction
-        from honeybee_energy.lib.materials import opaque_material_by_identifier
-    except ImportError as e:
-        raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
-
-    # --------------------------------------------------------------------------
     try:       
         constr = OpaqueConstruction(clean_and_id_ep_string(_name), _layers)
         constr.display_name = _name

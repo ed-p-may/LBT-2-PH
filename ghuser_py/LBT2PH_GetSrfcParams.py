@@ -22,7 +22,7 @@
 """
 Use this component BEFORE a Honeybee 'Face' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant. Simply connect the  outputs from this compone to the inputs on the 'Face' for this to run.
 -
-EM November 21, 2020
+EM December 3, 2020
     Args:
         _srfcs: <list> Rhino Brep geometry
         auto_orientation_: <bool Default='False'> Set to 'True' to have this component automatically assign surface type ('wall', 'floor', 'roof'). useful if you are testing massings / geometry and don't want to assign explicit type everytime. If you have already assigned the surface type in Rhino, leave this set to False. If 'True' this will override any values found in the Rhino scene.
@@ -37,7 +37,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_GetSrfcParams"
 ghenv.Component.NickName = "Get Surface Params"
-ghenv.Component.Message = 'NOV_28_2020'
+ghenv.Component.Message = 'DEC_03_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -101,7 +101,7 @@ if auto_orientation_:
 #-------------------------------------------------------------------------------
 # Get all the Assemblies from the RH Scene
 rh_doc_constructions = LBT2PH.assemblies.get_constructions_from_rh(ghdoc)
-hb_constructions = LBT2PH.assemblies.generate_all_HB_constructions(rh_doc_constructions, ghenv, sc.sticky)
+hb_constructions = LBT2PH.assemblies.generate_all_HB_constructions(rh_doc_constructions, ghenv)
 
 #-------------------------------------------------------------------------------
 # Create the surface objects

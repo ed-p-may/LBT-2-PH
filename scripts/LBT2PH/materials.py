@@ -8,15 +8,21 @@ class PHPP_Material_Opaque:
         self._hb_R = getattr(self.hb_mat, 'r_value', None)
 
     @property
-    def name(self):
-        hb_name = self.hb_mat.display_name
-        clean_name = hb_name.replace('__Int__', '')
-        return clean_name
+    def identifier(self):
+        return self.hb_mat.identifier
 
     @property
-    def ID(self):
-        hb_id = self.hb_mat.identifier
-        return hb_id 
+    def hb_display_name(self):
+        return self.hb_mat.display_name
+
+    @property
+    def phpp_name(self):
+        nm = self.hb_mat.display_name
+        nm = nm.replace('PHPP_MAT_', '')
+        nm = nm.replace(' ', '_')
+        nm = nm.replace('__Int__', '')
+
+        return nm
 
     @property
     def LayerThickness(self):
@@ -55,7 +61,7 @@ class PHPP_Material_Opaque:
             return None
 
     def __unicode__(self):
-        return u'A PHPP-Style Material Object: < {} >'.format(self.name)
+        return u'A PHPP-Style Material Object: < {} >'.format(self.phpp_name)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):

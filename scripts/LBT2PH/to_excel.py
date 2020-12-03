@@ -157,94 +157,71 @@ def start_rows( _udIn, _ghenv ):
     else:
         return default_start_rows
 
-def build_u_values(_inputBranch, _branch_materials):
+def build_u_values(_constructions_opaque, _materials_opaque):
+    def is_window( _opaque_material_names, _const ):
+        # Check if any of the materials are NOT in the opaque mat list
+        layer_names = (layer.layer_name for layer in _const.Layers)
+        
+        for layer_name in layer_names:
+            if layer_name not in _opaque_material_names:
+                return True
+        
+        return False
+    
     uID_Count = 1
-    uValueUID_Names = []
+    uValueUID_Names = {}
     uValuesConstructorStartRow = 10
     uValuesList = []
+
+    # Get all the Opaque Construction Material Names
+    opaque_material_names = set(mat.hb_display_name for mat in _materials_opaque.values())
+
     print('Creating the U-Values Objects...')
-    for eachConst in _inputBranch:
-        # for each Construction Assembly in the model....
+    for eachConst in _constructions_opaque:
+        #-----------------------------------------------------------------------
+        if is_window(opaque_material_names, eachConst):
+            continue
+
+        # Create the list of User-ID Constructions to match PHPP
+        uValueUID_Names[eachConst.hb_display_name] = '{:02d}ud-{}'.format(uID_Count, eachConst.phpp_name)
         
-        # Get the Construction's Name and the Materal Layers in the EP Model
-        construcionNameEP = getattr(eachConst, 'Name')
-        layers = sorted(getattr(eachConst, 'Layers'))
-        intInsuFlag = eachConst.IntInsul if eachConst.IntInsul != None else ''
+        # Create the Objects for the Header Piece (Name, Rsi, Rse)
+        nameAddress = '{}{}'.format('M', uValuesConstructorStartRow + 1) # Construction Name
+        rSi = '{}{}'.format('M', uValuesConstructorStartRow + 3) # R-surface-int
+        rSe = '{}{}'.format('M', uValuesConstructorStartRow + 4) # R-surface-ext
+        intIns = '{}{}'.format('S', uValuesConstructorStartRow + 1) # Interior Insulation Flag
         
-        # Filter out any of the Window Constructions
-        isWindow = False
-        opaqueMaterialNames = []
-        for eachMat in _branch_materials:
-            opaqueMaterialNames.append(eachMat.name) # Get all the Opaque Construction Material Names
+        uValuesList.append( PHPP_XL_Obj('U-Values', nameAddress, eachConst.phpp_name))
+        uValuesList.append( PHPP_XL_Obj('U-Values', rSi, 0, 'M2K/W', 'HR-FT2-F/BTU'))
+        uValuesList.append( PHPP_XL_Obj('U-Values', rSe, 0, 'M2K/W', 'HR-FT2-F/BTU')) # For now, zero out
         
-        # Check if the material matches any of the Opaque ones
-        for eachLayer in layers:
-            if eachLayer[1] in opaqueMaterialNames:
-                eachLayer[1]
-                break
-            else:
-                # If not... it must be a window (maybe?)
-                isWindow = True
+        if eachConst.IntInsul:
+            uValuesList.append( PHPP_XL_Obj('U-Values', intIns, 'x'))
         
-        if isWindow == True:
-            pass
-        else:
-            # Fix the name to remove 'PHPP_CONST_'
-            if 'PHPP_CONST_' in construcionNameEP:
-                constName_clean = construcionNameEP.split('PHPP_CONST_')[1].replace('_', ' ')
-            else:
-                constName_clean = construcionNameEP.replace('_', ' ')
+        # Create the actual Material Layers for PHPP U-Value
+        #-------------------------------------------------------------------
+        layerCount = 0
+        for layer in sorted(eachConst.Layers):
             
-            # Create the list of User-ID Constructions to match PHPP
-            uValueUID_Names.append('{:02d}ud-{}'.format(uID_Count, constName_clean) )
-            
-            # Create the Objects for the Header Piece (Name, Rsi, Rse)
-            nameAddress = '{}{}'.format('M', uValuesConstructorStartRow + 1) # Construction Name
-            rSi = '{}{}'.format('M', uValuesConstructorStartRow + 3) # R-surface-int
-            rSe = '{}{}'.format('M', uValuesConstructorStartRow + 4) # R-surface-ext
-            intIns = '{}{}'.format('S', uValuesConstructorStartRow + 1) # Interior Insulation Flag
-            
-            uValuesList.append( PHPP_XL_Obj('U-Values', nameAddress, constName_clean))
-            uValuesList.append( PHPP_XL_Obj('U-Values', rSi, 0, 'M2K/W', 'HR-FT2-F/BTU'))
-            uValuesList.append( PHPP_XL_Obj('U-Values', rSe, 0, 'M2K/W', 'HR-FT2-F/BTU')) # For now, zero out
-            if eachConst.IntInsul != None:
-                uValuesList.append( PHPP_XL_Obj('U-Values', intIns, 'x'))
-            
-            # Create the actual Material Layers for PHPP U-Value
-            layerCount = 0
-            for layer in layers:
-                # For each layer in the Construction Assembly...
-                for eachMatLayer in  _branch_materials:
-                    # See if the Construction's Layer material name matches one in the Materials list....
-                    # If so, use those parameters from the Material Layer
-                    if layer[1] == eachMatLayer.name:
-                        # Filter out any MASSLAYERs
-                        if layer[1] != 'MASSLAYER':
-                            
-                            # Clean the name
-                            if 'PHPP_MAT_' in layer[1]:
-                                layerMatName = layer[1].split('PHPP_MAT_')[1].replace('_', ' ')
-                            else:
-                                layerMatName = layer[1].replace('_', ' ')
-                            
-                            layerNum = layer[0]
-                            layerMatCond = getattr(eachMatLayer, 'LayerConductivity')
-                            layerThickness = getattr(eachMatLayer, 'LayerThickness')*1000 # Cus PHPP uses mm for thickness
-                            
-                            # Set up the Range tagets
-                            layer1Address_L = '{}{}'.format('L', uValuesConstructorStartRow + 7 + layerCount) # Material Name
-                            layer1Address_M = '{}{}'.format('M', uValuesConstructorStartRow + 7 + layerCount) # Conductivity
-                            layer1Address_S = '{}{}'.format('S', uValuesConstructorStartRow + 7 + layerCount) # Thickness
-                            
-                            # Create the Layer Objects
-                            uValuesList.append( PHPP_XL_Obj('U-Values', layer1Address_L, layerMatName))# Material Name
-                            uValuesList.append( PHPP_XL_Obj('U-Values', layer1Address_M, layerMatCond, 'W/MK', 'HR-FT2-F/BTU-IN')) # Conductivity
-                            uValuesList.append( PHPP_XL_Obj('U-Values', layer1Address_S, layerThickness, 'MM', 'IN')) # Thickness
-                            
-                            layerCount+=1
-            
-            uID_Count += 1
-            uValuesConstructorStartRow += 21
+            if layer.layer_name != 'MASSLAYER':
+                    layer_material = _materials_opaque.get(layer.layer_name)
+                    layerMatCond = layer_material.LayerConductivity
+                    layerThickness = layer_material.LayerThickness * 1000 # Cus PHPP uses mm for thickness
+                    
+                    # Set up the Range tagets
+                    layer1Address_L = '{}{}'.format('L', uValuesConstructorStartRow + 7 + layerCount) # Material Name
+                    layer1Address_M = '{}{}'.format('M', uValuesConstructorStartRow + 7 + layerCount) # Conductivity
+                    layer1Address_S = '{}{}'.format('S', uValuesConstructorStartRow + 7 + layerCount) # Thickness
+                    
+                    # Create the Layer Objects
+                    uValuesList.append( PHPP_XL_Obj('U-Values', layer1Address_L, layer_material.phpp_name))# Material Name
+                    uValuesList.append( PHPP_XL_Obj('U-Values', layer1Address_M, layerMatCond, 'W/MK', 'HR-FT2-F/BTU-IN')) # Conductivity
+                    uValuesList.append( PHPP_XL_Obj('U-Values', layer1Address_S, layerThickness, 'MM', 'IN')) # Thickness
+                    
+                    layerCount+=1
+        
+        uID_Count += 1
+        uValuesConstructorStartRow += 21
     
     return uValuesList, uValueUID_Names
 
@@ -347,73 +324,63 @@ def build_components(_inputBranch):
     
     return winComponentsList
 
-def build_areas(_inputBranch, _zones, _uValueUID_Names):
+def build_areas(_surfaces, _hb_room_names, _uValueUIDs):
+       
     areasRowStart = 41
     areaCount = 0
     uID_Count = 1
     areasList = []
     surfacesIncluded = []
+    
     print("Creating the 'Areas' Objects...")
-    for surface in _inputBranch:
-        # for each Opaque Surface in the model....
+    for surface in _surfaces:
+        if surface.HostZoneName not in _hb_room_names:
+            continue
+
+        # Get the Surface Parameters
+        nm = surface.Name
+        groupNum = surface.GroupNum
+        quantity = 1
+        surfaceArea = surface.SurfaceArea
+        assemblyName = surface.AssemblyName.replace('_', ' ')  
+        angleFromNorth = surface.AngleFromNorth
+        angleFromHoriz = surface.AngleFromHoriz
+        shading = surface.Factor_Shading
+        abs = surface.Factor_Absorptivity
+        emmis = surface.Factor_Emissivity
+        assemblyName = _uValueUIDs.get( surface.AssemblyName )
         
-        # First, see if the Surface should be included in the output
-        for eachZoneName in _zones:
-            if surface.HostZoneName == eachZoneName:
-                includeSurface = True
-                break
-            else:
-                includeSurface = False
+        # Setup the Excel Address Locations
+        Address_Name = '{}{}'.format('L', areasRowStart + areaCount)
+        Address_GroupNum = '{}{}'.format('M', areasRowStart + areaCount)
+        Address_Quantity = '{}{}'.format('P', areasRowStart + areaCount)
+        Address_Area = '{}{}'.format('V', areasRowStart + areaCount)
+        Address_Assembly = '{}{}'.format('AC', areasRowStart + areaCount)
+        Address_AngleNorth = '{}{}'.format('AG', areasRowStart + areaCount)
+        Address_AngleHoriz = '{}{}'.format('AH', areasRowStart + areaCount)
+        Address_ShadingFac = '{}{}'.format('AJ', areasRowStart + areaCount)
+        Address_Abs = '{}{}'.format('AK', areasRowStart + areaCount)
+        Address_Emmis = '{}{}'.format('AL', areasRowStart + areaCount)
         
-        if includeSurface:
-            # Get the Surface Parameters
-            nm = getattr(surface, 'Name')
-            groupNum = getattr(surface, 'GroupNum')
-            quantity = 1
-            surfaceArea = getattr(surface, 'SurfaceArea')
-            assemblyName = getattr(surface, 'AssemblyName').replace('_', ' ') 
-            angleFromNorth = getattr(surface, 'AngleFromNorth')
-            angleFromHoriz = getattr(surface, 'AngleFromHoriz')
-            shading = getattr(surface, 'Factor_Shading')
-            abs = getattr(surface, 'Factor_Absorptivity')
-            emmis = getattr(surface, 'Factor_Emissivity')
-            
-            # Find the right UID name (with the numeric prefix)
-            for uIDName in _uValueUID_Names:
-                if assemblyName in uIDName[5:] or uIDName[5:] in assemblyName: # compare to slice without prefix
-                    assemblyName = uIDName
-            
-            # Setup the Excel Address Locations
-            Address_Name = '{}{}'.format('L', areasRowStart + areaCount)
-            Address_GroupNum = '{}{}'.format('M', areasRowStart + areaCount)
-            Address_Quantity = '{}{}'.format('P', areasRowStart + areaCount)
-            Address_Area = '{}{}'.format('V', areasRowStart + areaCount)
-            Address_Assembly = '{}{}'.format('AC', areasRowStart + areaCount)
-            Address_AngleNorth = '{}{}'.format('AG', areasRowStart + areaCount)
-            Address_AngleHoriz = '{}{}'.format('AH', areasRowStart + areaCount)
-            Address_ShadingFac = '{}{}'.format('AJ', areasRowStart + areaCount)
-            Address_Abs = '{}{}'.format('AK', areasRowStart + areaCount)
-            Address_Emmis = '{}{}'.format('AL', areasRowStart + areaCount)
-            
-            areasList.append( PHPP_XL_Obj('Areas', Address_Name, nm))# Surface Name
-            areasList.append( PHPP_XL_Obj('Areas', Address_GroupNum, groupNum))# Surface Group Number
-            areasList.append( PHPP_XL_Obj('Areas', Address_Quantity, quantity))# Surface Quantity
-            areasList.append( PHPP_XL_Obj('Areas', Address_Area, surfaceArea, 'M2', 'FT2'))# Surface Area (m2)
-            areasList.append( PHPP_XL_Obj('Areas', Address_Assembly, assemblyName))# Assembly Type Name
-            areasList.append( PHPP_XL_Obj('Areas', Address_AngleNorth, angleFromNorth))# Orientation Off North
-            areasList.append( PHPP_XL_Obj('Areas', Address_AngleHoriz, angleFromHoriz))# Orientation Off Horizontal
-            areasList.append( PHPP_XL_Obj('Areas', Address_ShadingFac, shading))# Shading Factor
-            areasList.append( PHPP_XL_Obj('Areas', Address_Abs, abs))# Absorptivity
-            areasList.append( PHPP_XL_Obj('Areas', Address_Emmis, emmis))# Emmissivity
-            
-            # Add the PHPP UD Surface Name to the Surface Object
-            setattr(surface, 'UD_Srfc_Name', '{:d}-{}'.format(uID_Count, nm) )
-            
-            # Keep track of which Surfaces are included in the output
-            surfacesIncluded.append(nm)
-            
-            uID_Count += 1
-            areaCount += 1
+        areasList.append( PHPP_XL_Obj('Areas', Address_Name, nm))# Surface Name
+        areasList.append( PHPP_XL_Obj('Areas', Address_GroupNum, groupNum))# Surface Group Number
+        areasList.append( PHPP_XL_Obj('Areas', Address_Quantity, quantity))# Surface Quantity
+        areasList.append( PHPP_XL_Obj('Areas', Address_Area, surfaceArea, 'M2', 'FT2'))# Surface Area (m2)
+        areasList.append( PHPP_XL_Obj('Areas', Address_Assembly, assemblyName))# Assembly Type Name
+        areasList.append( PHPP_XL_Obj('Areas', Address_AngleNorth, angleFromNorth))# Orientation Off North
+        areasList.append( PHPP_XL_Obj('Areas', Address_AngleHoriz, angleFromHoriz))# Orientation Off Horizontal
+        areasList.append( PHPP_XL_Obj('Areas', Address_ShadingFac, shading))# Shading Factor
+        areasList.append( PHPP_XL_Obj('Areas', Address_Abs, abs))# Absorptivity
+        areasList.append( PHPP_XL_Obj('Areas', Address_Emmis, emmis))# Emmissivity
+        
+        # Add the PHPP UD Surface Name to the Surface Object
+        setattr(surface, 'UD_Srfc_Name', '{:d}-{}'.format(uID_Count, nm) )
+        
+        # Keep track of which Surfaces are included in the output
+        surfacesIncluded.append(nm)
+        
+        uID_Count += 1
+        areaCount += 1
     
     areasList.append( PHPP_XL_Obj('Areas', 'L19', 'Suspended Floor') )
     return areasList, surfacesIncluded

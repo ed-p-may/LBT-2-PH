@@ -9,6 +9,8 @@ try:  # import the core honeybee dependencies
     from honeybee.model import Model
     from honeybee.boundarycondition import Surface, Outdoors, Ground, Adiabatic
     from honeybee.facetype import Wall, RoofCeiling, Floor
+    from honeybee.typing import clean_and_id_ep_string
+    from honeybee_energy.material.opaque import EnergyMaterialNoMass
 except ImportError as e:
     raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
@@ -38,7 +40,6 @@ class hb_surface:
         * const 
         * rad_mod   
     """
-    __slots__ = ('srfc_type_schema', '_geo', '_params', '_constructions', 'rad_mod')
 
     srfc_type_schema = {
         'Wall': {'legacy':0, 'lbt1': 'Wall'},
@@ -60,14 +61,14 @@ class hb_surface:
         }
         
     def __init__(self, _srfc, _constructions, _ghenv):
-        self._geo = _srfc.geom
-        self._params = _srfc.params
-        self._constructions = _constructions
+        self.geometry = _srfc.geom
+        self.params = _srfc.params
+        self.constructions = _constructions
         self.rad_mod = None
         self._warn_no_name(_ghenv)
     
     def _warn_no_name(self, _ghenv):
-        nm = self._params.get('Object Name', None)
+        nm = self.params.get('Object Name', None)
         if nm is None or nm == 'None':
             warning = "Warning: Some Surfaces look like they are missing names? It is likely that\n"\
             "the Honeybee solveAdjc component will not work correctly without names.\n"\
@@ -94,13 +95,9 @@ class hb_surface:
             return 'Wall'
 
     @property
-    def geometry(self):
-        return self._geo
-
-    @property
     def name(self):
         try:
-            ud_value = self._params.get('Object Name', 'No Name')
+            ud_value = self.params.get('Object Name', 'No Name')
             ud_value = self._add_ext_flag_to_name(ud_value)
             return ud_value
         except:
@@ -108,29 +105,30 @@ class hb_surface:
 
     @property
     def type(self):
-        ud_value = self._params.get('srfType', 'Wall')
+        ud_value = self.params.get('srfType', 'Wall')
         return self._get_srfc_type(ud_value, 'lbt1')
 
     @property
     def type_legacy(self):
         """Exposure type used by old 'Legacy' Honeybee """
         
-        ud_value = self._params.get('srfType', 'Wall')
+        ud_value = self.params.get('srfType', 'Wall')
         return self._get_srfc_type(ud_value, 'legacy')
 
     @property
     def bc(self):
-        return self._params.get('EPBC', 'Outdoors')
+        return self.params.get('EPBC', 'Outdoors')
  
     @property
     def const(self):
-        ud_value = self._params.get('EPConstruction', None)
-        if ud_value is None:
+        ud_value = self.params.get('EPConstruction', None)
+        if not ud_value:
             return None
         
         ud_value = 'PHPP_CONST_' + str(ud_value).upper()
         ud_value = ud_value.replace(' ', '_')
-        return self._constructions.get(ud_value, ud_value)
+
+        return self.constructions.get(ud_value, ud_value)
 
 class PHPP_Surface:
     def __init__(self, _lbt_face, _rm_name, _rm_id, _scene_north_vec, _ghenv):
@@ -314,7 +312,7 @@ class PHPP_Surface:
             return None
 
     def __unicode__(self):
-        return u'A PHPP-Style Surface Object: < {self.Name} >'.format(self=self)
+        return u'A PHPP-Style Surface Object: < {} >'.format(self.Name)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):

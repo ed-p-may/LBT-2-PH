@@ -142,23 +142,20 @@ def get_exposed_surfaces_from_model(_model, _north, _ghenv):
     return exposed_surfaces
 
 def get_opaque_materials_from_model(_model, _ghenv):
-    ep_materials = {}
+    phpp_materials = {}
     for face in _model.faces:
-        for mat in face.properties.energy.construction.materials:
-            ep_materials[mat.identifier] = mat
-
-    phpp_materials = []
-    for k, v in ep_materials.items():
-        new_material = LBT2PH.materials.PHPP_Material_Opaque(v)
-        phpp_materials.append(new_material)
-
+        for ep_mat in face.properties.energy.construction.materials:
+            if ep_mat.display_name not in phpp_materials:
+                phpp_material = LBT2PH.materials.PHPP_Material_Opaque( ep_mat )
+                phpp_materials[ep_mat.display_name] = phpp_material
+            
     return phpp_materials
 
 def get_opaque_constructions_from_model(_model, _ghenv):
     ep_constructions = {}
     for face in _model.faces:
         construction = face.properties.energy.construction
-        ep_constructions[construction.identifier] = construction
+        ep_constructions[construction.display_name] = construction
     
     phpp_constructions = []
     for k, v in ep_constructions.items():
@@ -533,7 +530,7 @@ def get_PER( _model ):
 
 def get_occupancy( _model ):
     if not _model.user_data:
-        print('No User_Data dict found on the model. Ignoring PHPP Occupanyc for now.')
+        print('No User_Data dict found on the model. Ignoring PHPP Occupancy for now.')
         return []
 
     d = _model.user_data.get('phpp', {}).get('occupancy', None)

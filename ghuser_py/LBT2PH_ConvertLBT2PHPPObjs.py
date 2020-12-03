@@ -21,7 +21,7 @@
 #
 """
 -
-EM December 2, 2020
+EM December 3, 2020
     Args:
         north_: <Optional :float :vector> A number between -360 and 360 for the counterclockwise or a vector pointing 'north'
             difference between the North and the positive Y-axis in degrees.
@@ -51,7 +51,7 @@ EM December 2, 2020
 
 ghenv.Component.Name = "LBT2PH_ConvertLBT2PHPPObjs"
 ghenv.Component.NickName = "LBT-->PHPP"
-ghenv.Component.Message = 'DEC_02_2020'
+ghenv.Component.Message = 'DEC_03_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"

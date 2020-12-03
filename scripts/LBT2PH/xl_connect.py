@@ -9,7 +9,7 @@ from System.Runtime.InteropServices import Marshal
 from Microsoft.Office.Interop import Excel
 
 class FileManager:
-
+    """Methods used to create, copy and clean the PHPP files and paths """
     @staticmethod
     def clean_file_path(_input):
         """Tries to clean user-input strings into valid paths"""
@@ -81,6 +81,7 @@ class FileManager:
 
 
 class ExcelInstance:
+    """Wrapper for the Excel Application Instance with some useful methods """
 
     def __init__(self):
         self.excel_app = None
@@ -120,14 +121,11 @@ class ExcelInstance:
             self.excel = None
     
     def __unicode__(self):
-        return u"Excel Instance | Active Worksheet: {self.activeWorkbookName}".format(self=self)
+        return u"Excel Instance | Active Worksheet: {}".format(self.active_workbook_name)
     def __str__(self):
         return unicode(self).encode("utf-8")
     def __repr__(self):
-        return "{}( _nm={!r}, _ex={!r}, _activeWorkbook={!r}, _name={!r}".format(
-               self.__class__.__name__,
-               self.excel_app,
-               self.active_workbook,
-               self.active_workbook_name )
+        return "{}()".format(
+               self.__class__.__name__ )
     def ToString(self):
         return str(self)
