@@ -22,9 +22,10 @@
 """
 Note: Be aware that if you plan on setting the Honeybee Ventilation or Occupancy Loads / Schedules using the Honyebee tools, be sure to that BEFORE you use this component. This component will use those loads/schedules to generate the PHPP values. If you apply those Honeybee loads / schedules AFTER this component, those edits will not be taken into account and your PHPP will not match the Honyebee/E+ model.
 -
-EM November 27, 2020
+EM December 4, 2020
     Args:
         _HB_rooms: The Honeybee Rooms you would like to build the PHPP Spaces for.
+        set_honeybee_loads_: <bool> Default=False. Set 'True' to have this componet set the Honeybee room loads and schedules such that they match the PHPP values entered here and/or found on the TFA surfaces in the Rhino model.
         _TFA_surfaces: <list :Surface> The individual space floor surfaces represting each individual 'space' inside the Honeybee Room (zone).
         _spaces_geometry: <list :PolySurface> Geometry representing the 'space shape' of an individial 'space' or area inside of the Honeybee Room. NOTE: Make sure that your space-shapes are 'open' on the bottom so that they can be joined to the TFA Surfaces to form a closed Brep in the end.
         vent_flowrate_source_: <str> Enter either 'UD' or 'EP' indicating which source should be used to determine the fresh-air flow rates. 'UD' (user-determined) will try and read flow-rates from your Rhino geometry. So make sure that you assigned flow rates to the geometry. 'EP' (EnergyPlus) will try and use the E+/Honeybee Program assigned to the Honyebee Room in order to determine the fresh-air flow rates.
@@ -37,14 +38,12 @@ EM November 27, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPSpaces"
 ghenv.Component.NickName = "PHPP Spaces"
-ghenv.Component.Message = 'NOV_27_2020'
+ghenv.Component.Message = 'DEC_04_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
 
-import rhinoscriptsyntax as rs
-import Rhino
 import ghpythonlib.components as ghc
 import Grasshopper.Kernel as ghK
 from copy import deepcopy
@@ -64,8 +63,6 @@ reload(LBT2PH.schedules)
 try:
     from honeybee_energy.load.ventilation import Ventilation
     from honeybee_energy.lib.schedules import schedule_by_identifier
-    from honeybee_energy.lib.programtypes import program_type_by_identifier
-    from honeybee_energy.programtype import ProgramType
 except ImportError as e:
     raise ImportError('\nFailed to import honeybee_energy:\n\t{}'.format(e))
 
@@ -108,32 +105,12 @@ def schedule_object(schedule):
         return schedule_by_identifier(schedule)
     return schedule
 
-
-
-# Sort out the UD Space Geometry to use
+# Sort out the UD TFA and Space Geometry to use
 # ------------------------------------------------------------------------------
 with LBT2PH.helpers.context_rh_doc(ghdoc):
-    space_geom = [ rs.coercebrep(guid) for guid in _spaces_geometry]
+    space_geom = [ rs.coercebrep(guid) for guid in _spaces_geometry ]
 
-rhino_tfa_objects = []
-for i, tfa_input in enumerate(_TFA_surfaces):
-    rhino_guid = ghenv.Component.Params.Input[3].VolatileData[0][i].ReferenceID
-    rhino_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( rhino_guid )
-    
-    if rhino_obj:
-        # Input is a Rhino surface
-        with LBT2PH.helpers.context_rh_doc(ghdoc):
-            tfa_obj = LBT2PH.spaces.get_tfa_surface_data_from_Rhino( rhino_guid )
-            rhino_tfa_objects.append( tfa_obj )
-    else:
-        # Input is a Grasshoppper-generated surface
-        geom = rs.coercegeometry( tfa_input )
-        params = {}
-        tfa_obj = ( geom, params )
-        rhino_tfa_objects.append( tfa_obj )
-
-
-
+rhino_tfa_objects = LBT2PH.spaces.find_all_tfa_surfaces(_TFA_surfaces, ghenv, ghdoc)
 
 
 # Sort the input TFA surfaces depending on which Honeybee Room they are 'in'
@@ -144,10 +121,9 @@ if _HB_rooms:
     for tfa_srfc_geom, tfa_srfc_params in rhino_tfa_objects:
         # ----------------------------------------------------------------------
         # Find the TFA's host Room/Zone
-        host_room = LBT2PH.spaces.find_tfa_host_room(tfa_srfc_geom, _HB_rooms)
+        centroid, host_room = LBT2PH.spaces.find_tfa_host_room(tfa_srfc_geom, _HB_rooms)
         tfa_obj = LBT2PH.spaces.TFA_Surface(tfa_srfc_geom, host_room, tfa_srfc_params)
         if host_room is None: LBT2PH.spaces.display_host_error(tfa_obj, ghenv)
-        
         
         # Add the new TFA Object to the master dict
         # ----------------------------------------------------------------------

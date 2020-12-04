@@ -5,8 +5,11 @@ import Grasshopper.Kernel as ghK
 import Rhino
 from System import Object
 
-from ladybug_rhino.fromgeometry import from_face3d 
-from ladybug_geometry.geometry3d import Point3D
+try:  # import the core honeybee dependencies
+    from ladybug_rhino.fromgeometry import from_face3d 
+    from ladybug_geometry.geometry3d import Point3D
+except ImportError as e:
+    raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
 import LBT2PH
 import LBT2PH.ventilation
@@ -750,7 +753,7 @@ class Space:
         return new_space
 
     def __unicode__(self):
-        return u'A PHPP Space Object: < {} >'.format(self.id)
+        return u'A PHPP Space Object: < {} > {}-{}'.format(self.id, self.space_number, self.space_name)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
@@ -758,6 +761,26 @@ class Space:
                self.__class__.__name__,
                self.volumes, self.vent_sched)
 
+def find_all_tfa_surfaces( _tfa_surfaces, _ghenv, _ghdoc ):
+    
+    rhino_tfa_objects = []
+    for i, tfa_input in enumerate(_tfa_surfaces):
+        rhino_guid = _ghenv.Component.Params.Input[3].VolatileData[0][i].ReferenceID
+        rhino_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( rhino_guid )
+        
+        if rhino_obj:
+            # Input is a Rhino surface
+            with LBT2PH.helpers.context_rh_doc(_ghdoc):
+                tfa_obj = get_tfa_surface_data_from_Rhino( rhino_guid )
+                rhino_tfa_objects.append( tfa_obj )
+        else:
+            # Input is a Grasshoppper-generated surface
+            geom = rs.coercegeometry( tfa_input )
+            params = {}
+            tfa_obj = ( geom, params )
+            rhino_tfa_objects.append( tfa_obj )
+    
+    return rhino_tfa_objects
 
 def get_tfa_surface_data_from_Rhino(_guid):  
    
@@ -776,16 +799,25 @@ def get_tfa_surface_data_from_Rhino(_guid):
     return (geom, params)
 
 def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):
-    srfc_centroid = Rhino.Geometry.AreaMassProperties.Compute(_tfa_srfc_geom).Centroid
-    srfc_centroid = Point3D(srfc_centroid.X, srfc_centroid.Y, srfc_centroid.Z)
+    """Evaluates the Centoid of a TFA srf to see if it is inside an HB-Room """
     
+    srfc_centroid_a = Rhino.Geometry.AreaMassProperties.Compute(_tfa_srfc_geom).Centroid
+    
+    # Note: move the centroid 'up' just a tiny bit, otherwise 'is_point_inside'
+    # test will return False. Must not work if point is 'on' a surface...
+    move_distance = 0.01
+    srfc_centroid_b = Rhino.Geometry.Point3d(srfc_centroid_a.X, srfc_centroid_a.Y, srfc_centroid_a.Z + move_distance)
+
+    # Also, to use 'is_point_inside' need to convert the Point to a Ladybug Point3D
+    srfc_centroid_c = Point3D(srfc_centroid_b.X, srfc_centroid_b.Y, srfc_centroid_b.Z)
+
     host_room = None
     for room in _hb_rooms:
-        if room.geometry.is_point_inside( srfc_centroid ):
+        if room.geometry.is_point_inside( srfc_centroid_c ):
             host_room = room.display_name
             break
 
-    return host_room
+    return srfc_centroid_a, host_room
 
 def get_hb_room_floor_surfaces(_room):
     hb_floor_surfaces = []

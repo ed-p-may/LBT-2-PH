@@ -230,11 +230,13 @@ def get_spaces_from_model(_model, _ghdoc):
 
 def get_ventilation_systems_from_model(_model, _ghenv):
     model_vent_systems = set()
+    
     for hb_room in _model.rooms:
+        
         if not hb_room.user_data:
             continue
 
-        vent_system_dict = hb_room.get('phpp', {}).get('vent_system', {})
+        vent_system_dict = hb_room.user_data.get('phpp', {}).get('vent_system', {})
         
         if vent_system_dict:
             room_vent_system = LBT2PH.ventilation.PHPP_Sys_Ventilation.from_dict(vent_system_dict, _ghenv)

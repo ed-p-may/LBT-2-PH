@@ -252,10 +252,10 @@ class PHPP_Window(Object):
 
         # ----------------------------------------------------------------------
         # Create the reveal geom
-        bottom = self._extrude_reveal_edge(edges.bottom, normal, inst_depth, self.installs.Bottom)
-        left = self._extrude_reveal_edge(edges.left, normal, inst_depth, self.installs.Left)
-        top = self._extrude_reveal_edge(edges.top, normal, inst_depth, self.installs.Top)
-        right = self._extrude_reveal_edge(edges.right, normal, inst_depth, self.installs.Right)
+        bottom = self._extrude_reveal_edge(edges.bottom, normal, inst_depth, self.installs.install_B)
+        left = self._extrude_reveal_edge(edges.left, normal, inst_depth, self.installs.install_L)
+        top = self._extrude_reveal_edge(edges.top, normal, inst_depth, self.installs.install_T)
+        right = self._extrude_reveal_edge(edges.right, normal, inst_depth, self.installs.install_R)
         
         # ----------------------------------------------------------------------
         # Output

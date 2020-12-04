@@ -544,7 +544,6 @@ class PHPP_Sys_VentSchedule(Object):
 class PHPP_Sys_Ventilation(Object):
     def __init__(self,
                 _ghenv=None,
-                _system_id=random.randint(1000,9999),
                 _system_type='1-Balanced PH ventilation with HR',
                 _systemName='Vent-1',
                 _unit=PHPP_Sys_VentUnit(),
@@ -552,8 +551,8 @@ class PHPP_Sys_Ventilation(Object):
                 _d02=PHPP_Sys_Duct(),
                 _exhaustObjs=[ PHPP_Sys_ExhaustVent() ]):
         
+        self.system_id = random.randint(1000,9999)
         self.ghenv = _ghenv
-        self.system_id = _system_id
         self.system_type = _system_type
         self.system_name = _systemName
         self.vent_unit = _unit
@@ -581,7 +580,7 @@ class PHPP_Sys_Ventilation(Object):
             pass
 
     def __eq__(self, other):
-        return self.id == other.id
+        return self.system_id == other.system_id
     
     def __hash__(self):
         return hash(str(self.system_id))
@@ -616,19 +615,21 @@ class PHPP_Sys_Ventilation(Object):
     @classmethod
     def from_dict(cls, _dict, _ghenv=None):
 
-        system_id = _dict['system_id']
-        system_type = _dict['system_type']
-        system_name = _dict['system_name']
-        unit = PHPP_Sys_VentUnit.from_dict(_dict['vent_unit'] )
-        duct_01 = PHPP_Sys_Duct.from_dict( _dict['duct_01'] )
-        duct_02 = PHPP_Sys_Duct.from_dict( _dict['duct_02'] )
-        exhaust_systems = []
+        exhaust_objs = []
         for exhaust_system_dict in _dict['exhaust_vent_objs']:
-            exhaust_systems.append( PHPP_Sys_ExhaustVent.from_dict(exhaust_system_dict) )
+            exhaust_objs.append( PHPP_Sys_ExhaustVent.from_dict(exhaust_system_dict) )
 
-        new_vent_system = cls(_ghenv, system_id, system_type, system_name, unit, duct_01, duct_02, exhaust_systems)
+        new_obj = cls()
+        new_obj.ghenv = _ghenv
+        new_obj.system_id = _dict.get('system_id')
+        new_obj.system_type = _dict.get('system_type')
+        new_obj.system_name = _dict.get('system_name')
+        new_obj.vent_unit = PHPP_Sys_VentUnit.from_dict(_dict.get('vent_unit') )
+        new_obj.duct_01 = PHPP_Sys_Duct.from_dict( _dict.get('duct_01') )
+        new_obj.duct_02 = PHPP_Sys_Duct.from_dict( _dict.get('duct_02') )
+        new_obj.exhaust_vent_objs = exhaust_objs
         
-        return new_vent_system
+        return new_obj
 
     def __str__(self):
         return unicode(self).encode('utf-8')
@@ -645,6 +646,8 @@ class PHPP_Sys_Ventilation(Object):
                 self.duct_01,
                 self.duct_02,
                 self.exhaust_vent_objs)
+    def ToString(self):
+        return str(self)
 
 
 def calc_room_vent_rates_from_HB(_hb_room, _ghenv):

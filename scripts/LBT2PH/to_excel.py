@@ -525,6 +525,7 @@ def build_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):
     i = 0
     
     for i, phpp_space in enumerate(_inputBranch):
+        
         # ----------------------------------------------------------------------
         # find the right ventilation system to use
         if not _vent_systems:
