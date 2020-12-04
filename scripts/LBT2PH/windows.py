@@ -638,10 +638,10 @@ class PHPP_Frame(Object):
         new_obj = cls()
 
         new_obj._name = _dict.get('name')
-        new_obj._uValues = _dict.get('uValues')
-        new_obj._frameWidths = _dict.get('frameWidths')
-        new_obj._PsiGVals = _dict.get('PsiGVals')
-        new_obj._PsiInstalls = _dict.get('PsiInstalls')
+        new_obj.uValues = _dict.get('uValues')
+        new_obj.frameWidths = _dict.get('frameWidths')
+        new_obj.PsiGVals = _dict.get('PsiGVals')
+        new_obj.PsiInstalls = _dict.get('PsiInstalls')
         new_obj.chiGlassCarrier = _dict.get('chiGlassCarrier')
 
         return new_obj
