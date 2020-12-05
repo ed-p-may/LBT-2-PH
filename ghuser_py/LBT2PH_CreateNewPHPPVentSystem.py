@@ -22,7 +22,7 @@
 """
 Collects and organizes data for a simple fresh-air ventilation system (HRV/ERV). Outputs a 'ventilation' class object to apply to a HB Zone.
 -
-EM Nov. 26, 2020
+EM December 5, 2020
     Args:
         ventUnitType_: Input Type. Either: "1-Balanced PH ventilation with HR [Default]", "2-Extract air unit", "3-Only window ventilation"
         ventSystemName_: <Optional> A name for the overall system. ie: 'ERV-1', etc.. Will show up in the 'Additional Ventilation' worksheet as the 'Description of Ventilation Units' (E97-E107)
@@ -36,14 +36,12 @@ EM Nov. 26, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateNewPHPPVentSystem"
 ghenv.Component.NickName = "Create Vent System"
-ghenv.Component.Message = 'NOV_26_2020'
+ghenv.Component.Message = 'DEC_05_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
-import scriptcontext as sc
 import Rhino
-from random import randint
 
 import LBT2PH
 import LBT2PH.ventilation
@@ -102,14 +100,15 @@ def hrvDuct2(_in):
          return "1-Balanced PH ventilation with HR [Default]"
 
 
-#-------------------------------------------------------------------------------
 # Handle Duct Inputs
+#-------------------------------------------------------------------------------
 hrvDuct_01_inputNum, hrvDuct_02_inputNum = getDuctInputIndexNumbers()
 hrvDuct1 = determineDuctToUse(hrv_duct_01_, hrvDuct_01_inputNum)
 hrvDuct2 = determineDuctToUse(hrv_duct_02_, hrvDuct_02_inputNum)
 
-#-------------------------------------------------------------------------------
+
 # Build the system
+#-------------------------------------------------------------------------------
 vent_system_ = LBT2PH.ventilation.PHPP_Sys_Ventilation(_ghenv=ghenv)
 
 if vent_system_type_: vent_system_.system_type = hrvDuct2(vent_system_type_)
@@ -120,3 +119,17 @@ if hrvDuct2: vent_system_.duct_02 = hrvDuct2
 if exhaust_vent_units_: vent_system_.exhaust_vent_objs = exhaust_vent_units_
 
 LBT2PH.helpers.preview_obj(vent_system_)
+
+
+# Add the system to the Honeybee-Rooms
+#-------------------------------------------------------------------------------
+HB_rooms_ = []
+for hb_room in _HB_rooms:
+    new_room = hb_room.duplicate()
+    new_room = LBT2PH.helpers.add_to_HB_model( new_room, 'vent_system', vent_system_.to_dict(), ghenv )
+    
+    #Update the vent system name on all the spaces
+    for space in new_room.user_data.get('phpp', {}).get('spaces', {}).values():
+        space.update( { 'phpp_vent_system_id':vent_system_.system_id } )
+    
+    HB_rooms_.append( new_room )

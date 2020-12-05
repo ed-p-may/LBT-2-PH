@@ -54,6 +54,9 @@ class ApplianceSet(Object):
 
     @classmethod
     def from_dict(cls, _dict):
+        if not _dict:
+            return []
+        
         new_obj = cls()
 
         new_obj.id = _dict.get('id')

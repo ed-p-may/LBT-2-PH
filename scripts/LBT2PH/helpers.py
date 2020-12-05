@@ -179,6 +179,8 @@ def convert_value_to_metric(_inputString, _outputUnit):
             return inputValue
 
 class code_timer:
+    """ helper function for figuring out why its all so slow.... """
+    
     __slots__ = ('display_type', 'count', 'timer')
 
     def __init__(self, _display_type='time'):

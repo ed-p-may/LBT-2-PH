@@ -927,117 +927,6 @@ def build_ground(_ground_objs, _zones, _ghenv):
             
     return ground
 
-def build_DHW_system(_dhw_systems, _hb_rooms, _ghenv):
-    if not _dhw_systems:
-        return []
-    
-    #---------------------------------------------------------------------------
-    # If more that one system are to be used, combine them into a single system
-    
-    dhw_systems = {}
-    for system in _dhw_systems:
-        for room_id in system.rooms_assigned_to:
-            if room_id in _hb_rooms:
-                dhw_systems[system.id] = system 
-    
-    dhw_ = None
-    if len(dhw_systems.keys())>1:
-        dhw_ = combineDHWSystems( dhw_systems )
-    else:
-        dhw_ = dhw_systems.values()[0]
-    
-    #---------------------------------------------------------------------------
-    # DHW System Excel Objs
-    dhwSystem = []
-    if dhw_:
-        print("Creating the 'DHW' Objects...")
-        dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J146', dhw_.forwardTemp, 'C', 'F'))
-        dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P145', 0, 'C', 'F'))
-        dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P29', 0, 'C', 'F'))
-        
-        #-----------------------------------------------------------------------
-        # Usage Volume
-        if dhw_.usage:
-            if dhw_.usage.type == 'Res':
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J47', dhw_.usage.demand_showers, 'LITER', 'GALLON' ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J48', dhw_.usage.demand_others, 'LITER', 'GALLON' ) )
-            elif dhw_.usage.type == 'NonRes':
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J47', '=Q57', 'LITER', 'GALLON' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J48', '=Q58', 'LITER', 'GALLON' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J58', getattr(dhw_.usage, 'use_daysPerYear') ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J62', 'x' if getattr(dhw_.usage, 'useShowers') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J63', 'x' if getattr(dhw_.usage, 'useHandWashing') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J64', 'x' if getattr(dhw_.usage, 'useWashStand') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J65', 'x' if getattr(dhw_.usage, 'useBidets') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J66', 'x' if getattr(dhw_.usage, 'useBathing') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J67', 'x' if getattr(dhw_.usage, 'useToothBrushing') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J68', 'x' if getattr(dhw_.usage, 'useCooking') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J74', 'x' if getattr(dhw_.usage, 'useDishwashing') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J75', 'x' if getattr(dhw_.usage, 'useCleanKitchen') != 'False' else '' ))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J76', 'x' if getattr(dhw_.usage, 'useCleanRooms') != 'False' else '' ))
-        
-        #-----------------------------------------------------------------------
-        # Recirc Piping
-        if len(dhw_.circulation_piping)>0:
-            dhwSystem.append( PHPP_XL_Obj('Aux Electricity', 'H29', 1 ) ) # Circulator Pump
-            
-        for colNum, recirc_line in enumerate(dhw_.circulation_piping.values()):
-            col = chr(ord('J') + colNum)
-            
-            if ord(col) <= ord('N'):
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 149), recirc_line.length , 'M', 'FT'))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 150), recirc_line.diameter, 'MM','IN') )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 151), recirc_line.insul_thickness, 'MM', 'IN' ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 152), recirc_line.insul_relfective ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 153), recirc_line.insul_lambda, 'W/MK', 'HR-FT2-F/BTU-IN' ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 155), recirc_line.quality ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 159), recirc_line.period ) )
-            else:
-                dhwRecircWarning = "Too many recirculation loops. PHPP only allows up to 5 loops to be entered.\nConsolidate the loops before moving forward"
-                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
-        
-        #-----------------------------------------------------------------------
-        # Branch Piping
-        for colNum, branch_line in enumerate(dhw_.branch_piping.values()):
-            col = chr(ord('J') + colNum)
-            
-            if ord(col) <= ord('N'):
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 167), branch_line.diameter, 'M', 'IN'))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 168), branch_line.length, 'M', 'FT'))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 169), branch_line.tap_points))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 171), branch_line.tap_openings))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 172), branch_line.utilisation))
-            else:
-                dhwRecircWarning = "Too many branch piping sets. PHPP only allows up to 5 sets to be entered.\nConsolidate the piping sets before moving forward"
-                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
-        
-        #-----------------------------------------------------------------------
-        # Tanks
-        if dhw_.tank1:
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J186', dhw_.tank1.type))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J189', 'x' if dhw_.tank1.solar==True else ''))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J191', dhw_.tank1.hl_rate, 'W/K', 'BTU/HR-F'))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J192', dhw_.tank1.vol, 'LITER', 'GALLON'))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J193', dhw_.tank1.stndbyFrac))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J195', dhw_.tank1.location))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J198', dhw_.tank1.location_t, 'C', 'F'))
-        if dhw_.tank2:
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M186', dhw_.tank2.type) )
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M189', 'x' if dhw_.tank2.solar==True else ''))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M191', dhw_.tank2.hl_rate, 'W/K', 'BTU/HR-F'))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M192', dhw_.tank2.vol, 'LITER', 'GALLON'))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M193', dhw_.tank2.stndbyFrac))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M195', dhw_.tank2.location))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M198', dhw_.tank2.location_t, 'C', 'F'))
-        if dhw_.tank_buffer:
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P186', dhw_.tank_buffer.type))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P191', dhw_.tank_buffer.hl_rate, 'W/K', 'BTU/HR-F'))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P192', dhw_.tank_buffer.vol, 'LITER', 'GALLON'))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P195', dhw_.tank_buffer.location))
-            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P198', dhw_.tank_buffer.location_t, 'C', 'F'))
-        
-    return dhwSystem
-
 def combine_DHW_systems(_dhwSystems):
     def getBranchPipeAttr(_dhwSystems, _attrName, _branchOrRecirc, _resultType):
         # Combine Elements accross the Systems
@@ -1175,6 +1064,117 @@ def combine_DHW_systems(_dhwSystems):
                          )
     
     return combinedDHWSys
+
+def build_DHW_system(_dhw_systems, _hb_rooms, _ghenv):
+    if not _dhw_systems:
+        return []
+    
+    #---------------------------------------------------------------------------
+    # If more that one system are to be used, combine them into a single system
+    
+    dhw_systems = {}
+    for system in _dhw_systems:
+        for room_id in system.rooms_assigned_to:
+            if room_id in _hb_rooms:
+                dhw_systems[system.id] = system 
+    
+    dhw_ = None
+    if len(dhw_systems.keys())>1:
+        dhw_ = combine_DHW_systems( dhw_systems )
+    else:
+        dhw_ = dhw_systems.values()[0]
+    
+    #---------------------------------------------------------------------------
+    # DHW System Excel Objs
+    dhwSystem = []
+    if dhw_:
+        print("Creating the 'DHW' Objects...")
+        dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J146', dhw_.forwardTemp, 'C', 'F'))
+        dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P145', 0, 'C', 'F'))
+        dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P29', 0, 'C', 'F'))
+        
+        #-----------------------------------------------------------------------
+        # Usage Volume
+        if dhw_.usage:
+            if dhw_.usage.type == 'Res':
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J47', dhw_.usage.demand_showers, 'LITER', 'GALLON' ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J48', dhw_.usage.demand_others, 'LITER', 'GALLON' ) )
+            elif dhw_.usage.type == 'NonRes':
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J47', '=Q57', 'LITER', 'GALLON' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J48', '=Q58', 'LITER', 'GALLON' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J58', getattr(dhw_.usage, 'use_daysPerYear') ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J62', 'x' if getattr(dhw_.usage, 'useShowers') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J63', 'x' if getattr(dhw_.usage, 'useHandWashing') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J64', 'x' if getattr(dhw_.usage, 'useWashStand') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J65', 'x' if getattr(dhw_.usage, 'useBidets') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J66', 'x' if getattr(dhw_.usage, 'useBathing') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J67', 'x' if getattr(dhw_.usage, 'useToothBrushing') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J68', 'x' if getattr(dhw_.usage, 'useCooking') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J74', 'x' if getattr(dhw_.usage, 'useDishwashing') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J75', 'x' if getattr(dhw_.usage, 'useCleanKitchen') != 'False' else '' ))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J76', 'x' if getattr(dhw_.usage, 'useCleanRooms') != 'False' else '' ))
+        
+        #-----------------------------------------------------------------------
+        # Recirc Piping
+        if len(dhw_.circulation_piping)>0:
+            dhwSystem.append( PHPP_XL_Obj('Aux Electricity', 'H29', 1 ) ) # Circulator Pump
+            
+        for colNum, recirc_line in enumerate(dhw_.circulation_piping.values()):
+            col = chr(ord('J') + colNum)
+            
+            if ord(col) <= ord('N'):
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 149), recirc_line.length , 'M', 'FT'))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 150), recirc_line.diameter, 'MM','IN') )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 151), recirc_line.insul_thickness, 'MM', 'IN' ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 152), recirc_line.insul_relfective ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 153), recirc_line.insul_lambda, 'W/MK', 'HR-FT2-F/BTU-IN' ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 155), recirc_line.quality ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 159), recirc_line.period ) )
+            else:
+                dhwRecircWarning = "Too many recirculation loops. PHPP only allows up to 5 loops to be entered.\nConsolidate the loops before moving forward"
+                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
+        
+        #-----------------------------------------------------------------------
+        # Branch Piping
+        for colNum, branch_line in enumerate(dhw_.branch_piping.values()):
+            col = chr(ord('J') + colNum)
+            
+            if ord(col) <= ord('N'):
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 167), branch_line.diameter, 'M', 'IN'))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 168), branch_line.length, 'M', 'FT'))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 169), branch_line.tap_points))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 171), branch_line.tap_openings))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 172), branch_line.utilisation))
+            else:
+                dhwRecircWarning = "Too many branch piping sets. PHPP only allows up to 5 sets to be entered.\nConsolidate the piping sets before moving forward"
+                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
+        
+        #-----------------------------------------------------------------------
+        # Tanks
+        if dhw_.tank1:
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J186', dhw_.tank1.type))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J189', 'x' if dhw_.tank1.solar==True else ''))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J191', dhw_.tank1.hl_rate, 'W/K', 'BTU/HR-F'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J192', dhw_.tank1.vol, 'LITER', 'GALLON'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J193', dhw_.tank1.stndbyFrac))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J195', dhw_.tank1.location))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J198', dhw_.tank1.location_t, 'C', 'F'))
+        if dhw_.tank2:
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M186', dhw_.tank2.type) )
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M189', 'x' if dhw_.tank2.solar==True else ''))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M191', dhw_.tank2.hl_rate, 'W/K', 'BTU/HR-F'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M192', dhw_.tank2.vol, 'LITER', 'GALLON'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M193', dhw_.tank2.stndbyFrac))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M195', dhw_.tank2.location))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'M198', dhw_.tank2.location_t, 'C', 'F'))
+        if dhw_.tank_buffer:
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P186', dhw_.tank_buffer.type))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P191', dhw_.tank_buffer.hl_rate, 'W/K', 'BTU/HR-F'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P192', dhw_.tank_buffer.vol, 'LITER', 'GALLON'))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P195', dhw_.tank_buffer.location))
+            dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P198', dhw_.tank_buffer.location_t, 'C', 'F'))
+        
+    return dhwSystem
 
 def build_appliances(_appliances, _hb_room_names, _ghenv):
     print("Creating the 'Appliance' objects...")

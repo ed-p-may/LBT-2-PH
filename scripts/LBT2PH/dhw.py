@@ -4,8 +4,13 @@ from LBT2PH.helpers import convert_value_to_metric
 import Grasshopper.Kernel as ghK
 
 class PHPP_DHW_System:
-    def __init__(self, _rms_assigned=[], _name='DHW', _usage=None, _fwdT=60,
-                _pCirc={}, _pBran={}, _t1=None, _t2=None, _tBf=None):
+    def __init__(self, _rms_assigned=[], _name='DHW',
+                _usage=None, _fwdT=60,
+                _pCirc={}, 
+                _pBran={}, 
+                _t1=None, 
+                _t2=None, 
+                _tBf=None):
         self.id = random.randint(1000,9999)
         self.SystemName = _name
         self.usage = _usage
@@ -23,27 +28,32 @@ class PHPP_DHW_System:
         d.update( {'id':self.id} )
         d.update( {'rooms_assigned_to': self.rooms_assigned_to} )
         d.update( {'SystemName':self.SystemName} )
-        d.update( {'usage': self.usage.to_dict() } )
+        
         d.update( {'forwardTemp':self.forwardTemp} )
         
+        # Protect against Nones
+        if self.usage:       d.update( {'usage': self.usage.to_dict() } )
+        if self.tank1:       d.update( {'tank1':self.tank1.to_dict()} )
+        if self.tank2:       d.update( {'tank2':self.tank2.to_dict()} )
+        if self.tank_buffer: d.update( {'tank_buffer':self.tank_buffer.to_dict() } )
+
         d.update( {'circulation_piping': {} } ) 
-        for circ_piping_obj in self.circulation_piping.values():
+        circ_piping = {} or self.circulation_piping
+        for circ_piping_obj in circ_piping.values():
             d['circulation_piping'].update( { circ_piping_obj.id:circ_piping_obj.to_dict() } )
         
         d.update( {'branch_piping': {} } ) 
-        for piping_obj in self.branch_piping.values():
+        branch_piping = {} or self.branch_piping
+        for piping_obj in branch_piping.values():
             d['branch_piping'].update( { piping_obj.id:piping_obj.to_dict() } )
-
-        d.update( {'tank1':self.tank1.to_dict()} )
-        d.update( {'tank2':self.tank2.to_dict()} )
-        d.update( {'tank_buffer':self.tank_buffer.to_dict() } )
 
         return d
 
     @classmethod
     def from_dict(cls, _dict):
         new_obj = cls()
-
+        
+        new_obj.id = _dict.get('id')
         new_obj.rooms_assigned_to = _dict.get('rooms_assigned_to')
         new_obj.SystemName = _dict.get('SystemName')
         new_obj.forwardTemp = _dict.get('forwardTemp')
@@ -57,7 +67,7 @@ class PHPP_DHW_System:
         for branch_pipe_obj in branch_piping.values():
             new_piping_obj = PHPP_DHW_branch_piping.from_dict( branch_pipe_obj )
             new_obj.branch_piping.update( {new_piping_obj.id:new_piping_obj} )
-                
+        
         new_obj.tank1 = PHPP_DHW_tank.from_dict( _dict.get('tank1') )
         new_obj.tank2 = PHPP_DHW_tank.from_dict( _dict.get('tank2') )
         new_obj.tank_buffer = PHPP_DHW_tank.from_dict( _dict.get('tank_buffer') )
@@ -69,7 +79,7 @@ class PHPP_DHW_System:
             elif usage.get('type') == 'NonRes':
                 usage = PHPP_DHW_usage_NonRes.from_dict( _dict.get('usage') )
         else:
-            usage = PHPP_DHW_usage_Res()
+            usage = None
         new_obj.usage = usage
         
         return new_obj
@@ -128,6 +138,8 @@ class PHPP_DHW_usage_Res(Object):
                self.__class__.__name__,
                self.demand_showers,
                self.demand_others)
+    def ToString(self):
+        return str(self)
 
 class PHPP_DHW_usage_NonRes(Object):
     
@@ -202,6 +214,8 @@ class PHPP_DHW_usage_NonRes(Object):
                 self.useDishwashing,
                 self.useCleanKitchen,
                 self.useCleanRooms)
+    def ToString(self):
+        return str(self)
 
 class PHPP_DHW_RecircPipe(Object):
     def __init__(self, _len=[], _d=[0.0254], _t=[0.0254], _lam=[0.04],
@@ -315,6 +329,8 @@ class PHPP_DHW_RecircPipe(Object):
                self.insul_reflectives,
                self.quality,
                self.period)
+    def ToString(self):
+        return str(self)
 
 class PHPP_DHW_branch_piping(Object):
     def __init__(self, _ds=[0.0127], _lens=[], _opens=6, _utiliz=365):
@@ -408,6 +424,8 @@ class PHPP_DHW_branch_piping(Object):
                self._lens,
                self.tap_openings,
                self.utilisation)
+    def ToString(self):
+        return str(self)
 
 class PHPP_DHW_tank(Object):
     def __init__(self, _type='0-No storage tank', _solar=False, _hl_rate=None,
@@ -461,9 +479,12 @@ class PHPP_DHW_tank(Object):
 
     @classmethod
     def from_dict(cls, _dict):
+        if not _dict:
+            return None
+        
         new_obj = cls()
 
-        new_obj.idd = _dict.get('id')
+        new_obj.id = _dict.get('id')
         new_obj.type = _dict.get('type')
         new_obj.solar = _dict.get('solar')
         new_obj.hl_rate = _dict.get('hl_rate')
@@ -489,6 +510,8 @@ class PHPP_DHW_tank(Object):
                self.stndbyFrac,
                self.loction,
                self.locaton_t)
+    def ToString(self):
+        return str(self)
 
 def clean_input(_in, _nm, _unit='-', _ghenv=None):
     

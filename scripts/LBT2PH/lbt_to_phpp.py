@@ -235,7 +235,7 @@ def get_ventilation_systems_from_model(_model, _ghenv):
         
         if not hb_room.user_data:
             continue
-
+        print 'here'
         vent_system_dict = hb_room.user_data.get('phpp', {}).get('vent_system', {})
         
         if vent_system_dict:

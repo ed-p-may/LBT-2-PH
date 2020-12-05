@@ -23,8 +23,10 @@
 Collects and organizes data for a DHW System. Hook up inputs from DHW components and this will organize for the excel writere.
 Connect the output to the 'dhw_' input on the 'Create Excel Obj - Setup' component to use.
 -
-EM November 26, 2020
+EM December 5, 2020
     Args:
+        _system_name: (str) The name / idenfitier for the System.
+        _HB_rooms: The Honeybee-Rooms you would like to apply the DHW System to.
         usage_: The Usage Profile object decribing DHW litres/person/day of HW at the Design Forward temp (unmixed). Input the result from a 'DHW Usage' component.
         design_frwrd_T: (Deg C) Design Forward Temperature. Default is 60 deg C. Unmixed HW temp.
         ['DHW+Distribution', Cell J146]
@@ -44,13 +46,10 @@ EM November 26, 2020
 
 ghenv.Component.Name = "LBT2PH_DHW_System"
 ghenv.Component.NickName = "DHW"
-ghenv.Component.Message = 'NOV_26_2020'
+ghenv.Component.Message = 'DEC_05_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
-
-import scriptcontext as sc
-import Grasshopper.Kernel as ghK
 
 import LBT2PH
 import LBT2PH.dhw
@@ -59,46 +58,21 @@ from LBT2PH.helpers import add_to_HB_model
 reload( LBT2PH )
 reload( LBT2PH.dhw )
 
-
-# Classes and Defs
-def check_input(_obj, _key, _inputName):
-    try:
-        result = getattr(_obj, _key)
-        return True
-    except:
-        warning = "Error. The '{}' input doesn't look right?\nMissing or incorrect type of input for: '{}'.\nPlease check your input values.".format(_inputName, _key)
-        ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
-        return False
-
-#-------------------------------------------------------------------------------
-# Organize up inputs
-if circulation_piping_:
-    circulation_piping_ = { obj.id:obj for obj in circulation_piping_ }
-else:
-    circulation_piping_ = { 'default':LBT2PH.dhw.PHPP_DHW_RecircPipe() }
-
-if branch_piping_:
-    branch_piping_ = { obj.id:obj for obj in branch_piping_ }
-else:
-    branch_piping_ = { 'default':LBT2PH.dhw.PHPP_DHW_branch_piping() }
-
-if not _system_name: _system_name = 'DHW'
-if not usage_: LBT2PH.dhw.PHPP_DHW_usage_Res()
-if not design_frwrd_T: design_frwrd_T = 60
-if not tank1_: tank1_ = LBT2PH.dhw.PHPP_DHW_tank()
-if not tank2_: tank2_ = LBT2PH.dhw.PHPP_DHW_tank()
-if not buffer_tank_: buffer_tank_ = LBT2PH.dhw.PHPP_DHW_tank()
-
-#-------------------------------------------------------------------------------
-# Get the HB-Room ID's
-hb_rooms_assigned_to = []
-for hb_room in _HB_rooms:
-    hb_rooms_assigned_to.append( hb_room.display_name )
-
 #-------------------------------------------------------------------------------
 # Create the DHW System Object
-dhw_system_obj = LBT2PH.dhw.PHPP_DHW_System(hb_rooms_assigned_to, _system_name, usage_, design_frwrd_T,
-            circulation_piping_, branch_piping_, tank1_, tank2_, buffer_tank_ )
+dhw_system_obj = LBT2PH.dhw.PHPP_DHW_System()
+dhw_system_obj.rooms_assigned_to = [ hb_room.display_name for hb_room in _HB_rooms ]
+
+if _system_name: dhw_system_obj.SystemName = _system_name
+if usage_: dhw_system_obj.usage = usage_
+if design_frwrd_T: dhw_system_obj.forwardTemp = design_frwrd_T
+
+if circulation_piping_: dhw_system_obj.circulation_piping = { obj.id:obj for obj in circulation_piping_ }
+if branch_piping_: dhw_system_obj.branch_piping = { obj.id:obj for obj in branch_piping_ }
+
+if tank1_: dhw_system_obj.tank1 = tank1_
+if tank2_: dhw_system_obj.tank2 = tank2_
+if buffer_tank_: dhw_system_obj.tank_buffer = buffer_tank_
 
 #-------------------------------------------------------------------------------
 # Add the new System onto the HB-Rooms
