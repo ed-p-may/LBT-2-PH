@@ -42,15 +42,17 @@ def create_shading_mesh(_envelope_surfaces_punched, additional_shading_surfaces_
     """
     
     shade_mesh = Rhino.Geometry.Mesh()
-    for srfc in _envelope_surfaces_punched:
-        shade_mesh.Append( Rhino.Geometry.Mesh.CreateFromBrep( srfc, _mesh_params ) )
-    for srfc in additional_shading_surfaces_:
-        shade_mesh.Append( Rhino.Geometry.Mesh.CreateFromBrep( srfc, _mesh_params ) )
-    for branch in _window_surrounds.Branches:
-        for srfc in branch:
-            if not srfc:
-                continue
+    for srfc in _envelope_surfaces_punched or []:
+        if srfc :
             shade_mesh.Append( Rhino.Geometry.Mesh.CreateFromBrep( srfc, _mesh_params ) )
+    for srfc in additional_shading_surfaces_ or []:
+        if srfc:
+            shade_mesh.Append( Rhino.Geometry.Mesh.CreateFromBrep( srfc, _mesh_params ) )
+    for branch in _window_surrounds.Branches or []:
+        if branch:
+            for srfc in branch:
+                if srfc:
+                    shade_mesh.Append( Rhino.Geometry.Mesh.CreateFromBrep( srfc, _mesh_params ) )
 
     return shade_mesh
 

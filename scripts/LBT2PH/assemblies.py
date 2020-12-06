@@ -95,8 +95,13 @@ def generate_all_HB_constructions(_rh_doc_constructions, _ghenv):
             nm = construction.get('Name', 'NO_NAME').upper()
             uval = float(construction.get('uValue', 1.0))
             rval = float(1/uval)
-            intInsul = float(construction.get('intInsulation', 0.0))
-        except:
+            intInsul = construction.get('intInsulation', None)
+            if intInsul:
+                intInsul = 1
+            else:
+                intInsul = 0
+        except Exception as e:
+            print(e)
             nm = construction.get('Name', 'NO_NAME').upper()
             uval = 1.0
             rval = 1.0

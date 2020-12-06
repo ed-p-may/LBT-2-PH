@@ -539,12 +539,11 @@ class PHPP_Frame(Object):
         d = []
         for attr in self.attr_names_u:
             d.append( getattr(self, attr) )
-
+        
         return d
 
     @uValues.setter
     def uValues(self, _in):
-        
         clean_input = self._clean_list( _in )
         
         if clean_input:
@@ -605,6 +604,9 @@ class PHPP_Frame(Object):
             output = float(_in)
             return [output]*4
         except AttributeError:
+            if None in _in:
+                return None
+                
             if len(_in) == 4:
                 return _in
             else:
@@ -984,21 +986,21 @@ def build_frame_and_glass_objs_from_RH_doc(_ghdoc):
             elif 'PHPP_lib_Frame' in eachKey:
                 tempDict = json.loads(rs.GetDocumentUserText(eachKey))
                 newFrameObject = PHPP_Frame()
-                newFrameObject.name = tempDict['Name']
+                newFrameObject.name = tempDict.get('Name', 'Unnamed Frame')
                 newFrameObject.uValues = [
-                                tempDict['uFrame_L'], tempDict['uFrame_R'],
-                                tempDict['uFrame_B'], tempDict['uFrame_T'] ]
+                                tempDict.get('uFrame_L', 1.0), tempDict.get('uFrame_R', 1.0),
+                                tempDict.get('uFrame_B', 1.0), tempDict.get('uFrame_T', 1.0) ]
                 newFrameObject.frameWidths =[
-                                tempDict['wFrame_L'], tempDict['wFrame_R'],
-                                tempDict['wFrame_B'], tempDict['wFrame_T'] ]
+                                tempDict.get('wFrame_L', 0.12), tempDict.get('wFrame_R', 0.12),
+                                tempDict.get('wFrame_B', 0.12), tempDict.get('wFrame_T', 0.12) ]
                 newFrameObject.PsiGVals = [
-                                tempDict['psiG_L'], tempDict['psiG_R'],
-                                tempDict['psiG_B'], tempDict['psiG_T'] ]
+                                tempDict.get('psiG_L', 0.04), tempDict.get('psiG_R', 0.04),
+                                tempDict.get('psiG_B', 0.04), tempDict.get('psiG_T', 0.04) ]
                 newFrameObject.Installs = [
-                                tempDict['psiInst_L'], tempDict['psiInst_R'],
-                                tempDict['psiInst_B'], tempDict['psiInst_T'] ]
-                                
-                lib_FrameTypes[tempDict['Name']] = newFrameObject
+                                tempDict.get('psiInst_L', 0.04), tempDict.get('psiInst_R', 0.04),
+                                tempDict.get('psiInst_B', 0.04), tempDict.get('psiInst_T', 0.04) ]
+                   
+                lib_FrameTypes[ newFrameObject.name ] = newFrameObject
         
         PHPPLibrary_['lib_GlazingTypes'] = lib_GlazingTypes
         PHPPLibrary_['lib_FrameTypes'] = lib_FrameTypes
