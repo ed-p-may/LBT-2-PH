@@ -45,6 +45,10 @@ EM December 6, 2020
         _summer_sky_mtx: A Sky Matrix from the "LB Cumulative Sky Matrix" component, which 
         describes the radiation coming from the various patches of the sky for the SUMMER season.
         North American typically values: start month of May (5) and end month of Sept (9) when creating the Sky Matrix.
+        shading_Mesh_Settings_: (Mesh Settings) Optional. Especially if you are having any
+            'odd' results, it may be that you need to increase the refinement of the Mesh-Settings. 
+            Apply either a Grasshopper 'Custom Mesh Settings', 'Settigs (Speed)' or 'Settings (Quality)' here.
+            Default if nothing input is Rhino.Geometry.MeshingParameters.Default
         grid_size_: A positive number in Rhino model units for the size of grid
             cells at which the input _geometry will be subdivided for incident
             radiation analysis. The smaller the grid size, the higher the
@@ -135,7 +139,10 @@ reload( LBT2PH.shading_lbt )
 #-------------------------------------------------------------------------------
 grid_size = 0.5
 if grid_size_: grid_size = grid_size_
-mesh_params = Rhino.Geometry.MeshingParameters.Default
+if shading_Mesh_Settings_:
+    mesh_params = shading_Mesh_Settings_
+else:
+    mesh_params = Rhino.Geometry.MeshingParameters.Default
 
 if _run:
     # Create the context shading Mesh geometry
