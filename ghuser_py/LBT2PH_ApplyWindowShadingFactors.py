@@ -23,7 +23,7 @@
 Used to apply Winter and Summer Shading Factors to the Honeybee Model's windows. These shading factors can come from any source but should always be 0<-->1 with 0=fully shaded window and 1=fully unshaded window.
 Note: Be sure that the order of the windowNames and the shading factors match each other.
 -
-EM November 21, 2020
+EM December 6, 2020
     Args:
         _HB_rooms: (List)
         _windowNames: (List) The window names in the HB Model being analyzed. The order of this list should match the order of the Shading Factors input.
@@ -35,7 +35,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_ApplyWindowShadingFactors"
 ghenv.Component.NickName = "Apply Win. Shading Factors"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'DEC_06_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -59,14 +59,19 @@ if len(_window_names) != len(_winter_shading_factors) or len(_window_names) != l
 Params = namedtuple('Params', ['winter', 'summer'])
 param_dict = {}
 for i, window_name in enumerate(_window_names):
+
     try:
         winter_factor= float(_winter_shading_factors[i])
     except IndexError as e:
+        winter_factor = 0.75
+    except SystemError as e:
         winter_factor = 0.75
     
     try:
         summer_factor= float(_summer_shading_factors[i])
     except IndexError as e:
+        summer_factor = 0.75
+    except SystemError as e:
         summer_factor = 0.75
     
     param_dict[window_name] = Params(winter_factor, summer_factor)
