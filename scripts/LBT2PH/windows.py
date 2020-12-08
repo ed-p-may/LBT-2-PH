@@ -18,7 +18,7 @@ try:  # import the core honeybee dependencies
     from ladybug_geometry.geometry3d.line import LineSegment3D
     from ladybug_geometry.geometry3d.face import Face3D
     from ladybug_rhino.fromgeometry import from_face3d
-    from ladybug_rhino.togeometry import to_face3d    
+    from ladybug_rhino.togeometry import to_face3d, to_linesegment3d, to_point3d    
     from honeybee.aperture import Aperture
     from honeybee.typing import clean_and_id_ep_string
     from honeybee_energy.material.glazing import EnergyWindowMaterialSimpleGlazSys
@@ -85,10 +85,19 @@ class PHPP_Window(Object):
         if self._window_edges:
             return self._window_edges
         else:
-            window_left, window_right = self.aperture.geometry.get_left_right_vertical_edges(self._tolerance)
-            window_top, window_bottom = self.aperture.geometry.get_top_bottom_horizontal_edges(self._tolerance)
+            # First, try and use the simple Ladubug Veritcal / Horizontal methods
+            # If that doesn't work for any reason, those methods return 'None'
+            # If any are None, use the slower 'edges in order' method
+            result_verticals = self.aperture.geometry.get_left_right_vertical_edges(self._tolerance)
+            result_horizontals = self.aperture.geometry.get_top_bottom_horizontal_edges(self._tolerance)
             
-            edges = self.Output(window_left, window_right, window_bottom, window_top)
+            if result_verticals and result_horizontals:
+                window_left, window_right = result_verticals
+                window_top, window_bottom = result_horizontals
+                edges = self.Output(window_left, window_right, window_bottom, window_top)    
+            else:
+                edges = self._get_edges_in_order()
+
             self._window_edges = edges
             return edges
 
@@ -366,18 +375,41 @@ class PHPP_Window(Object):
         
         return srfcPlane
 
-    def _get_edges_in_order(self, _surface):
-        """Sort the surface edges using the Degree about center as the Key"""
+    def _get_edges_in_order(self):
+        """Sort the surface edges using the Degree about center as the Key
+        
+        Ordering yields edges in the order Bottom / Left / Top / Right
+        repackege them unto L/R/B/T for output
+        """
 
-        srfcPlane = self._get_plane_aligned_to_surface( _surface )
-        vectorList = self._get_vector_from_center_to_edge( _surface, srfcPlane)
+        analysis_surface = self.rh_surface
+
+        srfcPlane = self._get_plane_aligned_to_surface( analysis_surface )
+        vectorList = self._get_vector_from_center_to_edge( analysis_surface, srfcPlane)
         edgeAngleDegrees = self._calc_edge_angle_about_center(vectorList)
-        srfcEdges_Unordered = ghc.DeconstructBrep(_surface).edges
+        srfcEdges_Unordered = ghc.DeconstructBrep(analysis_surface).edges
         srfcEdges_Ordered = ghc.SortList( edgeAngleDegrees, srfcEdges_Unordered).values_a
         
-        Edges = namedtuple('Edges', ['bottom', 'left', 'top', 'right'])
-        output = Edges(*srfcEdges_Ordered)
+        # Convert all the Rhino lines to Ladybug LineSegments before output
+        _bottom, _left, _top, _right = srfcEdges_Ordered
+
+        _left = self._my_lb_line_constructor(_left)
+        _right = self._my_lb_line_constructor(_right)
+        _bottom = self._my_lb_line_constructor(_bottom)
+        _top = self._my_lb_line_constructor(_top)
+
+        output = self.Output(_left, _right, _bottom, _top)
         return output
+
+    @staticmethod
+    def _my_lb_line_constructor(_line):
+        """Cus' the 'to_line_segment' method has an error (thinks second pt is a vector) """
+
+        p1 = to_point3d(_line.PointAtStart)
+        p2 = to_point3d(_line.PointAtEnd) 
+        line = LineSegment3D.from_end_points(p1, p2)
+
+        return line
 
     @staticmethod
     def _extrude_reveal_edge(_geom, _direction, _extrudeDepth, _install):
