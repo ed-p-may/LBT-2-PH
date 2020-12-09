@@ -1,7 +1,11 @@
 import random
 from System import Object
-from LBT2PH.helpers import convert_value_to_metric
 import Grasshopper.Kernel as ghK
+import ghpythonlib.components as ghc
+import rhinoscriptsyntax as rs
+import Rhino
+
+from LBT2PH.helpers import convert_value_to_metric, context_rh_doc
 
 class PHPP_DHW_System:
     def __init__(self, _rms_assigned=[], _name='DHW',
@@ -285,6 +289,63 @@ class PHPP_DHW_RecircPipe(Object):
         else:
             self._quality = '1-None'
 
+    def set_values_from_Rhino(self, _inputs, _ghenv, _input_num=0):
+        """ Will try and pull relevant data for the Recirc loop from the Rhino scene
+
+        Arguments:
+            _inputs: (float: curve:)
+            _ghenv: (ghenv)
+            _input_num: (int) The index (zero based) of the GH Component input to look at
+        """
+        
+        def cleanPipeDimInputs(_diam, _thickness):
+            # Clean diam, thickness
+            if _diam != None:
+                if " (" in _diam: 
+                    _diam = float( _diam.split(" (")[0] )
+            
+            if _thickness != None:
+                if " (" in _thickness: 
+                    _thickness = float( _thickness.split(" (")[0] )
+            
+            return _diam, _thickness
+        
+        # First, see if I can pull any data from the Rhino scene?
+        # Otherwise, if its just a number, use that as the length
+        lengths, diams, insul_thks, insul_lambdas, refectives = [], [], [], [], []
+        for i, input in enumerate( _inputs ):
+            try:
+                lengths.append( float(convert_value_to_metric( input, 'M' )) )
+            except AttributeError as e:
+                try:
+                    rhinoGuid = _ghenv.Component.Params.Input[_input_num].VolatileData[0][i].ReferenceID
+                    rh_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( rhinoGuid )
+                    
+                    length = float(rh_obj.CurveGeometry.GetLength())
+                    
+                    k = rs.GetUserText(rh_obj, 'insulation_conductivity')
+                    r = rs.GetUserText(rh_obj, 'insulation_reflective')
+                    t = rs.GetUserText(rh_obj, 'insulation_thickness')
+                    d = rs.GetUserText(rh_obj, 'pipe_diameter')
+                    d, t = cleanPipeDimInputs(d, t)
+                    
+                    lengths.append(length)
+                    diams.append(d)
+                    insul_thks.append(t)
+                    insul_lambdas.append(k)
+                    refectives.append(r)
+                except Exception as e:
+                    msg = str(e)
+                    msg += "\nSorry, I am not sure what to do with the input: {} in 'pipe_geom_'?\n"\
+                        "Please input either a Curve or a number/numbers representing the pipe segments.".format(input)
+                    _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg )
+
+        if lengths: self.lengths = lengths
+        if diams: self.diams = diams
+        if insul_thks: self.insul_thicknesses = insul_thks
+        if insul_lambdas: self.insul_conductivities = insul_lambdas
+        if refectives: self.insul_reflectives = refectives
+
     def to_dict(self):
         d = {}
 
@@ -412,6 +473,36 @@ class PHPP_DHW_branch_piping(Object):
 
         return new_obj
     
+    def set_pipe_lengths(self, _input=[], _ghdoc=None, _ghenv=None):
+        """Will try and find the lengths of the things input 
+        
+        Arguments:
+            _input: (float: curve:) If input is number, uses that. Otherwise gets curve from Rhino
+            _ghdoc: (ghdoc)
+            _ghenv: (ghenv)
+        """
+        output = []
+        
+        with context_rh_doc( _ghdoc ):
+            for geom_input in _input:
+                try:
+                    output.append( float(convert_value_to_metric(geom_input, 'M')) )
+                except AttributeError as e:
+                    crv = rs.coercecurve(geom_input)
+                    if crv:
+                        pipeLen = ghc.Length(crv)
+                    else:
+                        pipeLen = False
+                    
+                    if not pipeLen:
+                        crvWarning = "Something went wrong getting the Pipe Geometry length?\n"\
+                        "Please ensure you are passing in only curves / polyline objects or numeric values.?"
+                        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, crvWarning)
+                    else:
+                        output.append(pipeLen)
+        
+        self.length = output
+
     def __unicode__(self):
         return u'A DHW Branch Piping Object <{}>'.format(self.id)
     def __str__(self):

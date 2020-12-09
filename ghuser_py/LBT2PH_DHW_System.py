@@ -23,7 +23,7 @@
 Collects and organizes data for a DHW System. Hook up inputs from DHW components and this will organize for the excel writere.
 Connect the output to the 'dhw_' input on the 'Create Excel Obj - Setup' component to use.
 -
-EM December 8, 2020
+EM December 9, 2020
     Args:
         _system_name: (str) The name / idenfitier for the System.
         _HB_rooms: The Honeybee-Rooms you would like to apply the DHW System to.
@@ -46,14 +46,14 @@ EM December 8, 2020
 
 ghenv.Component.Name = "LBT2PH_DHW_System"
 ghenv.Component.NickName = "DHW"
-ghenv.Component.Message = 'DEC_08_2020'
+ghenv.Component.Message = 'DEC_09_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
 
 import LBT2PH
 import LBT2PH.dhw
-from LBT2PH.helpers import add_to_HB_model
+from LBT2PH.helpers import add_to_HB_model, preview_obj
 
 reload( LBT2PH )
 reload( LBT2PH.dhw )
@@ -67,12 +67,27 @@ if _system_name: dhw_system_obj.SystemName = _system_name
 if usage_: dhw_system_obj.usage = usage_
 if design_frwrd_T: dhw_system_obj.forwardTemp = design_frwrd_T
 
-if circulation_piping_: dhw_system_obj.circulation_piping = { obj.id:obj for obj in circulation_piping_ }
-if branch_piping_: dhw_system_obj.branch_piping = { obj.id:obj for obj in branch_piping_ }
+if circulation_piping_:
+    try:
+        dhw_system_obj.circulation_piping = { obj.id:obj for obj in circulation_piping_ }
+    except AttributeError:
+        recirc_obj = LBT2PH.dhw.PHPP_DHW_RecircPipe()
+        recirc_obj.set_values_from_Rhino( circulation_piping_, ghenv, _input_num=3 )
+        dhw_system_obj.circulation_piping[recirc_obj.id] = recirc_obj
+
+if branch_piping_:
+    try:
+        dhw_system_obj.branch_piping = { obj.id:obj for obj in branch_piping_ }
+    except AttributeError:
+        branch_obj = LBT2PH.dhw.PHPP_DHW_branch_piping()
+        branch_obj.set_pipe_lengths( branch_piping_, ghdoc, ghenv )
+        dhw_system_obj.branch_piping[branch_obj.id] = branch_obj
 
 if tank1_: dhw_system_obj.tank1 = tank1_
 if tank2_: dhw_system_obj.tank2 = tank2_
 if buffer_tank_: dhw_system_obj.tank_buffer = buffer_tank_
+
+preview_obj(dhw_system_obj)
 
 #-------------------------------------------------------------------------------
 # Add the new System onto the HB-Rooms
