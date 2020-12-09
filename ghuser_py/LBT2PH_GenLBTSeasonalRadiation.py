@@ -37,7 +37,7 @@ the LBT2PH 'Apply Win. Shading Factors' component. To calculate numerical shadin
 (0=fully shaded, 1=no shading) simply divide the unshaded radiation for each window by the
 shaded radiation for that same window.
 -
-EM December 6, 2020
+EM December 9, 2020
     Args:
         _winter_sky_mtx: A Sky Matrix from the "LB Cumulative Sky Matrix" component, which 
         describes the radiation coming from the various patches of the sky for the WINTER season.
@@ -120,7 +120,7 @@ EM December 6, 2020
 
 ghenv.Component.Name = "LBT2PH_GenLBTSeasonalRadiation"
 ghenv.Component.NickName = "Seasonal Radiation from LBT"
-ghenv.Component.Message = 'DEC_06_2020'
+ghenv.Component.Message = 'DEC_09_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -148,7 +148,7 @@ if _run:
     # Create the context shading Mesh geometry
     #---------------------------------------------------------------------------
     shade_mesh = LBT2PH.shading_lbt.create_shading_mesh(_envelope_surfaces_punched,
-                        additional_shading_surfaces_, _window_surrounds, mesh_params)
+                additional_shading_surfaces_, _window_surrounds, mesh_params, ghenv)
     
     
     # deconstruct the sky-matrix and get the sky dome vectors. Winter (w) and Summer (s)
@@ -169,7 +169,7 @@ if _run:
     lb_window_meshes = []
     
     for i, window_surface in enumerate(_window_surfaces):
-        pts, nrmls, win_msh, win_msh_bck, rh_msh  = LBT2PH.shading_lbt.build_window_meshes(window_surface, grid_size, mesh_params)
+        pts, nrmls, win_msh, win_msh_bck, rh_msh = LBT2PH.shading_lbt.build_window_meshes(window_surface, grid_size, mesh_params)
         lb_window_meshes.append(win_msh)
         
         # Solve Winter
@@ -185,7 +185,7 @@ if _run:
         winter_radiation_unshaded_.Add(sum(w_rads_unshaded)/sum(face_areas), GH_Path(i))
         
         
-        #  Solve Summer
+        # Solve Summer
         # ----------------------------------------------------------------------
         args_summer = (shade_mesh, win_msh_bck, pts, s_sky_vecs, nrmls, parallel_)
         

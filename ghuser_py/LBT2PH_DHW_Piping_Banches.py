@@ -20,22 +20,21 @@
 # @license GPL-3.0+ <http://spdx.org/licenses/GPL-3.0+>
 #
 """
-Creates DHW Branch Piping sets for the 'DHW+Distribution' PHPP worksheet. Can create up to 5 branch piping sets. Will take in a DataTree of curves from Rhino and calculate their lengths automatically. Will try and pull curve object attributes from Rhino as well - use attribute setter to assign the pipe diameter, insulation, etc... on the Rhino side.
+Creates DHW Branch Piping set for the 'DHW+Distribution' PHPP worksheet.
 -
-EM November 26, 2020
+EM December 8, 2020
     Args:
-        pipe_geom_: <Tree> (Curves) A DataTree with each branch containing curves for one 'set' of recirculation piping. PHPP allows up to 5 'sets' of recirc piping. Each 'set' should include the forward and return piping curves for that distribution leg (ideally as a single continuous curve/loop)
-        Use the 'Entwine' component to organize geometry into branches before inputing if more than one set of piping. Use an 'ID' component before inputting Rhino geometry.
-        diameter_: (m) The nominal size of the branch piping. Default is 0.0127m (1/2").
+        pipe_geom_: (Lsit: Curves:) A list of recirculation piping elements. Accepts either numeric values representing the lenghts, or Curve objects from Rhino.
+        diameter_: (m) The nominal size of the branch piping lengths. Default is 0.0127m (1/2").
         tapOpenings_: The number of tap openings / person every day. Default is 6 openings/person/day.
         utilisation_: The days/year the DHW system is operational. Default is 365 days/year.
     Returns:
-        branch_piping_: The Branch Piping object(s). Connect this to the 'branch_piping_' input on the 'DHW System' component in order to pass along to the PHPP.
+        branch_piping_: The Branch Piping object(s). Connect this to the 'branch_piping_' input on the 'DHW' component in order to pass along to the PHPP.
 """
 
 ghenv.Component.Name = "LBT2PH_DHW_Piping_Banches"
 ghenv.Component.NickName = "Piping | Branches"
-ghenv.Component.Message = 'NOV_26_2020'
+ghenv.Component.Message = 'DEC_8_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -85,7 +84,6 @@ if pipe_geom_:
     branch_piping_.length = lengths
     
     if diameter_:
-        print diameter_
         branch_piping_.diameter = clean_input(diameter_, "diameter_", 'M', ghenv)
     if tap_openings_:
         branch_piping_.tap_openings = clean_input(tap_openings_, "tapOpenings_", '-', ghenv)

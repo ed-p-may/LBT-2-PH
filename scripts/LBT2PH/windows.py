@@ -17,8 +17,8 @@ reload( LBT2PH.shading )
 try:  # import the core honeybee dependencies
     from ladybug_geometry.geometry3d.line import LineSegment3D
     from ladybug_geometry.geometry3d.face import Face3D
-    from ladybug_rhino.fromgeometry import from_face3d
-    from ladybug_rhino.togeometry import to_face3d, to_linesegment3d, to_point3d    
+    from ladybug_rhino.fromgeometry import from_face3d, from_linesegment3d
+    from ladybug_rhino.togeometry import to_face3d, to_point3d    
     from honeybee.aperture import Aperture
     from honeybee.typing import clean_and_id_ep_string
     from honeybee_energy.material.glazing import EnergyWindowMaterialSimpleGlazSys
@@ -184,12 +184,18 @@ class PHPP_Window(Object):
 
     @property
     def height(self):
-        left, right = self.aperture.geometry.get_left_right_vertical_edges(self._tolerance)
+        if not self._window_edges:
+            self.window_edges()
+        
+        left = self._window_edges.Left
         return left.length
 
     @property
     def width(self):
-        top, bottom = self.aperture.geometry.get_top_bottom_horizontal_edges(self._tolerance)
+        if not self._window_edges:
+            self.window_edges()
+
+        top = self._window_edges.Top
         return top.length
 
     @property
@@ -255,22 +261,24 @@ class PHPP_Window(Object):
 
         # ----------------------------------------------------------------------
         # Get the inputs
-        edges = self._get_edges_in_order( window_surface )
+        edges = self._get_edges_in_order()
         inst_depth = float(self.install_depth)
         normal = self.surface_normal * orientation
 
         # ----------------------------------------------------------------------
-        # Create the reveal geom
-        bottom = self._extrude_reveal_edge(edges.bottom, normal, inst_depth, self.installs.install_B)
-        left = self._extrude_reveal_edge(edges.left, normal, inst_depth, self.installs.install_L)
-        top = self._extrude_reveal_edge(edges.top, normal, inst_depth, self.installs.install_T)
-        right = self._extrude_reveal_edge(edges.right, normal, inst_depth, self.installs.install_R)
+        # Create the reveal geom        
+        bottom = self._extrude_reveal_edge(edges.Bottom, normal, inst_depth, self.installs.install_B)
+        left = self._extrude_reveal_edge(edges.Left, normal, inst_depth, self.installs.install_L)
+        top = self._extrude_reveal_edge(edges.Top, normal, inst_depth, self.installs.install_T)
+        right = self._extrude_reveal_edge(edges.Right, normal, inst_depth, self.installs.install_R)
         
         # ----------------------------------------------------------------------
         # Output
-        RevealGeom = namedtuple('RevealGeom', ['left', 'right', 'bottom', 'top'])
-        output = RevealGeom( left, right, bottom, top )
+        #RevealGeom = namedtuple('RevealGeom', ['left', 'right', 'bottom', 'top'])
+        #output = RevealGeom( left, right, bottom, top )
         
+        output = self.Output( left, right, bottom, top  )
+
         return output
 
     @property
@@ -408,17 +416,18 @@ class PHPP_Window(Object):
         p1 = to_point3d(_line.PointAtStart)
         p2 = to_point3d(_line.PointAtEnd) 
         line = LineSegment3D.from_end_points(p1, p2)
-
+        
         return line
 
     @staticmethod
-    def _extrude_reveal_edge(_geom, _direction, _extrudeDepth, _install):
+    def _extrude_reveal_edge(_LB_line_segment, _direction, _extrudeDepth, _install):
         """Extrudes edge in some direction, guards against 0 extrude """
         
         if _install == 0 or _extrudeDepth == 0:
             return None
         else:
-            return ghc.Extrude( _geom, ghc.Amplitude(_direction, _extrudeDepth) )
+            rh_line = from_linesegment3d(_LB_line_segment)
+            return ghc.Extrude( rh_line, ghc.Amplitude(_direction, _extrudeDepth) )
 
     def to_dict(self):
         d = {}

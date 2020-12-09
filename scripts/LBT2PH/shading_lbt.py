@@ -1,6 +1,7 @@
 from itertools import izip
 import math
 import Rhino
+import Grasshopper.Kernel as ghK
 
 try:
     from ladybug.viewsphere import view_sphere
@@ -24,7 +25,7 @@ except ImportError as e:
 # Cacl Radiation
 #-------------------------------------------------------------------------------
 def create_shading_mesh(_envelope_surfaces_punched, additional_shading_surfaces_,
-                        _window_surrounds, _mesh_params ):
+                        _window_surrounds, _mesh_params, _ghenv ):
     """Creates a single joined mesh from all the shading surfaces 
     
     Adapted from Ladybug 'IncidentRadiation' Component
@@ -43,8 +44,19 @@ def create_shading_mesh(_envelope_surfaces_punched, additional_shading_surfaces_
     
     shade_mesh = Rhino.Geometry.Mesh()
     for srfc in _envelope_surfaces_punched or []:
-        if srfc :
-            shade_mesh.Append( Rhino.Geometry.Mesh.CreateFromBrep( srfc, _mesh_params ) )
+        if srfc:
+            new_mesh = Rhino.Geometry.Mesh.CreateFromBrep( srfc, _mesh_params )            
+            if new_mesh:
+                shade_mesh.Append( new_mesh )
+            else:
+                srfc_name = srfc.GetUserStrings().Get('display_name')
+                msg = 'Error: Something is wrong with surface: {}.\n'\
+                    'Cannot create a mesh properly for some reason.\n'\
+                    'Check that all your geometry is correct with no overlaps or voids\n'\
+                    'and check that the Honeybee surfaces are all being created correctly?\n'\
+                    'If that surface has windows hosted on it, be sure they are not overlapping\n'\
+                    'and that they are being generated correctly?'.format( srfc_name )
+                _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Error, msg ) 
     for srfc in additional_shading_surfaces_ or []:
         if srfc:
             shade_mesh.Append( Rhino.Geometry.Mesh.CreateFromBrep( srfc, _mesh_params ) )

@@ -24,7 +24,7 @@ Builds Thermal Bridge (linear, point) objects to add to the PHPP. Use this compo
 -
 Note that these objects are generally not inluced in the EnergyPlus model and so may be a source or discrepancy between the EnergyPlus reslults and the PHPP results. It will be more accurate to include these items in the final model.
 -
-EM November 21, 2020
+EM December 9, 2020
 
     Args:
         estimated_tb_: <Optional> A single number (0 to 1) which represents the % increase in heat loss due to thermal bridging.
@@ -46,7 +46,7 @@ EM November 21, 2020
 
 ghenv.Component.Name = "LBT2PH_SetTB"
 ghenv.Component.NickName = "Thermal Bridges"
-ghenv.Component.Message = 'NOV_21_2020'
+ghenv.Component.Message = 'DEC_09_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -118,8 +118,8 @@ if estimated_tb_:
 
 # ------------------------------------------------------------------------------
 # Add the TB Dicts to the model
-if _model:
-    HB_model_ = _model.duplicate()
+if _HB_model:
+    HB_model_ = _HB_model.duplicate()
     
     tb_dict = {}
     for tb_obj in tb_objs:

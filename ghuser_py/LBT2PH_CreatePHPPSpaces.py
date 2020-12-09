@@ -22,7 +22,7 @@
 """
 Note: Be aware that if you plan on setting the Honeybee Ventilation or Occupancy Loads / Schedules using the Honyebee tools, be sure to that BEFORE you use this component. This component will use those loads/schedules to generate the PHPP values. If you apply those Honeybee loads / schedules AFTER this component, those edits will not be taken into account and your PHPP will not match the Honyebee/E+ model.
 -
-EM December 4, 2020
+EM December 8, 2020
     Args:
         _HB_rooms: The Honeybee Rooms you would like to build the PHPP Spaces for.
         set_honeybee_loads_: <bool> Default=False. Set 'True' to have this componet set the Honeybee room loads and schedules such that they match the PHPP values entered here and/or found on the TFA surfaces in the Rhino model.
@@ -38,7 +38,7 @@ EM December 4, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPSpaces"
 ghenv.Component.NickName = "PHPP Spaces"
-ghenv.Component.Message = 'DEC_04_2020'
+ghenv.Component.Message = 'DEC_08_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"

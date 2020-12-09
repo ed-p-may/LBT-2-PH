@@ -21,7 +21,7 @@
 #
 """
 -
-EM December 3, 2020
+EM December 9, 2020
     Args:
         north_: <Optional :float :vector> A number between -360 and 360 for the counterclockwise or a vector pointing 'north'
             difference between the North and the positive Y-axis in degrees.
@@ -51,7 +51,7 @@ EM December 3, 2020
 
 ghenv.Component.Name = "LBT2PH_ConvertLBT2PHPPObjs"
 ghenv.Component.NickName = "LBT-->PHPP"
-ghenv.Component.Message = 'DEC_03_2020'
+ghenv.Component.Message = 'DEC_09_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -72,34 +72,34 @@ excel_objects_ = DataTree[Object]()
 
 #-------------------------------------------------------------------------------
 # Get all the info from the LBT Model
-if _model:
+if _HB_model:
     print('- '*25)
-    materials_opaque        = LBT2PH.lbt_to_phpp.get_opaque_materials_from_model(_model, ghenv)
-    constructions_opaque    = LBT2PH.lbt_to_phpp.get_opaque_constructions_from_model(_model, ghenv)
-    surfaces_opaque         = LBT2PH.lbt_to_phpp.get_exposed_surfaces_from_model(_model, LBT2PH.lbt_to_phpp._find_north(north_), ghenv)
+    materials_opaque        = LBT2PH.lbt_to_phpp.get_opaque_materials_from_model(_HB_model, ghenv)
+    constructions_opaque    = LBT2PH.lbt_to_phpp.get_opaque_constructions_from_model(_HB_model, ghenv)
+    surfaces_opaque         = LBT2PH.lbt_to_phpp.get_exposed_surfaces_from_model(_HB_model, LBT2PH.lbt_to_phpp._find_north(north_), ghenv)
     
-    materials_windows       = LBT2PH.lbt_to_phpp.get_aperture_materials_from_model(_model)
-    constructions_windows   = LBT2PH.lbt_to_phpp.get_aperture_constructions_from_model(_model)
-    surfaces_windows        = LBT2PH.lbt_to_phpp.get_aperture_surfaces_from_model(_model, ghdoc)
-    hb_rooms                = LBT2PH.lbt_to_phpp.get_zones_from_model(_model)
-    phpp_spaces             = LBT2PH.lbt_to_phpp.get_spaces_from_model(_model, ghdoc)
-    ventilation_systems     = LBT2PH.lbt_to_phpp.get_ventilation_systems_from_model(_model, ghenv)
+    materials_windows       = LBT2PH.lbt_to_phpp.get_aperture_materials_from_model(_HB_model)
+    constructions_windows   = LBT2PH.lbt_to_phpp.get_aperture_constructions_from_model(_HB_model)
+    surfaces_windows        = LBT2PH.lbt_to_phpp.get_aperture_surfaces_from_model(_HB_model, ghdoc)
+    hb_rooms                = LBT2PH.lbt_to_phpp.get_zones_from_model(_HB_model)
+    phpp_spaces             = LBT2PH.lbt_to_phpp.get_spaces_from_model(_HB_model, ghdoc)
+    ventilation_system      = LBT2PH.lbt_to_phpp.get_ventilation_systems_from_model(_HB_model, ghenv)
     
-    ground_objs             = LBT2PH.lbt_to_phpp.get_ground_from_model(_model, ghenv)
-    thermal_bridges         = LBT2PH.lbt_to_phpp.get_thermal_bridges(_model, ghenv)
+    ground_objs             = LBT2PH.lbt_to_phpp.get_ground_from_model(_HB_model, ghenv)
+    thermal_bridges         = LBT2PH.lbt_to_phpp.get_thermal_bridges(_HB_model, ghenv)
     
-    dhw_systems             = LBT2PH.lbt_to_phpp.get_dhw_systems(_model)
-    appliances              = LBT2PH.lbt_to_phpp.get_appliances(_model)
-    lighting                = LBT2PH.lbt_to_phpp.get_lighting(_model)
-    climate                 = LBT2PH.lbt_to_phpp.get_climate(_model, epw_file_)
+    dhw_systems             = LBT2PH.lbt_to_phpp.get_dhw_systems(_HB_model)
+    appliances              = LBT2PH.lbt_to_phpp.get_appliances(_HB_model)
+    lighting                = LBT2PH.lbt_to_phpp.get_lighting(_HB_model)
+    climate                 = LBT2PH.lbt_to_phpp.get_climate(_HB_model, epw_file_)
     footprint               = LBT2PH.lbt_to_phpp.get_footprint(surfaces_opaque)
     footprint_              = footprint.Footprint_surface
     
-    phpp_settings           = LBT2PH.lbt_to_phpp.get_settings( _model )
-    summer_vent             = LBT2PH.lbt_to_phpp.get_summ_vent( _model )
-    heating_cooling         = LBT2PH.lbt_to_phpp.get_heating_cooling( _model )
-    per                     = LBT2PH.lbt_to_phpp.get_PER( _model )
-    occupancy               = LBT2PH.lbt_to_phpp.get_occupancy( _model )
+    phpp_settings           = LBT2PH.lbt_to_phpp.get_settings( _HB_model )
+    summer_vent             = LBT2PH.lbt_to_phpp.get_summ_vent( _HB_model )
+    heating_cooling         = LBT2PH.lbt_to_phpp.get_heating_cooling( _HB_model )
+    per                     = LBT2PH.lbt_to_phpp.get_PER( _HB_model )
+    occupancy               = LBT2PH.lbt_to_phpp.get_occupancy( _HB_model )
     
     #---------------------------------------------------------------------------
     # Sort out the inputs
@@ -116,9 +116,9 @@ if _model:
     tb_List                          = LBT2PH.to_excel.build_thermal_bridges( thermal_bridges, start_row_dict)
     winSurfacesList                  = LBT2PH.to_excel.build_windows( surfaces_windows, surfacesIncluded, surfaces_opaque )   
     shadingList                      = LBT2PH.to_excel.build_shading( surfaces_windows, surfacesIncluded )
-    tfa                              = LBT2PH.to_excel.build_TFA (phpp_spaces, hb_room_names, estimated_tfa_, _model)
-    addnlVentRooms, ventUnitsUsed    = LBT2PH.to_excel.build_addnl_vent_rooms( phpp_spaces, ventilation_systems, hb_room_names, start_row_dict )
-    vent                             = LBT2PH.to_excel.build_addnl_vent_systems( ventilation_systems, ventUnitsUsed, start_row_dict )
+    tfa                              = LBT2PH.to_excel.build_TFA (phpp_spaces, hb_room_names, estimated_tfa_, _HB_model)
+    addnlVentRooms, ventUnitsUsed    = LBT2PH.to_excel.build_addnl_vent_rooms( phpp_spaces, ventilation_system, hb_room_names, start_row_dict )
+    vent                             = LBT2PH.to_excel.build_addnl_vent_systems( ventilation_system, ventUnitsUsed, start_row_dict )
     airtightness                     = LBT2PH.to_excel.build_infiltration( hb_rooms, hb_room_names)
     ground                           = LBT2PH.to_excel.build_ground( ground_objs, hb_room_names, ghenv )
     dhw                              = LBT2PH.to_excel.build_DHW_system( dhw_systems, hb_room_names, ghenv )

@@ -394,6 +394,9 @@ def build_windows(_inputBranch, _surfacesIncluded, _srfcBranch):
     for window in _inputBranch:
         # for each Window Surface Object in the model....
         # Get the window's basic params
+        # print '>>>', window
+        # import json
+        # print json.dumps(window.to_dict(), indent=4)
         quant = window.quantity
         nm = window.name
         w = window.width

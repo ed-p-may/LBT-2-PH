@@ -23,7 +23,7 @@
 Collects and organizes data for a DHW System. Hook up inputs from DHW components and this will organize for the excel writere.
 Connect the output to the 'dhw_' input on the 'Create Excel Obj - Setup' component to use.
 -
-EM December 5, 2020
+EM December 8, 2020
     Args:
         _system_name: (str) The name / idenfitier for the System.
         _HB_rooms: The Honeybee-Rooms you would like to apply the DHW System to.
@@ -46,7 +46,7 @@ EM December 5, 2020
 
 ghenv.Component.Name = "LBT2PH_DHW_System"
 ghenv.Component.NickName = "DHW"
-ghenv.Component.Message = 'DEC_05_2020'
+ghenv.Component.Message = 'DEC_08_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"

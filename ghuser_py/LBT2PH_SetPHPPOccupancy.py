@@ -24,7 +24,7 @@ Use this component to set the 'occupancy' of the building for the PHPP. Be sure 
 -
 Note that by default this component will ONLY set the PHPP values, not the Honeybee load and schedue. If  you would like to set the Honeybee load / schedule to match the PHPP, set the 'set_honeybee_loads_' value to TRUE. This will set the Honyebee occupancy schedule to a 'Constant' schdedule in order to try and approximate the PHPP as closely as possible.
 -
-EM November 27, 2020
+EM December 9 , 2020
     Args:
         _HB_model: The Honeybee Model
         set_honeybee_loads_: (bool) Default=False. Set this to TRUE if you would like to set the Honeybee occupant load / schedule to match the PHPP values.
@@ -44,7 +44,7 @@ EM November 27, 2020
 
 ghenv.Component.Name = "LBT2PH_SetPHPPOccupancy"
 ghenv.Component.NickName = "PHPP Occupancy"
-ghenv.Component.Message = 'NOV_27_2020'
+ghenv.Component.Message = 'DEC_09_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"

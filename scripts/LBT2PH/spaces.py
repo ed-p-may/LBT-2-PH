@@ -762,10 +762,11 @@ class Space:
                self.volumes, self.vent_sched)
 
 def find_all_tfa_surfaces( _tfa_surfaces, _ghenv, _ghdoc ):
+    input_num = _TFA_surfaces_input_number(_ghenv)
     
     rhino_tfa_objects = []
     for i, tfa_input in enumerate(_tfa_surfaces):
-        rhino_guid = _ghenv.Component.Params.Input[3].VolatileData[0][i].ReferenceID
+        rhino_guid = _ghenv.Component.Params.Input[input_num].VolatileData[0][i].ReferenceID
         rhino_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( rhino_guid )
         
         if rhino_obj:
@@ -781,6 +782,13 @@ def find_all_tfa_surfaces( _tfa_surfaces, _ghenv, _ghdoc ):
             rhino_tfa_objects.append( tfa_obj )
     
     return rhino_tfa_objects
+
+def _TFA_surfaces_input_number(_ghenv):
+    """Searches the Component for the right input """
+
+    for i, input in enumerate(_ghenv.Component.Params.Input):
+        if '_HB_rooms' == input.Name or '_TFA_surfaces' == input.NickName:
+            return i
 
 def get_tfa_surface_data_from_Rhino(_guid):  
    

@@ -22,7 +22,7 @@
 """
 Will create geometry for the window 'reveals' (the sides, top and bottom for windows which are installed in a host surface). These are used to accurately calcualte the window shading factors. Will also generate 'punched' envelope surface geometry to allow for accurate shading assessment.
 -
-EM December 4, 2020
+EM December 9, 2020
     Args:
         _HB_rooms: (list) The Honeybee-Rooms to use.
     Returns:
@@ -38,7 +38,7 @@ EM December 4, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateWindowReveals"
 ghenv.Component.NickName = "Create Window Reveals"
-ghenv.Component.Message = 'DEC_4_2020'
+ghenv.Component.Message = 'DEC_9_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -66,7 +66,10 @@ for hb_room in _HB_rooms:
     for face in hb_room.faces:
         # ----------------------------------------------------------------------
         # Envelope Surfaces for shading
-        envelope_surfaces_punched.append( from_face3d(face.punched_geometry) )
+        #Note, pass along the name so that later, if there is a problem it can be ID'd
+        rh_geom = from_face3d(face.punched_geometry)
+        rh_geom.SetUserString('display_name', face.display_name)
+        envelope_surfaces_punched.append( rh_geom )
         envelope_surfaces_.append( from_face3d(face.geometry) )
         
         # ----------------------------------------------------------------------
@@ -78,7 +81,9 @@ for hb_room in _HB_rooms:
             name = aperture.display_name
             try:
                 phpp_window = LBT2PH.windows.PHPP_Window.from_dict( aperture.user_data['phpp'] )
+                
                 window_surrounds_.AddRange( phpp_window.reveal_geometry, GH_Path(count)  )
+                
                 window_surfaces_.append( phpp_window.inset_window_surface )
                 window_names_.append( name )
                 count += 1
