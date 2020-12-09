@@ -128,6 +128,7 @@ ghenv.Component.SubCategory = "01 | Model"
 from System import Object
 from Grasshopper import DataTree
 from Grasshopper.Kernel.Data import GH_Path
+import Grasshopper.Kernel as ghK
 import Rhino
 
 import LBT2PH
@@ -215,6 +216,11 @@ if _run:
     
     summer_graphic, title = LBT2PH.shading_lbt.create_graphic_container('Summer', summer_rad_vals, joined_window_mesh, legend_par_)
     summer_radiation_shaded_mesh_, legend = LBT2PH.shading_lbt.create_rhino_mesh(summer_graphic, joined_window_mesh)
+
+if _HB_rooms and not _run:
+    msg = 'Please set _run to True in order to calculate Radiation results.'
+    ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg )
+
 
 # Pass through....
 window_names_ = _window_names
