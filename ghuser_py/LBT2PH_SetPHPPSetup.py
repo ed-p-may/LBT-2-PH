@@ -22,7 +22,7 @@
 """
 Specify the inputs for 'Verification' and 'Climate' PHPP Worksheet items. Note that for climate, if you do not use this component then the LBT-->PHPP component will try and  automatically locate your building based on the EPW longitude and latitude. If you want to  specify the exact PHPP climate data set to use, you can do that with this component.
 -
-EM November 24, 2020
+EM December 21, 2020
     Args:
         _HB_model: The Honeybee Model
         
@@ -48,7 +48,7 @@ EM November 24, 2020
 
 ghenv.Component.Name = "LBT2PH_SetPHPPSetup"
 ghenv.Component.NickName = "PHPP Setup"
-ghenv.Component.Message = 'NOV_24_2020'
+ghenv.Component.Message = 'DEC_21_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -74,10 +74,10 @@ bldgName = '{} {}'.format(prefix, suffix)
 #-------------------------------------------------------------------------------
 # Verification Worksheet 
 verification = LBT2PH.phpp_setup.PHPP_Verification()
-verification.BldgName = bldgName
+verification.bldg_name = bldgName
 
-if thermalMass_: verification.SpecCapacity = thermalMass_ 
-if country_: verification.BldgCountry = country_ 
+if thermalMass_: verification.spec_capacity = thermalMass_ 
+if country_: verification.bldg_country = country_ 
 
 #-------------------------------------------------------------------------------
 # Climate Worksheet
@@ -86,6 +86,9 @@ if climateDataSet_: climate.DataSet = climateDataSet_
 if altitude_: climate.Altitude = altitude_
 if region_: climate.Region = region_
 if country_: climate.Country = country_
+
+LBT2PH.helpers.preview_obj( verification )
+LBT2PH.helpers.preview_obj( climate )
 
 #-------------------------------------------------------------------------------
 # Add Setup and Climate dicts to the HB_Model.user_data

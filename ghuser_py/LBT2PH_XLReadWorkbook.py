@@ -24,7 +24,7 @@ Read a list of fields from an Excel workbook.
 To configure this module, provide three comma separated lists of the same length for the sheet name, cell name, and the label of the result. Alternatively, use the form entry option.
 -
 Component by Jack Hymowitz, August 29, 2020
-Updated November 24, 2020
+Updated December 21, 2020
     Args:
         excel: A running excel instance
         sheets: A comma separated list of the worksheet to read from for each output.
@@ -37,10 +37,14 @@ Updated November 24, 2020
 
 ghenv.Component.Name = "LBT2PH_XLReadWorkbook"
 ghenv.Component.NickName = "Read XL Workbook"
-ghenv.Component.Message = 'NOV_24_2020'
+ghenv.Component.Message = 'DEC_21_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "03 | Excel"
+
+from System import Object
+from Grasshopper import DataTree
+from Grasshopper.Kernel.Data import GH_Path
 
 from ghpythonlib.componentbase import executingcomponent as component
 import Grasshopper, GhPython
@@ -52,15 +56,18 @@ import Grasshopper.Kernel as ghK
 from math import floor,log10
 
 class MyComponent(component):
+    
     def doRead(self, excel, sheets, fields, labels):
         if sheets:
             sheetsList=sheets.split(",")
             fieldsList=fields.split(",")
             labelsList=labels.split(",")
+            
             if len(sheetsList) != len(fieldsList) or len(sheetsList) != len(labelsList):
                 msg1 = "Fields and Labels don't match!"
                 ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Error, msg1)
                 return (None,None)
+            
             labelList=[]
             for i in range(len(sheetsList)):
                 labelList.append([labelsList[i],sheetsList[i],fieldsList[i]])
@@ -87,24 +94,31 @@ class MyComponent(component):
                     ]
             else:
                 labelList=sc.sticky["displayFields"]
-        data=[]
-        text=""
-        kvli =[]
-        for cell in labelList:
+        
+        data = DataTree[Object]() 
+        text = ""
+        
+        for i, cell in enumerate(labelList):
             label=cell[0].strip()
             sheet=cell[1].strip()
             field=cell[2].strip()
-            if sheet in excel.sheetsDict:
-                val=excel.sheetsDict[sheet].Range[field].Value2
+            
+            if sheet in excel.sheets_dict:
+                val=excel.sheets_dict[sheet].Range[field].Value2
+                
                 if(type(val).__name__=="float" and val!=0): #Round to 4 significant figures
                     val=str(round(val,3-int(floor(log10(abs(val))))))
-                data.append((label,val))
+                data.Add(label, GH_Path(i))
+                data.Add(val, GH_Path(i))
                 text+=str(label)+": "+str(val)+"\n"
-                kvli.extend( (label, val) )
-        return (data,text)
+        
+        return (data, text)
+    
     def RunScript(self, excel, sheets, fields, labels):
-        if excel and excel.activeWorkbook and excel.sheetsDict:
-            return self.doRead(excel,sheets,fields,labels)
+        if excel and excel.active_workbook and excel.sheets_dict:
+            return self.doRead(excel, sheets, fields, labels)
+        
         msg1 = "No Excel Instance!"
         ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg1)
-        return (None,None)
+        
+        return (None, None)

@@ -406,7 +406,7 @@ def get_footprint( _surfaces ):
         return Footprint(None, None)
     
     #------- Find Corners, Find 'bottom' (lowest Z)
-    return Footprint(bldg_mass, 4)
+    #return Footprint(bldg_mass, 4)
     bldg_mass_corners = [v for v in ghc.BoxCorners(bldg_mass)]
 
     bldg_mass_corners.sort(reverse=False, key=lambda point3D: point3D.Z)

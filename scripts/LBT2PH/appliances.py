@@ -314,8 +314,11 @@ class PNNL_ResidentialLoads:
         return self.loads.get(_type, None)
 
     def set_load(self, _load_type, _ud_val):
-        if _ud_val:
-            self.loads[_load_type] = _ud_val
+        try:
+            self.loads[_load_type] = float(_ud_val)
+        except SystemError as e:
+            # Must be a None
+            pass
 
     def _hourly_wattage(self, _hb_room_floor_area):
         # Calc the hourly Wattage values (load * fraction)

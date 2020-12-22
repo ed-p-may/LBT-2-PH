@@ -223,6 +223,8 @@ class PHPP_Sys_Duct(Object):
                 self._insulation_thickness,
                 self._insulation_lambda,
                 self._ghdoc)
+    def ToString(self):
+        return str(self)
 
 
 class PHPP_Sys_VentUnit(Object):
@@ -365,6 +367,8 @@ class PHPP_Sys_VentUnit(Object):
                 self.elec_eff,
                 self.frost_temp,
                 self.exterior)
+    def ToString(self):
+        return str(self)
 
 
 class PHPP_Sys_ExhaustVent(Object):
@@ -489,6 +493,8 @@ class PHPP_Sys_ExhaustVent(Object):
                self.hours_per_day_on,
                self.days_per_week_on,
                self.duct_01)
+    def ToString(self):
+        return str(self)
 
 
 class PHPP_Sys_VentSchedule(Object):
@@ -539,6 +545,8 @@ class PHPP_Sys_VentSchedule(Object):
                 self._time_med,
                 self._speed_low,
                 self._time_low)
+    def ToString(self):
+        return str(self)
 
 
 class PHPP_Sys_Ventilation(Object):
@@ -549,7 +557,7 @@ class PHPP_Sys_Ventilation(Object):
                 _unit=PHPP_Sys_VentUnit(),
                 _d01=PHPP_Sys_Duct(),
                 _d02=PHPP_Sys_Duct(),
-                _exhaustObjs=[ PHPP_Sys_ExhaustVent() ]):
+                _exhaustObjs=[]):
         
         self.system_id = random.randint(1000,9999)
         self.ghenv = _ghenv
@@ -608,7 +616,8 @@ class PHPP_Sys_Ventilation(Object):
         d.update( {'vent_unit':self.vent_unit.to_dict()} )
         d.update( {'duct_01': self.duct_01.to_dict()} )
         d.update( {'duct_02': self.duct_02.to_dict()} )
-        d.update( {'exhaust_vent_objs': [exhaust_obj.to_dict() for exhaust_obj in self.exhaust_vent_objs] } )
+        if self.exhaust_vent_objs:
+            d.update( {'exhaust_vent_objs': [exhaust_obj.to_dict() for exhaust_obj in self.exhaust_vent_objs] } )
 
         return d
 
@@ -616,7 +625,7 @@ class PHPP_Sys_Ventilation(Object):
     def from_dict(cls, _dict, _ghenv=None):
 
         exhaust_objs = []
-        for exhaust_system_dict in _dict['exhaust_vent_objs']:
+        for exhaust_system_dict in _dict.get('exhaust_vent_objs', []):
             exhaust_objs.append( PHPP_Sys_ExhaustVent.from_dict(exhaust_system_dict) )
 
         new_obj = cls()

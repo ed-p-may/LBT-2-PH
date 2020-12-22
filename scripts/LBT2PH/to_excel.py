@@ -1488,7 +1488,7 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
                 hc_equip.append( PHPP_XL_Obj('HP', 'N{}'.format(i+670), item)) 
             hc_equip.append( PHPP_XL_Obj('HP', 'M688', dhw_hp.sink_dt)) 
         
-        hc_equip.append( PHPP_XL_Obj('HP', 'M18', 2 if hp_count==2 else 1)) # Can't ever be zero
+        hc_equip.append( PHPP_XL_Obj('HP', 'M18', 2 if hp_count>1 else 1)) # Can't ever be zero
 
         #-----------------------------------------------------------------------
         supply_air_cooling = params.get('supply_air_cooling', None)
@@ -1522,7 +1522,6 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
             hc_equip.append( PHPP_XL_Obj('Cooling units', 'P39', panel_cooling.seer, 'W/W', 'BTU/HW'))
 
         #-----------------------------------------------------------------------
-
 
     return hc_equip
 
