@@ -52,7 +52,7 @@ class PHPP_Window(Object):
         '_tolerance', '_glazing_edge_lengths', '_window_edges', '_glazing_surface',
         '_shading_factor_winter', '_shading_factor_summer', 'shading_dimensions',
         'name', 'frame', 'glazing', 'installs', 'install_depth', 'UD_glass_Name',
-        'UD_frame_Name' )
+        'UD_frame_Name', 'variant_type' )
     
     Output = namedtuple('Output', ['Left', 'Right', 'Bottom', 'Top'])
 
@@ -65,6 +65,7 @@ class PHPP_Window(Object):
         self._glazing_surface = None
         self.UD_glass_Name = None
         self.UD_frame_Name = None
+        self.variant_type = None
         
         self._shading_factor_winter = None
         self._shading_factor_summer = None
@@ -438,6 +439,7 @@ class PHPP_Window(Object):
         d.update( {'_shading_factor_winter':self._shading_factor_winter } )
         d.update( {'_shading_factor_summer':self._shading_factor_summer} )
         d.update( {'install_depth':self.install_depth} )
+        d.update( {'variant_type':self.variant_type} )
 
         _edges = {}
         for k, v in self.window_edges._asdict().iteritems():
@@ -473,6 +475,8 @@ class PHPP_Window(Object):
         new_obj._shading_factor_winter =_dict.get('_shading_factor_winter')
         new_obj._shading_factor_summer =_dict.get('_shading_factor_summer')
         new_obj._glazing_edge_lengths = _dict.get('_glazing_edge_lengths')
+        new_obj.variant_type = _dict.get('variant_type')
+        new_obj.install_depth = _dict.get('install_depth')
 
         #----
         _edges = _dict.get('_window_edges', {})
@@ -489,14 +493,12 @@ class PHPP_Window(Object):
         _top = LineSegment3D.from_dict( _top )      
         
         new_obj._window_edges = cls.Output(_left, _right, _bottom, _top)
+
         #----
-        
         _glazing_surface = _dict.get('_glazing_surface')
         _glazing_surface = Face3D.from_dict(_glazing_surface)
         _glazing_surface = from_face3d(_glazing_surface)
         new_obj._glazing_surface = _glazing_surface
-
-        new_obj.install_depth = _dict.get('install_depth')
 
         new_obj.frame = LBT2PH.windows.PHPP_Frame.from_dict( _dict.get('_frame') )
         new_obj.glazing = LBT2PH.windows.PHPP_Glazing.from_dict( _dict.get('_glazing') )

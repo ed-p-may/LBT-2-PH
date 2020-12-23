@@ -406,7 +406,7 @@ def build_windows(_inputBranch, _surfacesIncluded, _srfcBranch):
         frameType = window.frame
         glassTypeUD = getattr(window, 'UD_glass_Name')
         frameTypeUD = getattr(window, 'UD_frame_Name')
-        variantType = getattr(window, 'Type_Variant', 'a')
+        variantType = getattr(window, 'variant_type', 'a')
         Inst_L, Inst_R, Inst_B, Inst_T = window.installs
         
         # See if the Window should be included in the output
