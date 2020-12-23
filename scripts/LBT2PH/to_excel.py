@@ -1593,4 +1593,60 @@ def build_occupancy( _occ_obj ):
     
     return occupancy
 
+def build_variants( _var_obj ):
+    variants = []
 
+    if not _var_obj:
+        return variants
+
+    if _var_obj.windows:
+        for i in range(24, 175):
+            variants.append( PHPP_XL_Obj('Windows', 'T{}'.format(i), '=G{}'.format(i) ))
+            variants.append( PHPP_XL_Obj('Windows', 'U{}'.format(i), '=H{}'.format(i) ))
+    
+    if _var_obj.u_values:
+        for i in range(0, 15):
+            row_Uval = 17+i*21
+            row_Variant = 410+i*2
+            row_Compo = 15+i
+            
+            variants.append( PHPP_XL_Obj('U-Values', 'M'+str(row_Uval), '=F'+str(row_Uval) ))
+            variants.append( PHPP_XL_Obj('U-Values', 'S'+str(row_Uval), '=G'+str(row_Uval) ))
+            variants.append( PHPP_XL_Obj('Variants', 'B'+str(row_Variant), '=Components!D'+str(row_Compo) ))
+
+    if _var_obj.airtightness:
+        variants.append( PHPP_XL_Obj('Ventilation', 'N27', '=D27' ))
+
+    if _var_obj.thermal_bridges:
+        variants.append( PHPP_XL_Obj('Areas', 'P145', '=Variants!D933' ))
+        variants.append( PHPP_XL_Obj('Areas', 'R145', 1))    
+
+    if _var_obj.certification:
+        variants.append( PHPP_XL_Obj('Verification', 'R78', '=Variants!D927' ))
+        variants.append( PHPP_XL_Obj('Verification', 'R80', '=Variants!D928' ))
+        variants.append( PHPP_XL_Obj('Verification', 'R82', '=Variants!D929' ))
+        variants.append( PHPP_XL_Obj('Verification', 'R85', '=Variants!D930' ))
+        variants.append( PHPP_XL_Obj('Verification', 'R87', '=Variants!D931' ))
+
+    if _var_obj.primary_energy:
+        variants.append( PHPP_XL_Obj('PER', 'P10', '=H10' ))
+        variants.append( PHPP_XL_Obj('PER', 'P12', '=H12' ))
+        variants.append( PHPP_XL_Obj('PER', 'S10', '=I10' ))
+        variants.append( PHPP_XL_Obj('PER', 'T10', '=J10' ))
+    
+    if _var_obj.default_ventilation:
+        variants.append( PHPP_XL_Obj('Ventilation', 'L12', '=D12' ))
+        variants.append( PHPP_XL_Obj('Additional Vent', 'F97', '=Variants!D856' ))
+        variants.append( PHPP_XL_Obj('Additional Vent', 'H127', '=Variants!D858' ))
+        variants.append( PHPP_XL_Obj('Additional Vent', 'H128', '=Variants!D858' ))
+        variants.append( PHPP_XL_Obj('Additional Vent', 'L127', '=Variants!D857' ))
+        variants.append( PHPP_XL_Obj('Additional Vent', 'L128', '=Variants!D857' ))
+    elif _var_obj.custom_ventlilation:
+        variants.append( PHPP_XL_Obj('Ventilation', 'L12', '=D12' ))        
+        for item in _var_obj.get_custom_rows():
+            variants.append( PHPP_XL_Obj( item.worksheet, item.range, item.reference) )
+
+    return variants
+
+def build_ud_custom( _custom_objs ):
+    return [ PHPP_XL_Obj(obj.worksheet, obj.range, obj.value ) for obj in _custom_objs ]

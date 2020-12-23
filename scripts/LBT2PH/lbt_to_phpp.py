@@ -134,11 +134,10 @@ def get_exposed_surfaces_from_model(_model, _north, _ghenv):
         
         for face in room:       
             bc = str(face.boundary_condition)
-
             if bc != 'Surface':
                 phpp_srfc = LBT2PH.surfaces.PHPP_Surface(face, room_name, room_id, _north, _ghenv )
                 exposed_surfaces.append(phpp_srfc)
-    
+
     return exposed_surfaces
 
 def get_opaque_materials_from_model(_model, _ghenv):
@@ -406,7 +405,7 @@ def get_footprint( _surfaces ):
         return Footprint(None, None)
     
     #------- Find Corners, Find 'bottom' (lowest Z)
-    #return Footprint(bldg_mass, 4)
+    return Footprint(bldg_mass, 4)
     bldg_mass_corners = [v for v in ghc.BoxCorners(bldg_mass)]
 
     bldg_mass_corners.sort(reverse=False, key=lambda point3D: point3D.Z)
