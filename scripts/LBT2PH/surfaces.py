@@ -4,6 +4,7 @@ import helpers
 import Grasshopper.Kernel as ghK
 import Rhino
 import math
+from collections import namedtuple
 
 try:  # import the core honeybee dependencies
     from honeybee.model import Model
@@ -75,7 +76,7 @@ class hb_surface:
             "This is especially true for 'interior' surfaces up against other thermal zones.\n"\
             "Please apply a unique name to all surfaces before proceeding. Use the\n"\
             "IDF2PH 'Set Window Names' tool to do this automatically (works on regular srfcs too)"
-            _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
+            _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Remark, warning)
     
     def _add_ext_flag_to_name(self, _ud_value):
         """ So that the EP Results can be properly sorted at the very end, add an EXT or INT flag to the srfc"""
@@ -320,7 +321,42 @@ class PHPP_Surface:
             self.__class__.__name__, self.lbt_srfc)
 
 
-def get_rh_srfc_params(_srfc_GUIDs, _ghenv, _ghdoc):
+def get_input_geom( _input_list, _ghenv ):
+    """Gets geom and guid from whatever objects are input as the '_srfcs' """
+
+    _input_num = 0
+    output = []
+    Geom = namedtuple('Geom', ['geom', 'guid'])
+
+    for i, input_obj in enumerate(_input_list):
+        if not input_obj:
+            continue
+        
+        # Get the GUID of the item being input into the component's 0-pos input
+        input_guid = _ghenv.Component.Params.Input[_input_num].VolatileData[0][i].ReferenceID
+        rh_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( input_guid )
+
+        if rh_obj:            
+            # Must be some Rhino Geometry being input
+            # Try and explode any multi-surface Breps
+            # If that fails, must be a Mesh, just pass along without exploding.
+            geom = rs.coercegeometry(rh_obj)
+            try:                
+                for srfc in geom.Surfaces:
+                    output.append( Geom(srfc, input_guid) )
+            except AttributeError as e:                
+                output.append( Geom(geom, input_guid) )
+        else:
+            # Must be some Grasshopper Geometry being input
+            try:
+                for srfc in input_obj.Surfaces:
+                    output.append( Geom(srfc, None) )
+            except AttributeError as e:                
+                output.append( Geom(input_obj, None)  )
+
+    return output
+
+def get_rh_srfc_params(_input_geom, _ghenv, _ghdoc):
     """ Pulls geom and UserText params from the Rhino scene.
 
     Args:
@@ -333,15 +369,11 @@ def get_rh_srfc_params(_srfc_GUIDs, _ghenv, _ghdoc):
     
     surfaces = []
     
-    for srfc_GUID in _srfc_GUIDs:
+    for item in _input_geom:
         # --- Get UserText params
-        srfc_user_text = _get_surface_rh_userText(srfc_GUID, _ghenv, _ghdoc)
+        srfc_user_text = _get_surface_rh_userText(item.guid, _ghenv, _ghdoc)
         
-        # --- Get Geometry
-        with helpers.context_rh_doc(_ghdoc):
-            surface_geom = rs.coercebrep(srfc_GUID)
-        
-        new_srfc_obj = Temp_Surface(surface_geom, srfc_user_text)
+        new_srfc_obj = Temp_Surface(item.geom, srfc_user_text)
         surfaces.append(new_srfc_obj)
 
     return surfaces
@@ -385,7 +417,10 @@ def determine_surface_type_by_orientation(_surfaces):
         maximumRoofAngle = 30
         try:
             # Find the average surface normal of the srfc
-            normals = [find_srfc_normal(face) for face in srfc_geom.Faces]           
+            if hasattr(srfc_geom, 'Faces'):
+                normals = [find_srfc_normal(face) for face in srfc_geom.Faces]
+            else:
+                normals = [find_srfc_normal(face) for face in srfc_geom.ToBrep().Faces]
             normal = avg_normal_vectors(normals)
         
             # --- Find the surface type based on the normal
@@ -425,6 +460,9 @@ def _get_surface_rh_userText(_srfc_GUID, _ghdoc, _ghenv):
     """
     output_dict = {}
     
+    if not _srfc_GUID:
+        return output_dict
+
     if _srfc_GUID.GetType() != System.Guid:
         remark = "Unable to get parameter data for the surface? If trying to pull data\n"\
         "from Rhino, be sure the '_srfc' input Type Hint is set to 'Guid'\n"\

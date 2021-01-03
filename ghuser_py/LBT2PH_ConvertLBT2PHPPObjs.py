@@ -21,7 +21,7 @@
 #
 """
 -
-EM December 9, 2020
+EM December 23, 2020
     Args:
         north_: <Optional :float :vector> A number between -360 and 360 for the counterclockwise or a vector pointing 'north'
             difference between the North and the positive Y-axis in degrees.
@@ -44,6 +44,9 @@ EM December 9, 2020
             -  Electricity non-res, Lighting: ## (Default= 19)
             -  Electricity non-res, Office Equip: ## (Default=62)
             -  Electricity non-res, Kitchen: ## (Default=77)
+        estimated_tfa_: <bool> Set True to have this component try and estimate the TFA based on the gross floor area of the Honeybee Zones/ surfaces. Leave False or blank to have it try and read TFA info from the PHPP Rooms / Rhino Scene.
+        variants_: Input for the 'Variants' component. Used to configure the Variants worksheet if you are using that functionality. 
+        ud_custom_: Input one or more 'UD XL Obj' items here to write custom values anywhere in the workbook. Be careful with this as you can break the PHPP by accident. For experienced users only.
     Returns:
         footprint_: Preview of the 'footprint' found based on the input geometry. This is used for PER evaluation in the PHPP.
         excel_objects_: Excel obejcts which are ready to wrtite out to the PHPP file. Connect these tothe 'Wrtie XL Workbook' component.
@@ -51,7 +54,7 @@ EM December 9, 2020
 
 ghenv.Component.Name = "LBT2PH_ConvertLBT2PHPPObjs"
 ghenv.Component.NickName = "LBT-->PHPP"
-ghenv.Component.Message = 'DEC_09_2020'
+ghenv.Component.Message = 'DEC_23_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -59,6 +62,7 @@ ghenv.Component.SubCategory = "02 | LBT2PHPP"
 from System import Object
 from Grasshopper import DataTree
 from Grasshopper.Kernel.Data import GH_Path
+import Grasshopper.Kernel as ghK
 
 import LBT2PH
 import LBT2PH.lbt_to_phpp
@@ -132,6 +136,8 @@ if _HB_model:
     heating_cooling                  = LBT2PH.to_excel.build_heating_cooling( heating_cooling, hb_room_names )
     per                              = LBT2PH.to_excel.build_PER( per, hb_room_names, ghenv )
     occupancy                        = LBT2PH.to_excel.build_occupancy( occupancy )
+    variants                         = LBT2PH.to_excel.build_variants( variants_ )
+    ud_custom                        = LBT2PH.to_excel.build_ud_custom( ud_custom_ )
     
     #---------------------------------------------------------------------------
     # Add all the Excel-Ready Objects to a master Tree for outputting / passing
@@ -157,6 +163,10 @@ if _HB_model:
     excel_objects_.AddRange(heating_cooling, GH_Path(19))
     excel_objects_.AddRange(per, GH_Path(20))
     excel_objects_.AddRange(occupancy, GH_Path(21))
+    excel_objects_.AddRange(variants, GH_Path(22))
+    
+    # Make sure this always at the end so it overwrites anything else
+    excel_objects_.AddRange(ud_custom, GH_Path(excel_objects_.BranchCount+1))
     
     #---------------------------------------------------------------------------
     # Give Warnings

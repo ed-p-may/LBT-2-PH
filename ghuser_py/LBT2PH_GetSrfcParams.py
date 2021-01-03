@@ -22,9 +22,9 @@
 """
 Use this component BEFORE a Honeybee 'Face' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant. Simply connect the  outputs from this compone to the inputs on the 'Face' for this to run.
 -
-EM December 3, 2020
+EM January 3, 2021
     Args:
-        _srfcs: <list> Rhino Brep geometry
+        _srfcs: <list> Rhino Brep or Mesh geometry
         auto_orientation_: <bool Default='False'> Set to 'True' to have this component automatically assign surface type ('wall', 'floor', 'roof'). useful if you are testing massings / geometry and don't want to assign explicit type everytime. If you have already assigned the surface type in Rhino, leave this set to False. If 'True' this will override any values found in the Rhino scene.
     Return:
         geo_: Connect to the '_geo' Input on a Honeybee 'Face' component.
@@ -37,7 +37,7 @@ EM December 3, 2020
 
 ghenv.Component.Name = "LBT2PH_GetSrfcParams"
 ghenv.Component.NickName = "Get Surface Params"
-ghenv.Component.Message = 'DEC_03_2020'
+ghenv.Component.Message = 'JAN_03_2021'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -59,44 +59,13 @@ reload(LBT2PH.assemblies)
 reload(LBT2PH.surfaces)
 
 #-------------------------------------------------------------------------------
-def cleanSrfcInput(_srfcsInput):
-    """If Brep or Polysrfc are input, explode them"""
-    
-    outputSrfcs = []
-    
-    with LBT2PH.helpers.context_rh_doc(ghdoc):
-        for inputObj in _srfcsInput:
-            if isinstance(rs.coercesurface(inputObj), Rhino.Geometry.BrepFace):
-                # Catches Bare surfaces
-                outputSrfcs.append(inputObj)
-            elif isinstance(rs.coercebrep(inputObj), Rhino.Geometry.Brep):
-                # Catches Polysurfaces / Extrusions or other Masses
-                faces = ghc.DeconstructBrep(rs.coercebrep(inputObj)).faces
-                if isinstance(faces, list):
-                    for face in faces:
-                        outputSrfcs.append(face)
-            elif isinstance(rs.coercegeometry(inputObj), Rhino.Geometry.PolylineCurve):
-                # Catches PolylineCurves
-                if not rs.coercegeometry(inputObj).IsClosed:
-                    warn = 'Non-Closed Polyline Curves found. Make sure all curves are closed.'
-                    ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Remark, warn)
-                else:
-                    faces = ghc.DeconstructBrep(rs.coercegeometry(inputObj)).faces
-                    if isinstance(faces, list):
-                        for face in faces:
-                            outputSrfcs.append(face)
-                    else:
-                        outputSrfcs.append(faces)
-    
-    return outputSrfcs
-
-#-------------------------------------------------------------------------------
 # Get the Surface data from the RH Scene
-srfcs_to_use = cleanSrfcInput(_srfcs)
-rh_surfaces = LBT2PH.surfaces.get_rh_srfc_params(srfcs_to_use, ghenv, ghdoc)
+#input_srfc_guids = cleanSrfcInput(_srfcs)
+input_geom = LBT2PH.surfaces.get_input_geom(_srfcs, ghenv)
+input_srfcs = LBT2PH.surfaces.get_rh_srfc_params(input_geom, ghenv, ghdoc)
 
 if auto_orientation_:
-    rh_surfaces = LBT2PH.surfaces.determine_surface_type_by_orientation(rh_surfaces)
+    input_srfcs = LBT2PH.surfaces.determine_surface_type_by_orientation(input_srfcs)
 
 #-------------------------------------------------------------------------------
 # Get all the Assemblies from the RH Scene
@@ -105,7 +74,7 @@ hb_constructions = LBT2PH.assemblies.generate_all_HB_constructions(rh_doc_constr
 
 #-------------------------------------------------------------------------------
 # Create the surface objects
-hb_surfaces = (LBT2PH.surfaces.hb_surface(srfc, hb_constructions, ghenv) for srfc in rh_surfaces)
+hb_surfaces = (LBT2PH.surfaces.hb_surface(srfc, hb_constructions, ghenv) for srfc in input_srfcs)
 
 #-------------------------------------------------------------------------------
 # Outputs
