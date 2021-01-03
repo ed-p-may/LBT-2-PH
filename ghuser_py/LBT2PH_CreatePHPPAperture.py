@@ -22,7 +22,7 @@
 """
 Use this component AFTER a Honeybee 'Aperture' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant.
 -
-EM December 3, 2020
+EM December 23, 2020
     Args:
         apertures: <list> The HB Aperture objects from a 'Aperture' component
         frames_: <list> Optional. PHPP Frame Object or Objects
@@ -34,7 +34,7 @@ EM December 3, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPAperture"
 ghenv.Component.NickName = "PHPP Aperture"
-ghenv.Component.Message = 'DEC_03_2020'
+ghenv.Component.Message = 'DEC_23_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -121,7 +121,7 @@ if apertures:
 
 for aperture, window_guid, gh_input in izip(apertures, window_guids, gh_inputs):
     # Get the Aperture from the Grasshopper scene
-    # If its a generic dbl pane construtction, that means no GH/HB user-determined input
+    # If its a generic dbl pane construction, that means no GH/HB user-determined input
     # so go try and find values from the Rhino scene instead
     if aperture.properties.energy.construction.display_name == 'Generic Double Pane':
         aperture_params = LBT2PH.helpers.get_rh_obj_UserText_dict(ghdoc, window_guid )
@@ -171,6 +171,7 @@ for aperture, window_guid, gh_input in izip(apertures, window_guids, gh_inputs):
     window_obj.glazing = glazing
     window_obj.installs = install
     window_obj.install_depth = aperture_params.get('InstallDepth', 0.1)
+    window_obj.variant_type = aperture_params.get('VariantType','a')
     
     window_EP_material = LBT2PH.windows.create_EP_window_mat( window_obj )
     window_EP_const = LBT2PH.windows.create_EP_const( window_EP_material )

@@ -215,7 +215,15 @@ def get_rh_obj_UserText_dict(_ghdoc, _rh_obj_guid):
             in the Rhino object's UserText library.
     """
     
+    def is_gh_guid(_guid):
+        """If its GH generated geom, will have this GUID always """
+
+        return str(_guid) == '00000000-0000-0000-0000-000000000000'
+
     if not _rh_obj_guid:
+        return {}
+
+    if is_gh_guid(_rh_obj_guid):
         return {}
 
     with context_rh_doc(_ghdoc):
