@@ -6,7 +6,8 @@ import Rhino
 from System import Object
 
 try:  # import the core honeybee dependencies
-    from ladybug_rhino.fromgeometry import from_face3d 
+    from ladybug_rhino.togeometry import to_face3d
+    from ladybug_rhino.fromgeometry import from_face3d
     from ladybug_geometry.geometry3d import Point3D
 except ImportError as e:
     raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
@@ -247,6 +248,8 @@ class TFA_Surface(Object):
 
     @property
     def depth(self):
+        '''Used for non-res lighting evaluation. The room depth(m) from the main window wall '''
+        
         if self._depth:
             return self._depth
         
@@ -290,6 +293,9 @@ class TFA_Surface(Object):
         d.update( {'area_gross':self.area_gross} )
         d.update( {'depth':self.depth} )
 
+        if self.surface:
+            d.update( {'surface_list':to_face3d(self.surface)} )
+
         return d
 
     @classmethod
@@ -301,8 +307,7 @@ class TFA_Surface(Object):
             sub_surfaces.append( new_sub_surface )
 
         new_tfa_obj = cls()
-        new_tfa_obj.id = _dict_tfa.get('id')
-        new_tfa_obj.surface = None
+        new_tfa_obj.id = _dict_tfa.get('id')        
         new_tfa_obj.host_room_name = _dict_tfa.get('host_room_name')
         new_tfa_obj.params = _dict_tfa.get('params')
         new_tfa_obj.sub_surfaces = sub_surfaces
@@ -310,6 +315,10 @@ class TFA_Surface(Object):
         new_tfa_obj._neighbors = None
         new_tfa_obj._area_gross = _dict_tfa.get('area_gross')
         new_tfa_obj._depth = _dict_tfa.get('depth', None)
+
+        srfc_list = _dict_tfa.get('surface_list')
+        if srfc_list:
+            new_tfa_obj.surface = from_face3d( srfc_list[0] )
 
         return new_tfa_obj
 
@@ -638,7 +647,22 @@ class Space:
                 output = volume.volume_brep
 
         return output
+    
+    @property
+    def space_tfa_surfaces(self):
+        tfa_surface_breps = []
+        for volume in self.volumes:
+            tfa_surface_breps.append( volume.tfa_surface.surface )
         
+        return tfa_surface_breps
+
+    @property
+    def center_point(self):
+        cps = [ ghc.Area(tfa_srfc).center for tfa_srfc in self.space_tfa_surfaces ]
+        cp = ghc.Average(cps)
+              
+        return rs.CreatePoint(*cp)
+
     @property
     def host_room_name(self):
         host_room_names = set()
@@ -688,7 +712,26 @@ class Space:
         try:
             return float(self._tfa)
         except:
-            return sum([volume.area_tfa for volume in self.volumes])
+            return sum(volume.area_tfa for volume in self.volumes)
+
+
+
+    #TODO: fix this.... area weighted....
+    #
+    #
+    #
+    #
+    @property
+    def space_tfa_factor(self):
+        return 1
+    #
+    #
+    #
+    #
+
+
+
+
 
     @property
     def depth(self):
