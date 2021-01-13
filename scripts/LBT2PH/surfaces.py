@@ -2,6 +2,7 @@ import System
 import rhinoscriptsyntax as rs
 import helpers
 import Grasshopper.Kernel as ghK
+import ghpythonlib.components as ghc
 import Rhino
 import math
 from collections import namedtuple
@@ -341,8 +342,15 @@ def get_input_geom( _input_list, _ghenv ):
             # Try and explode any multi-surface Breps
             # If that fails, must be a Mesh, just pass along without exploding.
             geom = rs.coercegeometry(rh_obj)
-            try:                
-                for srfc in geom.Surfaces:
+            
+            # Try and convert whatever it is into a Brep (for Extrusions, etc.)
+            try:
+                geom = geom.ToBrep()
+            except AttributeError as e:
+                pass
+
+            try:
+                for srfc in geom.Faces:
                     output.append( Geom(srfc, input_guid) )
             except AttributeError as e:                
                 output.append( Geom(geom, input_guid) )
@@ -399,8 +407,11 @@ def determine_surface_type_by_orientation(_surfaces):
             centroid = Rhino.Geometry.AreaMassProperties.Compute(_f).Centroid
             b, u, v = _f.ClosestPoint(centroid)
             face_normal = _f.NormalAt(u, v)
+
             return face_normal
         
+        """
+        # Deprecated?
         def avg_normal_vectors(_vectors):
             x, y, z = 0, 0, 0
             for v in _vectors:
@@ -413,19 +424,26 @@ def determine_surface_type_by_orientation(_surfaces):
             z = z/len(_vectors)
             
             return Rhino.Geometry.Vector3d(x, y, z)
-        
+        """
+
         maximumRoofAngle = 30
         try:
-            # Find the average surface normal of the srfc
+            # Find the surface normal of the srfc
+            normal = find_srfc_normal(srfc_geom)
+
+            """"        
+            # Deprecated?
             if hasattr(srfc_geom, 'Faces'):
                 normals = [find_srfc_normal(face) for face in srfc_geom.Faces]
             else:
                 normals = [find_srfc_normal(face) for face in srfc_geom.ToBrep().Faces]
+            
             normal = avg_normal_vectors(normals)
+            # """
         
             # --- Find the surface type based on the normal
             angle2Z = math.degrees(Rhino.Geometry.Vector3d.VectorAngle(normal, Rhino.Geometry.Vector3d.ZAxis))
-
+            
             if  angle2Z < maximumRoofAngle or angle2Z > 360 - maximumRoofAngle:
                 srfc_type = 'RoofCeiling'
                 bc = 'Outdoors'
@@ -436,7 +454,7 @@ def determine_surface_type_by_orientation(_surfaces):
                 srfc_type = 'Wall'
                 bc = 'Outdoors'
         except:
-            print('Failed to find surface normal. Are you sure it is a surface?')
+            print('Failed to find surface normal. Are you sure it is Brep geometry?')
             srfc_type = 'Wall'
             bc = 'Outdoors'
         
