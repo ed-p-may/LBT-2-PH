@@ -18,6 +18,7 @@ import LBT2PH.climate
 import LBT2PH.summer_vent
 import LBT2PH.heating_cooling
 import LBT2PH.occupancy
+import LBT2PH.surfaces
 
 reload(LBT2PH.materials)
 reload(LBT2PH.assemblies)
@@ -30,6 +31,7 @@ reload(LBT2PH.climate)
 reload(LBT2PH.summer_vent)
 reload(LBT2PH.heating_cooling)
 reload(LBT2PH.occupancy)
+reload(LBT2PH.surfaces)
 
 try:
     import ladybug.epw as epw  
@@ -198,15 +200,30 @@ def get_aperture_surfaces_from_model(_model, _ghenv):
     for hb_aperture in _model.apertures:
         try:
             window_dict = hb_aperture.user_data.get('phpp', {})
+            if not window_dict:
+                raise AttributeError
+
             new_phpp_aperture = LBT2PH.windows.PHPP_Window.from_dict( window_dict )
             new_phpp_aperture.aperture = hb_aperture
             
             phpp_apertures.append(new_phpp_aperture)
         except AttributeError as e:
-            msg = 'Error trying to read window information for Aperture < {} >.\n'\
-                'Make sure that you use a PH-Tools "Create PHPP Aperture" Component\n'\
-                'to apply the PHPP style information to this element.'.format(hb_aperture.display_name)
-            _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg)    
+            try:
+                msg = 'I did not find any user-determined info for window: < {} >.\n'\
+                    'I will use the basic Honeybee Aperture info for now, but to customize\n'\
+                    'this window you can use a PH-Tools "Create PHPP Aperture" Component\n'\
+                    'to apply specific PHPP style information to this element.'.format(hb_aperture.display_name)
+                _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Remark, msg)
+                
+                # Build a basic aperture from the Honeybee only
+                new_phpp_aperture = LBT2PH.windows.PHPP_Window.from_aperture(hb_aperture)
+                
+                phpp_apertures.append(new_phpp_aperture)
+            except Exception as e:
+                msg = 'Error trying to create the PHPP window for < {} >.\n'\
+                    'Make sure that you use a PH-Tools "Create PHPP Aperture" Component\n'\
+                    'to apply the PHPP style information to this element.'.format(hb_aperture.display_name)
+                _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg)
 
     return phpp_apertures
 

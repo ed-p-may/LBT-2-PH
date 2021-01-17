@@ -22,7 +22,7 @@
 """
 Use this component AFTER a Honeybee 'Aperture' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant.
 -
-EM December 23, 2020
+EM January 17, 2021
     Args:
         apertures: <list> The HB Aperture objects from a 'Aperture' component
         frames_: <list> Optional. PHPP Frame Object or Objects
@@ -34,7 +34,7 @@ EM December 23, 2020
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPAperture"
 ghenv.Component.NickName = "PHPP Aperture"
-ghenv.Component.Message = 'DEC_23_2020'
+ghenv.Component.Message = 'JAN_17_2021'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -101,7 +101,7 @@ def cleanInput(_inputList, targetListLength,):
 #-------------------------------------------------------------------------------
 ud_frames = cleanInput(frames_, len(apertures))
 ud_glazings = cleanInput(glazings_, len(apertures))
-ud_installs = cleanInput(installs_, len(apertures))
+ud_installs = cleanInput([installs_], len(apertures))
 gh_inputs = izip(ud_frames, ud_glazings,  ud_installs)
 
 
@@ -129,30 +129,30 @@ for aperture, window_guid, gh_input in izip(apertures, window_guids, gh_inputs):
         aperture_params = {}
     
     #---------------------------------------------------------------------------
-    # Override params with any Grasshopper Component user-determined values
-    ud_f, ud_g, ud_i = gh_input
+    # Unpack the Grasshopper-side UD Component values, deal with the installs
+    ud_gh_frame, ud_gh_glazing, ud_gh_installs = gh_input
     
-    if ud_f: aperture_params['FrameType'] = ud_f
-    if ud_g: aperture_params['GlazingType'] = ud_g
-    if ud_i:
-        aperture_params['InstallLeft'] = ud_i
-        aperture_params['InstallRight'] = ud_i
-        aperture_params['InstallBottom'] = ud_i
-        aperture_params['InstallTop'] = ud_i
+    install_edges = ['InstallLeft', 'InstallRight', 'InstallBottom', 'InstallTop']
+    if ud_gh_installs:
+        for i, edge_name in enumerate(install_edges):
+            try:
+                aperture_params[edge_name] = ud_gh_installs[i]
+            except IndexError as e:
+                aperture_params[edge_name] = ud_gh_installs[0]
     
-    
-    
-    # build the right glazing
-    # 1) First build a glazing from the HB Mat / Construction
+    # Build the right glazing/frame
+    # 1) First build a standard glazing/frame from the HB Mat / Construction
     # 2) if any UD (Rhino or GH) side Objects, overide the obj with those instead
     
     glazing = LBT2PH.windows.PHPP_Glazing.from_HB_Const( aperture.properties.energy.construction )
-    ud_glazing = rh_doc_frame_and_glass_objs.get('lib_GlazingTypes', {}).get(aperture_params.get('GlazingType'))
-    if ud_glazing: glazing = ud_glazing
+    ud_rh_glazing = rh_doc_frame_and_glass_objs.get('lib_GlazingTypes', {}).get(aperture_params.get('GlazingType'))
+    if ud_rh_glazing: glazing = ud_rh_glazing # Rhnino-side UD inputs
+    if ud_gh_glazing: glazing = ud_gh_glazing # GH-side UD inputs
     
     frame = LBT2PH.windows.PHPP_Frame.from_HB_Const( aperture.properties.energy.construction )
-    ud_frame = rh_doc_frame_and_glass_objs.get('lib_FrameTypes', {}).get(aperture_params.get('FrameType'))
-    if ud_frame: frame = ud_frame
+    ud_rh_frame = rh_doc_frame_and_glass_objs.get('lib_FrameTypes', {}).get(aperture_params.get('FrameType'))
+    if ud_rh_frame: frame = ud_rh_frame # Rhnino-side UD inputs
+    if ud_gh_frame: frame = ud_gh_frame # GH-side UD inputs
     
     install = LBT2PH.windows.PHPP_Installs()
     install.install_L = aperture_params.get('InstallLeft', 1)

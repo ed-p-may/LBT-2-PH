@@ -194,7 +194,8 @@ class PHPP_Window(Object):
     @property
     def width(self):
         if not self._window_edges:
-            self.window_edges()
+            # Build the edges from the aperture geometry
+            self.window_edges
 
         top = self._window_edges.Top
         return top.length
@@ -466,6 +467,29 @@ class PHPP_Window(Object):
         return d
 
     @classmethod
+    def from_aperture(cls, _aperture):
+        """ Build a new window object from a Honeybee Aperture ONLY, no geom
+            no user-params, etc... 
+        """
+
+        if not _aperture:
+            return None
+
+        glazing = PHPP_Glazing.from_HB_Const( _aperture.properties.energy.construction )
+        frame = PHPP_Frame.from_HB_Const( _aperture.properties.energy.construction )
+        install = PHPP_Installs()
+
+        window_obj = cls()
+        window_obj.aperture = _aperture
+        window_obj.frame = frame
+        window_obj.glazing = glazing
+        window_obj.installs = install
+        window_obj.install_depth = 0.1
+        window_obj.variant_type = 'a'
+
+        return window_obj
+
+    @classmethod
     def from_dict(cls, _dict):
         
         new_obj = cls()
@@ -714,7 +738,8 @@ class PHPP_Frame(Object):
                self.PsiGVals,
                self.PsiInstalls,
                self.chiGlassCarrier )
-
+    def ToString(self):
+        return str(self)
 
 
 #-------------------------------------------------------------------------------
@@ -737,6 +762,11 @@ class PHPP_Glazing(Object):
     @property
     def gValue(self):
         return float(self._gValue)
+
+    @gValue.setter
+    def gValue(self, _in):
+        if _in:
+            self._gValue = _in
 
     @property
     def uValue(self):
@@ -794,7 +824,6 @@ class PHPP_Glazing(Object):
                self.uValue)
     def ToString(self):
         return str(self)
-
 
 
 #-------------------------------------------------------------------------------
