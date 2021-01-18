@@ -22,7 +22,7 @@
 """
 Creates DHW Branch Piping set for the 'DHW+Distribution' PHPP worksheet.
 -
-EM December 8, 2020
+EM December 9, 2020
     Args:
         pipe_geom_: (Lsit: Curves:) A list of recirculation piping elements. Accepts either numeric values representing the lenghts, or Curve objects from Rhino.
         diameter_: (m) The nominal size of the branch piping lengths. Default is 0.0127m (1/2").
@@ -34,14 +34,10 @@ EM December 8, 2020
 
 ghenv.Component.Name = "LBT2PH_DHW_Piping_Banches"
 ghenv.Component.NickName = "Piping | Branches"
-ghenv.Component.Message = 'DEC_8_2020'
+ghenv.Component.Message = 'DEC_09_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
-
-import rhinoscriptsyntax as rs
-import ghpythonlib.components as ghc
-import Grasshopper.Kernel as ghK
 
 import LBT2PH
 from LBT2PH.helpers import convert_value_to_metric
@@ -53,35 +49,10 @@ reload( LBT2PH.dhw )
 reload( LBT2PH.helpers )
 
 # ------------------------------------------------------------------------------
-def get_pipe_lengths(_input):
-    output = []
-    
-    with LBT2PH.helpers.context_rh_doc( ghdoc ):
-        for geom_input in _input:
-            try:
-                output.append( float(LBT2PH.helpers.convert_value_to_metric(geom_input, 'M')) )
-            except AttributeError as e:
-                crv = rs.coercecurve(geom_input)
-                if crv:
-                    pipeLen = ghc.Length(crv)
-                else:
-                    pipeLen = False
-                
-                if not pipeLen:
-                    crvWarning = "Something went wrong getting the Pipe Geometry length?\n"\
-                    "Please ensure you are passing in only curves / polyline objects or numeric values.?"
-                    ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, crvWarning)
-                else:
-                    output.append(pipeLen)
-    
-    return output
-
-# ------------------------------------------------------------------------------
 branch_piping_ = PHPP_DHW_branch_piping()
 
 if pipe_geom_:
-    lengths = get_pipe_lengths( pipe_geom_ )
-    branch_piping_.length = lengths
+    branch_piping_.set_pipe_lengths(pipe_geom_, ghdoc, ghenv)
     
     if diameter_:
         branch_piping_.diameter = clean_input(diameter_, "diameter_", 'M', ghenv)

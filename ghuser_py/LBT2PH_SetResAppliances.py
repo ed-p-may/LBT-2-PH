@@ -81,7 +81,7 @@ Note: LED strips may have substantially lower efficiencies!
 """
 
 ghenv.Component.Name = "LBT2PH_SetResAppliances"
-ghenv.Component.NickName = "PHPP Res. Appliances"
+ghenv.Component.NickName = "PHPP Residential Appliances"
 ghenv.Component.Message = 'DEC_09_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
