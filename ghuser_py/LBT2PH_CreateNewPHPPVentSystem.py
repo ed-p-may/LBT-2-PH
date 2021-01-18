@@ -22,7 +22,7 @@
 """
 Collects and organizes data for a simple fresh-air ventilation system (HRV/ERV). Outputs a 'ventilation' class object to apply to a HB Zone.
 -
-EM December 5, 2020
+EM January 18, 2020
     Args:
         ventUnitType_: Input Type. Either: "1-Balanced PH ventilation with HR [Default]", "2-Extract air unit", "3-Only window ventilation"
         ventSystemName_: <Optional> A name for the overall system. ie: 'ERV-1', etc.. Will show up in the 'Additional Ventilation' worksheet as the 'Description of Ventilation Units' (E97-E107)
@@ -36,7 +36,7 @@ EM December 5, 2020
 
 ghenv.Component.Name = "LBT2PH_CreateNewPHPPVentSystem"
 ghenv.Component.NickName = "Create Vent System"
-ghenv.Component.Message = 'DEC_05_2020'
+ghenv.Component.Message = 'JAN_18_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -91,7 +91,7 @@ def determineDuctToUse(_input, _inputIndexNum):
     
     return LBT2PH.ventilation.PHPP_Sys_Duct(_duct_input=ductLengths, _ghdoc=ghdoc)
 
-def hrvDuct2(_in):
+def handle_system_type(_in):
      if '2' in str(_in):
          return "2-Extract air unit"
      elif '3' in str(_in):
@@ -111,7 +111,7 @@ hrvDuct2 = determineDuctToUse(hrv_duct_02_, hrvDuct_02_inputNum)
 #-------------------------------------------------------------------------------
 vent_system_ = LBT2PH.ventilation.PHPP_Sys_Ventilation(_ghenv=ghenv)
 
-if vent_system_type_: vent_system_.system_type = hrvDuct2(vent_system_type_)
+if vent_system_type_: vent_system_.system_type = handle_system_type(vent_system_type_)
 if vent_system_name_: vent_system_.system_name = vent_system_name_
 if vent_unit_: vent_system_.vent_unit = vent_unit_
 if hrvDuct1: vent_system_.duct_01 = hrvDuct1
