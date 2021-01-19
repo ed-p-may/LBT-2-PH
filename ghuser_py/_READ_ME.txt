@@ -1,0 +1,1 @@
+NOTE: These .py files are the souce code for the ghuser objects. Unless you are developing new code, you won't actually need these for anything. If you are just 'using' the LBT2PH you can ignore / remove these files from your system.
