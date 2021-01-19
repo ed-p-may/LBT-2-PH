@@ -10,3 +10,10 @@ Next, Install the custom toolbar "PH_Tools.rui" into your Rhino instance to get 
 * scripts: The external .py libraries which are used to execute the LB-2-PH. Copy the 'LBT2PH' folder into your Rhino 'scripts' folder. By default that is sommething like "C:\Users\-you-user-name-here-\AppData\Roaming\McNeel\Rhinoceros\7.0\scripts\\..."
 
 Reboot Rhino. Should be working now.
+
+# HOW-TO
+For more information on the use of these tools, check out the YouTube playlist here:
+https://youtube.com/playlist?list=PLi6KNBJLE8H8pne3QIdlozwWENIF3VV1f
+
+and the Passive House Tools website:
+http://www.PassiveHouseTools.com
