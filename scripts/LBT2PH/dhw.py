@@ -222,7 +222,7 @@ class PHPP_DHW_usage_NonRes(Object):
         return str(self)
 
 class PHPP_DHW_RecircPipe(Object):
-    def __init__(self, _len=[], _d=[0.0254], _t=[0.0254], _lam=[0.04],
+    def __init__(self, _len=[], _d=[25.4], _t=[12.7], _lam=[0.04],
                     _ref=['x'], _q='1-None', _p=18):    
         self.id = random.randint(1000,9999)
         self.lengths = _len
