@@ -1,6 +1,7 @@
 import random
+from System import Object
 
-class PHPP_Verification:
+class PHPP_Verification(Object):
     def __init__(self, _specCapacity=60, _bldgName=None,
                 _bldgCountry='US-United States of America', 
                 _cert_stndard='1-Passive House', _cert_class="1-Classic", 
@@ -36,6 +37,11 @@ class PHPP_Verification:
         else:
             return "1-Passive House"  
 
+    @cert_standard.setter
+    def cert_standard(self, _in):
+        if _in:
+            self._cert_standard = str(_in)
+
     @property
     def cert_class(self):
         if '2' in str(self._cert_class):
@@ -45,6 +51,11 @@ class PHPP_Verification:
         else:
             return "1-Classic"
 
+    @cert_class.setter
+    def cert_class(self, _in):
+        if _in:
+            self._cert_class = str(_in)
+
     @property
     def pe(self):
         if '2' in str(self._cert_pe):
@@ -52,12 +63,22 @@ class PHPP_Verification:
         else:
             return "1-PE (non-renewable)"
 
+    @pe.setter
+    def pe(self, _in):
+        if _in:
+            self._cert_pe = str(_in)
+
     @property
     def enerPHit(self):
         if '2' in str(self._enerPHit):
             return "2-Energy demand method"
         else:
             return "1-Component method" 
+
+    @enerPHit.setter
+    def enerPHit(self, _in):
+        if _in:
+            self._enerPHit = str(_in)
 
     @property
     def retrofit(self):
@@ -67,6 +88,11 @@ class PHPP_Verification:
             return "3-Step-by-step retrofit"
         else:
             return "1-New building"
+
+    @retrofit.setter
+    def retrofit(self, _in):
+        if _in:
+            self._retrofit = str(_in)
 
     def to_dict(self):
         d = {}

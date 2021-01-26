@@ -22,7 +22,7 @@
 """
 Specify the inputs for 'Verification' and 'Climate' PHPP Worksheet items. Note that for climate, if you do not use this component then the LBT-->PHPP component will try and  automatically locate your building based on the EPW longitude and latitude. If you want to  specify the exact PHPP climate data set to use, you can do that with this component.
 -
-EM December 21, 2020
+EM January 25, 2021
     Args:
         _HB_model: The Honeybee Model
         
@@ -48,7 +48,7 @@ EM December 21, 2020
 
 ghenv.Component.Name = "LBT2PH_SetPHPPSetup"
 ghenv.Component.NickName = "PHPP Setup"
-ghenv.Component.Message = 'DEC_21_2020'
+ghenv.Component.Message = 'JAN_25_2021'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -76,6 +76,11 @@ bldgName = '{} {}'.format(prefix, suffix)
 verification = LBT2PH.phpp_setup.PHPP_Verification()
 verification.bldg_name = bldgName
 
+if energy_standard_: verification.cert_standard = energy_standard_
+if certification_class_: verification.cert_class = certification_class_
+if primary_energy_: verification.pe = primary_energy_
+if enerPHit_: verification.enerPHit = enerPHit_
+if retrofit_: verification.retrofit = retrofit_
 if thermalMass_: verification.spec_capacity = thermalMass_ 
 if country_: verification.bldg_country = country_ 
 
