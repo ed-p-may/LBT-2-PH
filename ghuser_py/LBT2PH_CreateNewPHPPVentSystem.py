@@ -91,7 +91,7 @@ def determineDuctToUse(_input, _inputIndexNum):
     
     return LBT2PH.ventilation.PHPP_Sys_Duct(_duct_input=ductLengths, _ghdoc=ghdoc)
 
-def system_type(_in):
+def handle_system_type(_in):
      if '2' in str(_in):
          return "2-Extract air unit"
      elif '3' in str(_in):
@@ -111,7 +111,7 @@ hrvDuct2 = determineDuctToUse(hrv_duct_02_, hrvDuct_02_inputNum)
 #-------------------------------------------------------------------------------
 vent_system_ = LBT2PH.ventilation.PHPP_Sys_Ventilation(_ghenv=ghenv)
 
-if vent_system_type_: vent_system_.system_type = system_type(vent_system_type_)
+if vent_system_type_: vent_system_.system_type = handle_system_type(vent_system_type_)
 if vent_system_name_: vent_system_.system_name = vent_system_name_
 if vent_unit_: vent_system_.vent_unit = vent_unit_
 if hrvDuct1: vent_system_.duct_01 = hrvDuct1
