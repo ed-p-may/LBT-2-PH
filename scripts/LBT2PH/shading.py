@@ -2,6 +2,8 @@ from collections import namedtuple
 import math
 import ghpythonlib.components as ghc
 from System import Object
+from ladybug_rhino.fromgeometry import from_linesegment3d
+
 
 class PHPP_Shading_Dims(Object):
     """ PHPP-Style dimensions to shading objects """
@@ -138,9 +140,9 @@ def find_horizon_shading(_phpp_window_obj, _shadingGeom, _extents=99):
 
     #-----------------------------------------------------------------------
     # Find Starting Point
-    glazingEdges = _phpp_window_obj._get_edges_in_order(_phpp_window_obj.glazing_surface)
-    glazingBottomEdge = glazingEdges[0]
-    ShadingOrigin = ghc.CurveMiddle( glazingBottomEdge )
+    glazingEdges = _phpp_window_obj._get_edges_in_order( _phpp_window_obj.glazing_surface )
+    glazingBottomEdge = glazingEdges.Bottom
+    ShadingOrigin = ghc.CurveMiddle( from_linesegment3d(glazingBottomEdge) )
     UpVector = ghc.VectorXYZ(0,0,1).vector
     
     #-----------------------------------------------------------------------
@@ -203,8 +205,8 @@ def find_overhang_shading(_phpp_window_obj, _shadingGeom, _extents=99):
     # Figure out the glass surface (inset a bit) and then
     # find the origin point for all the subsequent shading calcs (top, middle)
     glzgCenter = ghc.Area(_phpp_window_obj.glazing_surface).centroid
-    glazingEdges = _phpp_window_obj._get_edges_in_order(_phpp_window_obj.glazing_surface)
-    glazingTopEdge = glazingEdges[2]
+    glazingEdges = _phpp_window_obj._get_edges_in_order( _phpp_window_obj.glazing_surface )
+    glazingTopEdge = from_linesegment3d(glazingEdges.Top)
     ShadingOrigin = ghc.CurveMiddle(glazingTopEdge)
     
     # In order to also work for windows which are not vertical, find the 
@@ -216,7 +218,7 @@ def find_overhang_shading(_phpp_window_obj, _shadingGeom, _extents=99):
     # the window. Create a 'test plane' that is _extents (99m) tall and 0.5m past the wall surface, test if
     # any objects intersect that plane. If so, add them to the set of things
     # test in the next step
-    depth = _phpp_window_obj.install_depth + 0.5
+    depth = float(_phpp_window_obj.install_depth) + 0.5
     edge1 = ghc.LineSDL(ShadingOrigin, UpVector, _extents)
     edge2 = ghc.LineSDL(ShadingOrigin, _phpp_window_obj.surface_normal, depth)
     intersectionTestPlane = ghc.SumSurface(edge1, edge2)
@@ -279,18 +281,18 @@ def find_overhang_shading(_phpp_window_obj, _shadingGeom, _extents=99):
 def find_reveal_shading(_phpp_window_obj, _shadingGeom, _extents=99):
     
     WinCenter = ghc.Area(_phpp_window_obj.glazing_surface).centroid
-    edges = _phpp_window_obj._get_edges_in_order(_phpp_window_obj.glazing_surface)
+    edges = _phpp_window_obj._get_edges_in_order( _phpp_window_obj.glazing_surface )
     surface_normal = _phpp_window_obj.surface_normal
 
     #Create the Intersection Surface for each side
-    Side1_OriginPt = ghc.CurveMiddle( edges[1] )
+    Side1_OriginPt = ghc.CurveMiddle( from_linesegment3d(edges.Left) )
     Side1_NormalLine = ghc.LineSDL(Side1_OriginPt, surface_normal, _extents)
     Side1_Direction = ghc.Vector2Pt(WinCenter, Side1_OriginPt, False).vector
     Side1_HorizLine = ghc.LineSDL(Side1_OriginPt, Side1_Direction, _extents)
     Side1_IntersectionSurface = ghc.SumSurface(Side1_NormalLine, Side1_HorizLine)
     
     #Side2_OriginPt = SideMidPoints[1] #ghc.CurveMiddle(self.Edge_Left)
-    Side2_OriginPt = ghc.CurveMiddle( edges[3] )
+    Side2_OriginPt = ghc.CurveMiddle( from_linesegment3d(edges.Right) )
     Side2_NormalLine = ghc.LineSDL(Side2_OriginPt, surface_normal, _extents)
     Side2_Direction = ghc.Vector2Pt(WinCenter, Side2_OriginPt, False).vector
     Side2_HorizLine = ghc.LineSDL(Side2_OriginPt, Side2_Direction, _extents)
@@ -331,8 +333,8 @@ def find_reveal_shading(_phpp_window_obj, _shadingGeom, _extents=99):
         Side2_d_reveal = None
         Side2_CheckLine = Side2_HorizLine
     
-    o_reveal = (Side1_o_reveal + Side2_o_reveal )/ max(1,NumShadedSides)
-    d_reveal = (Side1_d_reveal + Side2_d_reveal )/ max(1,NumShadedSides)
+    o_reveal = None#(Side1_o_reveal + Side2_o_reveal )/ max(1,NumShadedSides)
+    d_reveal = None#(Side1_d_reveal + Side2_d_reveal )/ max(1,NumShadedSides)
     
     return o_reveal, d_reveal, Side1_CheckLine, Side2_CheckLine
 

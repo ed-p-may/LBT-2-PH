@@ -385,14 +385,18 @@ class PHPP_Window(Object):
         
         return srfcPlane
 
-    def _get_edges_in_order(self):
+    def _get_edges_in_order(self, analysis_surface=None):
         """Sort the surface edges using the Degree about center as the Key
         
         Ordering yields edges in the order Bottom / Left / Top / Right
         repackege them unto L/R/B/T for output
-        """
 
-        analysis_surface = self.rh_surface
+        Arguments:
+            analysis_surface (Brep): A rectangular Rino surface to perform the analysis on
+        """
+        
+        if not analysis_surface:
+            analysis_surface = self.rh_surface
 
         srfcPlane = self._get_plane_aligned_to_surface( analysis_surface )
         vectorList = self._get_vector_from_center_to_edge( analysis_surface, srfcPlane)
