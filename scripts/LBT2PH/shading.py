@@ -105,6 +105,19 @@ class PHPP_Shading_Dims(Object):
         
         return new_obj
 
+    def __unicode__(self):
+        return u'A PHPP Shading Dims Object'
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+        return "{}( _horizon={!r}, _overhang={!r}, _reveal={!r})".format(
+               self.__class__.__name__,
+               self.horizon,
+               self.overhang,
+               self.reveal)
+    def ToString(self):
+        return str(self)
+
 def calc_shading_dims_simple(_phpp_window_obj, _shading_objs, _limit=99):
     """Finds PHPP-Style dimensions to relevant shading objects"""
     
@@ -248,7 +261,7 @@ def find_overhang_shading(_phpp_window_obj, _shadingGeom, _extents=99):
     key_point = None
     
     for pt in IntersectionPoints:
-        if pt == None:
+        if pt == None:        
             continue
         
         # Protect against Zero-Length error
@@ -266,15 +279,15 @@ def find_overhang_shading(_phpp_window_obj, _shadingGeom, _extents=99):
     
     #-----------------------------------------------------------------------
     # Use the 'key point' found to deliver the Height and Distance for the PHPP Shading Calculator
-    if key_point is not None:
+    if not key_point:
+        d_over = None
+        o_over = None
+        CheckLine = VerticalLine
+    else:
         d_over = key_point.Z - ShadingOrigin.Z                              # Vertical distance
         Hypot = ghc.Length(ghc.Line(ShadingOrigin, key_point))              # Hypot
         o_over = math.sqrt(Hypot**2 - d_over**2)                            # Horizontal distance
         CheckLine = ghc.Line(ShadingOrigin, key_point)
-    else:
-        d_over = None
-        o_over = None
-        CheckLine = VerticalLine
     
     return d_over, o_over, CheckLine
 
@@ -312,6 +325,8 @@ def find_reveal_shading(_phpp_window_obj, _shadingGeom, _extents=99):
         if ghc.BrepXCurve(_shadingGeom[i],Side2_TesterLine).points != None:
             Side2_RevealShaderObjs.append(_shadingGeom[i])
     
+    #---------------------------------------------------------------------------
+    # Calc Shading reveal dims
     NumShadedSides = 0
     if len(Side1_RevealShaderObjs) != 0:
         Side1_o_reveal = CalcRevealDims(_phpp_window_obj, Side1_RevealShaderObjs, Side1_IntersectionSurface, Side1_OriginPt, Side1_Direction)[0]
@@ -333,9 +348,20 @@ def find_reveal_shading(_phpp_window_obj, _shadingGeom, _extents=99):
         Side2_d_reveal = None
         Side2_CheckLine = Side2_HorizLine
     
-    o_reveal = None#(Side1_o_reveal + Side2_o_reveal )/ max(1,NumShadedSides)
-    d_reveal = None#(Side1_d_reveal + Side2_d_reveal )/ max(1,NumShadedSides)
+    #
+    #
+    #
+    # TODO: how to handel asymetrical reveals????
+
+    o_reveal = Side1_o_reveal#(Side1_o_reveal + Side2_o_reveal )/ max(1,NumShadedSides)
+    d_reveal = Side1_d_reveal#(Side1_d_reveal + Side2_d_reveal )/ max(1,NumShadedSides)
     
+    #
+    #
+    #
+    #
+    #
+
     return o_reveal, d_reveal, Side1_CheckLine, Side2_CheckLine
 
 def CalcRevealDims(_phpp_window_obj, RevealShaderObjs_input, SideIntersectionSurface, Side_OriginPt, Side_Direction):

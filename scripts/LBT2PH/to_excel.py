@@ -475,7 +475,7 @@ def build_shading(_inputBranch, _surfacesIncluded):
         row_count += 1
         
         #-----------------------------------------------------------------------
-        shading_dims = window.shading_dimensions
+        shading_dims = window.shading_dimensions        
         if shading_dims:
             try:
                 shading_list.append( PHPP_XL_Obj( 'Shading', '{}{}'.format('Z', row),  shading_dims.horizon.h_hori))
