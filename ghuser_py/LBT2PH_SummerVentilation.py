@@ -23,19 +23,19 @@
 """
 Use this component to add summmer ventilation to Honeybee rooms. This controls the inputs on the PHPP 'SummVent' worksheet. Use this to input the total daytime and nighttime ACH from any 'additional' ventilation beyond the basic HRV/ERV. This could be from operable windows, additional fans or any other method used to increase airflow during the summer months.
 -
-EM November 25, 2020
+EM January 31, 2021
     Args:
         _HB_rooms: The Honeybee rooms to add summer-ventilation to.
         use_default_: <boolean> Default=False. Set True to use 'default' values for all summer-vent. This is recommended.
-        basic_ach_: <float> The Air-Changes-per-Hour (ACH) during the daytime.
-        nighttime_ach_: <float> The Air-Changes-per-Hour (ACH) during the nighttime.
+        basic_ach_: <float> The Air-Changes-per-Hour (ACH) during the daytime. Note, this value gets applied to EACH HB-Room you pass in. In the PHPP, the SummVent worksheet will be the Total of all the HB-Room ach values.
+        nighttime_ach_: <float> The Air-Changes-per-Hour (ACH) during the nighttime. Note, this value gets applied to EACH HB-Room you pass in. In the PHPP, the SummVent worksheet will be the Total of all the HB-Room ach values.
     Returns:
         HB_rooms_: The Honeybee rooms with the summer-ventilation added.
 """
 
 ghenv.Component.Name = "LBT2PH_SummerVentilation"
 ghenv.Component.NickName = "SummerVent"
-ghenv.Component.Message = 'NOV_25_2020'
+ghenv.Component.Message = 'JAN_31_2021'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | PHPP"

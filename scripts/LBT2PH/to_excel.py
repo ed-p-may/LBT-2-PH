@@ -1400,12 +1400,9 @@ def build_summ_vent( _summ_vent_objs ):
             night_ach_vals += float( each.night_ach )
         except Exception as e:
             night_ach = each.night_ach
-
-    if day_ach_vals:
-        day_ach = sum(day_ach_vals)
-
-    if night_ach_vals:
-        night_ach = sum(night_ach_vals)
+    
+    if day_ach_vals: day_ach = day_ach_vals
+    if night_ach_vals: night_ach = night_ach_vals
 
     #---------------------------------------------------------------------------
     # Write out to Excel

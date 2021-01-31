@@ -138,7 +138,7 @@ if _HB_model:
     occupancy                        = LBT2PH.to_excel.build_occupancy( occupancy )
     variants                         = LBT2PH.to_excel.build_variants( variants_ )
     ud_custom                        = LBT2PH.to_excel.build_ud_custom( ud_custom_ )
-    print phpp_spaces
+    
     #---------------------------------------------------------------------------
     # Add all the Excel-Ready Objects to a master Tree for outputting / passing
     excel_objects_.AddRange(uValuesList, GH_Path(0))
