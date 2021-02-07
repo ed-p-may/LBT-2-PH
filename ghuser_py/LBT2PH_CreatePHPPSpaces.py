@@ -174,14 +174,13 @@ for tfa_srfc in tfa_srfcs_cleaned:
     # If no closables match found, create a default space volume
     # If no space geom input, just build a default size space for each
     
-    
     # --------------------------------------------------------------------------
     if _spaces_geometry:
         for i, space_geometry in enumerate(space_geom):
             joined_vol = ghc.BrepJoin([space_geometry, tfa_srfc.surface])
             if joined_vol.closed is True:
                 new_space_vol = LBT2PH.spaces.Volume( tfa_srfc, joined_vol )
-                _spaces_geometry.pop(i)
+                #_spaces_geometry.pop(i) # Causes error sometimes... used to speed things up. Might be another way
                 break
         else:
             msg = 'Could not join {} with any space geometry.'.format(tfa_srfc.dict_key)
