@@ -658,7 +658,7 @@ class Space:
 
     @property
     def center_point(self):
-        cps = [ ghc.Area(tfa_srfc).center for tfa_srfc in self.space_tfa_surfaces ]
+        cps = [ ghc.Area(tfa_srfc).centroid for tfa_srfc in self.space_tfa_surfaces ]
         cp = ghc.Average(cps)
               
         return rs.CreatePoint(*cp)

@@ -43,10 +43,14 @@ def context_rh_doc(_ghdoc):
     ''' Switches the sc.doc to the Rhino Active Doc temporaily '''
     if not _ghdoc:
         return
-
+    
     try:
         sc.doc = Rhino.RhinoDoc.ActiveDoc
         yield
+    except Exception as e:
+        sc.doc = _ghdoc
+        print(e)
+        raise Exception
     finally:
         sc.doc = _ghdoc
 

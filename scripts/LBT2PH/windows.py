@@ -1,6 +1,7 @@
 import rhinoscriptsyntax as rs
 import Rhino
 import ghpythonlib.components as ghc
+import Grasshopper.Kernel as ghK
 import json
 import math
 from collections import namedtuple
@@ -1015,7 +1016,7 @@ def create_EP_const(_win_EP_material):
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-def build_frame_and_glass_objs_from_RH_doc(_ghdoc):
+def build_frame_and_glass_objs_from_RH_doc(_ghdoc, _ghenv):
     """ Loads window-type entries from DocumentUseText library of the Active Rhino doc.
 
         Note, it determines if its a 'window-type' entry by looking for the 
@@ -1027,12 +1028,12 @@ def build_frame_and_glass_objs_from_RH_doc(_ghdoc):
         PHPPLibrary_ (dict): A dictionary of all the window-type entries
             found with their parameters.
     """
-    
+
     PHPPLibrary_ = {'lib_GlazingTypes':{}, 'lib_FrameTypes':{}, 'lib_PsiInstalls':{}}
     lib_GlazingTypes = {}
     lib_FrameTypes = {}
     lib_PsiInstalls = {}
-
+    
     with LBT2PH.helpers.context_rh_doc(_ghdoc):
         # First, try and pull in the Rhino Document's PHPP Library
         # And make new Frame and Glass Objects. Add all of em' to new dictionaries
@@ -1041,43 +1042,64 @@ def build_frame_and_glass_objs_from_RH_doc(_ghdoc):
         
         for eachKey in rs.GetDocumentUserText():
             if 'PHPP_lib_Glazing' in eachKey:
-                tempDict = json.loads(rs.GetDocumentUserText(eachKey))
-                newGlazingObject = PHPP_Glazing(
-                                tempDict['Name'],
-                                tempDict['gValue'],
-                                tempDict['uValue']
-                                )
-                lib_GlazingTypes[tempDict['Name']] = newGlazingObject
+                try:
+                    tempDict = json.loads(rs.GetDocumentUserText(eachKey))
+                    newGlazingObject = PHPP_Glazing(
+                                    tempDict['Name'],
+                                    tempDict['gValue'],
+                                    tempDict['uValue']
+                                    )
+                    lib_GlazingTypes[tempDict['Name']] = newGlazingObject
+                except:
+                    msg = 'Something went wrong trying to get the Rhino\n'\
+                        'information related to the Glazing? Check your\n'\
+                        'input values there and make sure that it is all filled in\n'\
+                        'correctly?'
+                    _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Error, msg)
             elif '_PsiInstall_' in eachKey:
-                tempDict = json.loads(rs.GetDocumentUserText(eachKey))
-                newPsiInstallObject = PHPP_Installs(
-                                [
-                                tempDict['Left'],
-                                tempDict['Right'],
-                                tempDict['Bottom'],
-                                tempDict['Top']
-                                ]
-                                )
-                lib_PsiInstalls[tempDict['Typename']] = newPsiInstallObject
+                try:
+                    tempDict = json.loads(rs.GetDocumentUserText(eachKey))
+                    newPsiInstallObject = PHPP_Installs(
+                                    [
+                                    tempDict['Left'],
+                                    tempDict['Right'],
+                                    tempDict['Bottom'],
+                                    tempDict['Top']
+                                    ]
+                                    )
+                    lib_PsiInstalls[tempDict['Typename']] = newPsiInstallObject
+                except Exception as e:
+                    msg = 'Something went wrong trying to get the Rhino\n'\
+                        'information related to the window Psi-Install values? Check your\n'\
+                        'input values there and make sure that it is all filled in\n'\
+                        'correctly?'
+                    _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Error, msg)
             elif 'PHPP_lib_Frame' in eachKey:
-                tempDict = json.loads(rs.GetDocumentUserText(eachKey))
-                newFrameObject = PHPP_Frame()
-                newFrameObject.name = tempDict.get('Name', 'Unnamed Frame')
-                newFrameObject.uValues = [
-                                tempDict.get('uFrame_L', 1.0), tempDict.get('uFrame_R', 1.0),
-                                tempDict.get('uFrame_B', 1.0), tempDict.get('uFrame_T', 1.0) ]
-                newFrameObject.frameWidths =[
-                                tempDict.get('wFrame_L', 0.12), tempDict.get('wFrame_R', 0.12),
-                                tempDict.get('wFrame_B', 0.12), tempDict.get('wFrame_T', 0.12) ]
-                newFrameObject.PsiGVals = [
-                                tempDict.get('psiG_L', 0.04), tempDict.get('psiG_R', 0.04),
-                                tempDict.get('psiG_B', 0.04), tempDict.get('psiG_T', 0.04) ]
-                newFrameObject.Installs = [
-                                tempDict.get('psiInst_L', 0.04), tempDict.get('psiInst_R', 0.04),
-                                tempDict.get('psiInst_B', 0.04), tempDict.get('psiInst_T', 0.04) ]
-                   
-                lib_FrameTypes[ newFrameObject.name ] = newFrameObject
-        
+                try:
+                    tempDict = json.loads(rs.GetDocumentUserText(eachKey))
+                    newFrameObject = PHPP_Frame()
+                    newFrameObject.name = tempDict.get('Name', 'Unnamed Frame')
+                    newFrameObject.uValues = [
+                                    tempDict.get('uFrame_L', 1.0), tempDict.get('uFrame_R', 1.0),
+                                    tempDict.get('uFrame_B', 1.0), tempDict.get('uFrame_T', 1.0) ]
+                    newFrameObject.frameWidths =[
+                                    tempDict.get('wFrame_L', 0.12), tempDict.get('wFrame_R', 0.12),
+                                    tempDict.get('wFrame_B', 0.12), tempDict.get('wFrame_T', 0.12) ]
+                    newFrameObject.PsiGVals = [
+                                    tempDict.get('psiG_L', 0.04), tempDict.get('psiG_R', 0.04),
+                                    tempDict.get('psiG_B', 0.04), tempDict.get('psiG_T', 0.04) ]
+                    newFrameObject.Installs = [
+                                    tempDict.get('psiInst_L', 0.04), tempDict.get('psiInst_R', 0.04),
+                                    tempDict.get('psiInst_B', 0.04), tempDict.get('psiInst_T', 0.04) ]
+                    
+                    lib_FrameTypes[ newFrameObject.name ] = newFrameObject
+                except Exception as e:
+                    msg = 'Something went wrong trying to get the Rhino\n'\
+                        'information related to the window frames? Check your\n'\
+                        'input values there and make sure that it is all filled in\n'\
+                        'correctly?'
+                    _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Error, msg)
+                    
         PHPPLibrary_['lib_GlazingTypes'] = lib_GlazingTypes
         PHPPLibrary_['lib_FrameTypes'] = lib_FrameTypes
         PHPPLibrary_['lib_PsiInstalls'] = lib_PsiInstalls
