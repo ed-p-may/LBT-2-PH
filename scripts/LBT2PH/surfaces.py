@@ -13,6 +13,7 @@ try:  # import the core honeybee dependencies
     from honeybee.facetype import Wall, RoofCeiling, Floor
     from honeybee.typing import clean_and_id_ep_string
     from honeybee_energy.material.opaque import EnergyMaterialNoMass
+    import ladybug_geometry
 except ImportError as e:
     raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
@@ -137,31 +138,35 @@ class PHPP_Surface:
         self.lbt_srfc = _lbt_face
         self.HostZoneName = _rm_name
         self.HostZoneID = _rm_id
-        self.scene_north_vector = self.calc_scene_north_vector()
+        self.scene_north_vector = self.calc_scene_north_vector(_scene_north_vec)
         self.ghenv = _ghenv
         self.Factor_Shading = 0.5
         self.Factor_Absorptivity = 0.6
         self.Factor_Emissivity = 0.9
     
-    def calc_scene_north_vector(_input_vector):
+    def calc_scene_north_vector(self, _input_vector):
         ''' 
         Arguments:
             _input_vector: Vector2d or an anlge representing the scene's North direction 
         Returns:
             north_vector:
         '''
-        
-        default_north_vector = north_vec = Rhino.Geometry.Vector2d(0,1)
+
+        default_north_vector = Rhino.Geometry.Vector2d(0,1)
         
         if _input_vector is None:
             return default_north_vector
         
+        if isinstance(_input_vector, ladybug_geometry.geometry2d.pointvector.Vector2D):
+            return _input_vector
+
         if isinstance(_input_vector, Rhino.Geometry.Vector2d):
             return _input_vector
         
+        # If its an angle input, create the vector from the angle
         try:
             angle = float(_input_vector)
-            return default_north_vector
+            return angle
         except:
             return default_north_vector
 
@@ -291,9 +296,14 @@ class PHPP_Surface:
         x1 = self.NormalVector.x
         y1 = self.NormalVector.y
         
-        x2 = self.scene_north_vector.X
-        y2 = self.scene_north_vector.Y
-        
+        # Note: ladybug_geometry vectors use lowercase 'x', Rhino uses uppercase 'X'
+        try:
+            x2 = self.scene_north_vector.X
+            y2 = self.scene_north_vector.Y
+        except AttributeError as e:
+            x2 = self.scene_north_vector.x
+            y2 = self.scene_north_vector.y
+
         # Calc the angle between the vectors
         angle = math.atan2(y2, x2) - math.atan2(y1, x1)
         angle = angle * 360 / (2 * math.pi)
