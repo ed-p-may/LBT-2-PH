@@ -109,14 +109,46 @@ class PHPP_Zone:
        return "{}(_room={!r})".format(
             self.__class__.__name__, self.hb_room)
 
+
+def rhino_vector2d_from_angle(_angle=0):
+    """ Get a Rhino Vector2d from a numeric angle
+
+        Arguments:
+            _angle (float): Angle in degrees. Note, this should
+            be a positive value representing the degree of
+            rotation (about the Z axis) from Y. North 0=0
+            West=90, South=180, East=270
+    """
+
+    if not _angle:
+        return None
+
+    # Use the Grasshopper rotate to create the new vector
+    # according to the numeric angle
+    origin = Rhino.Geometry.Point3d(0,0,0)
+    north_axis = Rhino.Geometry.Vector3d(0,1,0) 
+    angle = ghc.Radians(_angle)
+    rotation_axis_vec = Rhino.Geometry.Vector3d(0,0,1)
+    rotation_axis_line = ghc.LineSDL(origin, rotation_axis_vec, 1)
+    north_vec = ghc.RotateAxis(north_axis, angle, rotation_axis_line).geometry
+
+    return north_vec
+
 def _find_north( _north ):
     if _north:
         try:
+            # If the input is a vector, convert to ladybug vector2d
             return to_vector2d( _north )
-        except AttributeError as e:  # north angle instead of vector
-            return float(_north)
+        except AttributeError as e:  
+            # If its not an error, must be a number. So first create a Rhino vector
+            try:
+                rh_vec = rhino_vector2d_from_angle(float(_north))
+                return to_vector2d( rh_vec )
+            except Exception as e:
+                print(e)
+                raise e
     else:
-        return to_vector2d( Rhino.Geometry.Vector2d(1,2) )
+        return to_vector2d( Rhino.Geometry.Vector2d(0,1) )
 
 def get_zones_from_model(_model):
     zones = []
