@@ -108,7 +108,8 @@ gh_inputs = izip(ud_frames, ud_glazings,  ud_installs)
 # Get the Rhino Scene UserText (window Library)
 # Build Glazing, Frame and Install objects for everything that is found there
 #-------------------------------------------------------------------------------
-rh_doc_frame_and_glass_objs = LBT2PH.windows.build_frame_and_glass_objs_from_RH_doc(ghdoc, ghenv)
+if apertures:
+    rh_doc_frame_and_glass_objs = LBT2PH.windows.build_frame_and_glass_objs_from_RH_doc(ghdoc, ghenv)
 
 
 # Build the new Aperture and PHPP Window Objects
