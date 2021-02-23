@@ -26,6 +26,11 @@ class PHPP_Verification(Object):
             print(e)
             return 60
 
+    @spec_capacity.setter
+    def spec_capacity(self, _in):
+        if _in:
+            self._spec_capacity = str(_in)
+
     @property
     def cert_standard(self):
         if '2' in str(self._cert_standard):

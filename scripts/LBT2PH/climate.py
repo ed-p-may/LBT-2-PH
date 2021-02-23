@@ -1,14 +1,21 @@
 import random
 
 class PHPP_ClimateDataSet:
-    
-    def __init__(self, _dataSet='US0055b-New York', _alt='=J23', _cntry='US-United States of America', _reg='New York'):
+
+    def __init__(self, _dataSet=None, _alt=None, _cntry=None, _reg=None):
         self.id = random.randint(1000,9999)
         self.DataSet = _dataSet
         self.Altitude = _alt
         self.Country = _cntry
         self.Region = _reg
     
+    def __bool__(self):
+        if self.DataSet and self.Country and self.Region:
+            return True
+        else:
+            return False
+
+    __nonzero__ = __bool__
 
     def to_dict(self):
         d = {}

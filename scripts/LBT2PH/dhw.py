@@ -7,7 +7,7 @@ import Rhino
 
 from LBT2PH.helpers import convert_value_to_metric, context_rh_doc
 
-class PHPP_DHW_System:
+class PHPP_DHW_System(object):
     def __init__(self, _rms_assigned=[], _name='DHW',
                 _usage=None, _fwdT=60,
                 _pCirc={}, 
@@ -21,11 +21,40 @@ class PHPP_DHW_System:
         self.forwardTemp = _fwdT
         self.circulation_piping = _pCirc
         self.branch_piping = _pBran
-        self.tank1 = _t1
-        self.tank2 = _t2
+        self._tank1 = _t1
+        self._tank2 = _t2
         self.tank_buffer = _tBf
         self.rooms_assigned_to = _rms_assigned
     
+    @property
+    def tank1(self):
+        return self._tank1
+
+    @tank1.setter
+    def tank1(self, _in):
+        if not _in:
+            return None
+        
+        if 'DEFAULT' in str(_in).upper():
+            self._tank1 = PHPP_DHW_tank.from_default()
+        else:
+            self._tank1 = _in
+
+    @property
+    def tank2(self):
+        return self._tank2
+
+    @tank2.setter
+    def tank2(self, _in):
+        
+        if not _in:
+            return None
+        
+        if 'DEFAULT' in str(_in).upper():
+            self._tank2 = PHPP_DHW_tank.from_default()
+        else:
+            self._tank2 = _in
+
     def to_dict(self):
         d = {}
 
@@ -37,8 +66,10 @@ class PHPP_DHW_System:
         
         # Protect against Nones
         if self.usage:       d.update( {'usage': self.usage.to_dict() } )
-        if self.tank1:       d.update( {'tank1':self.tank1.to_dict()} )
-        if self.tank2:       d.update( {'tank2':self.tank2.to_dict()} )
+
+        # Build default tank if bool True is input
+        if self._tank1:       d.update( {'tank1':self.tank1.to_dict()} )
+        if self._tank2:       d.update( {'tank2':self.tank2.to_dict()} )
         if self.tank_buffer: d.update( {'tank_buffer':self.tank_buffer.to_dict() } )
 
         d.update( {'circulation_piping': {} } ) 
@@ -586,6 +617,15 @@ class PHPP_DHW_tank(Object):
 
         return new_obj
     
+    @classmethod
+    def from_default(cls):
+        
+        new_obj = cls()
+        new_obj.type = '1-DHW and heating'
+        new_obj.hl_rate = 4 #W/k
+
+        return new_obj
+
     def __unicode__(self):
         return u'A DHW Tank Object'    
     def __str__(self):

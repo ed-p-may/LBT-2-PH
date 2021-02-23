@@ -23,7 +23,7 @@
 Collects and organizes data for a DHW System. Hook up inputs from DHW components and this will organize for the excel writere.
 Connect the output to the 'dhw_' input on the 'Create Excel Obj - Setup' component to use.
 -
-EM December 9, 2020
+EM February 22, 2021
     Args:
         _system_name: (str) The name / idenfitier for the System.
         _HB_rooms: The Honeybee-Rooms you would like to apply the DHW System to.
@@ -36,9 +36,11 @@ EM December 9, 2020
         ['DHW+Distribution', Cells J167:N175]
         tank1_: The main DHW tank (if any) used. Input the results of a 'DHW Tank' component.
         ['DHW+Distribution', Cells J186:J204]
-        tank2_: The secondary DHW tank (if any) used. Input the results of a 'DHW Tank' component. 
+        Note - Optionally, pass in the string 'default' in order to assign a default tank with a heat loss rate of 4 W/k.
+        tank2_: The secondary DHW tank (if any) used. Input the results of a 'DHW Tank' component.
         ['DHW+Distribution', Cells M186:M204]
-        buffer_tank_: The DHW buffer tank (if any) used. Input the results of a 'DHW Tank' component. 
+        Note - Optionally, pass in the string 'default' in order to assign a default tank with a heat loss rate of 4 W/k.
+        buffer_tank_: The DHW buffer tank (if any) used. Input the results of a 'DHW Tank' component.
         ['DHW+Distribution', Cells P186:P204]
     Returns:
         dhw_: The combined DHW System object with all params. Connect this to the 'dhw_' input on the 'Create Excel Obj - Setup' component to use.
@@ -46,7 +48,7 @@ EM December 9, 2020
 
 ghenv.Component.Name = "LBT2PH_DHW_System"
 ghenv.Component.NickName = "DHW"
-ghenv.Component.Message = 'DEC_09_2020'
+ghenv.Component.Message = 'FEB_22_2021'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"

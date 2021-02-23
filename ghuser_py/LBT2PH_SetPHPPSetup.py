@@ -22,9 +22,9 @@
 """
 Specify the inputs for 'Verification' and 'Climate' PHPP Worksheet items. Note that for climate, if you do not use this component then the LBT-->PHPP component will try and  automatically locate your building based on the EPW longitude and latitude. If you want to  specify the exact PHPP climate data set to use, you can do that with this component.
 -
-EM January 25, 2021
+EM February 22, 2021
     Args:
-        _HB_model: The Honeybee Model
+
         
         energyStandard_: <Optional> Input either "1-Passive House", "2-EnerPHit", "3-PHI Low Energy Building" or "4-Other"
         certification_class_: <Optional> Input either "1-Classic", "2-Plus" or "3-Premium"
@@ -39,16 +39,19 @@ EM January 25, 2021
 > For Non-Residential, input either: "2-Standard" or "4-PHPP calculation ('IHG non-res' worksheet)"
         thermalMass_: <Optional, Default=60>  Average Specific Heat Capacity (Wh/k-m2 TFA) of the building. Lightweight=60, Mixed=132, Heavy=204
         
+        country_: <Optional, Default = 'US-United States of America	'>
+        region_: <Options, Default = 'New York'>
         climateDataSet_: <Optional, Default='DE-9999-PHPP-Standard'> The name of the PHPP climate data set to use. Just type in for now. Maybe a value-list someday...
         altitude_: <Optional, Default='=J23'> Altitude adjustment factor (m) for the climate dataset. Default links to the weather station altidue loaded in the PHPP.
-        country_: <Optional, Default = 'US-United States of America	'>
+        
+        _HB_model: The Honeybee Model
     Returns:
         HB_model_: 
 """
 
 ghenv.Component.Name = "LBT2PH_SetPHPPSetup"
 ghenv.Component.NickName = "PHPP Setup"
-ghenv.Component.Message = 'JAN_25_2021'
+ghenv.Component.Message = 'FEB_22_2021'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"

@@ -370,15 +370,26 @@ def get_lighting(_model):
 
 def get_climate(_model, _epw_file):
     if not _model.user_data:
+        # No user_data, so auto-find the nearest climate based on the EPW file location
+
         print('No User_Data dict found on the model. Using automatic climate for now.')
-        # Auto-find the nearest climate based on the EPW file location
         return find_nearest_phpp_climate( _epw_file )
     else:
+        # If there IS a user_dict on the model, try and pull the climate info out of it.
+        # Try and build a new UD-Climate obj from the dict data.
+        # If any of the dict data for Country, Region and Set are None, then
+        # use the EPW to find the nearest cliamte instead.
+
         ud_climate_params = _model.user_data.get('phpp', {}).get('climate', None)
+
         if ud_climate_params:
-            # Build a ud climate obj
             for climate_dict in ud_climate_params.values():
-                return [ LBT2PH.climate.PHPP_ClimateDataSet.from_dict( climate_dict ) ]
+                ud_climate_obj = LBT2PH.climate.PHPP_ClimateDataSet.from_dict( climate_dict )
+                
+                if ud_climate_obj:
+                    return [ ud_climate_obj ]
+                else:
+                    return find_nearest_phpp_climate( _epw_file )  
         else:
             return find_nearest_phpp_climate( _epw_file )  
 
@@ -425,16 +436,16 @@ def find_nearest_phpp_climate(_epw_file):
         each['distToEPW'] = kmFromEPWLocation
     
     climate_data.sort(key=lambda e: e['distToEPW'])
-    climateSetToUse = climate_data[0]
+    climate_set_to_use = climate_data[0]
     
-    dataSet = climateSetToUse.get('Dataset', 'US0055b-New York')
+    dataSet = climate_set_to_use.get('Dataset', 'US0055b-New York')
     alt = '=J23'
-    country = climateSetToUse.get('Country', 'US-United States of America')
-    region = climateSetToUse.get('Region', 'New York')
+    country = climate_set_to_use.get('Country', 'US-United States of America')
+    region = climate_set_to_use.get('Region', 'New York')
     
-    climateSetToUse = LBT2PH.climate.PHPP_ClimateDataSet(dataSet, alt, country, region)
+    climate_set_to_use = LBT2PH.climate.PHPP_ClimateDataSet(dataSet, alt, country, region)
     
-    return [ climateSetToUse ]
+    return [ climate_set_to_use ]
 
 def get_footprint( _surfaces ):
     # Finds the 'footprint' of the building for 'Primary Energy Renewable' reference
