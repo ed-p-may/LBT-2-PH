@@ -2,7 +2,7 @@ import random
 
 class PHPP_ClimateDataSet:
 
-    def __init__(self, _dataSet=None, _alt=None, _cntry=None, _reg=None):
+    def __init__(self, _dataSet=None, _alt='=J23', _cntry=None, _reg=None):
         self.id = random.randint(1000,9999)
         self.DataSet = _dataSet
         self.Altitude = _alt

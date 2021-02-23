@@ -600,4 +600,3 @@ def get_occupancy( _model ):
         
     return LBT2PH.occupancy.Occupancy.from_dict( d ) 
 
-
