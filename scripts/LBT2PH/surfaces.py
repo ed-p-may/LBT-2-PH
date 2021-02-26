@@ -419,22 +419,6 @@ def determine_surface_type_by_orientation(_surfaces):
             face_normal = _f.NormalAt(u, v)
 
             return face_normal
-        
-        """
-        # Deprecated?
-        def avg_normal_vectors(_vectors):
-            x, y, z = 0, 0, 0
-            for v in _vectors:
-                x += v.X
-                y += v.Y
-                z += v.Z
-
-            x = x/len(_vectors)
-            y = y/len(_vectors)
-            z = z/len(_vectors)
-            
-            return Rhino.Geometry.Vector3d(x, y, z)
-        """
 
         maximumRoofAngle = 30
         try:

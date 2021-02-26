@@ -10,9 +10,11 @@ from System import Object
 
 import LBT2PH
 import LBT2PH.helpers
+import LBT2PH.helpers_geometry
 import LBT2PH.shading
 
 reload(LBT2PH.helpers)
+reload(LBT2PH.helpers_geometry)
 reload( LBT2PH.shading )
 
 try:  # import the core honeybee dependencies
@@ -40,10 +42,12 @@ class PHPP_Window(Object):
         * '_glazing_edge_lengths'
         * '_window_edges'
         * '_glazing_surface'
+        * '.UD_glass_Name'
+        * 'UD_frame_Name'
+        * 'variant_type'
         * '_shading_factor_winter'
         * '_shading_factor_summer'
         * 'shading_dimensions'
-        * 'name'
         * 'frame'
         * 'glazing'
         * 'installs'
@@ -127,31 +131,11 @@ class PHPP_Window(Object):
         else:
             geom = self.inset_window_surface
 
-            # Create the frame and instet surfaces
-            WinCenter = ghc.Area(geom).centroid
-            WinNormalVector = self.surface_normal
+            frame_width = self.frame.fLeft # assumes all widths are the same!?
+            inset_srfc = LBT2PH.helpers_geometry.inset_rhino_surface(geom, frame_width, self.name)
+            self._glazing_surface = inset_srfc
             
-            #Create the Inset Perimeter Curve
-            WinEdges = ghc.DeconstructBrep(geom).edges
-            WinPerimeter = ghc.JoinCurves(WinEdges, False)
-            FrameWidth = self.frame.fLeft
-
-            InsetCurve = rs.OffsetCurve(WinPerimeter, WinCenter, FrameWidth, WinNormalVector, 0)
-            
-            # In case the curve goes 'out' and the offset fails
-            # Or is too small and results in multiple offset Curves
-            if len(InsetCurve)>1:
-                warning = 'Error. The window named: "{}" is too small. The frame offset of {} m can not be done. Check the frame sizes?'.format(self.Name, FrameWidth)
-                print(warning)
-                
-                InsetCurve = rs.OffsetCurve(WinPerimeter, WinCenter, 0.05, WinNormalVector, 0)
-                InsetCurve = rs.coercecurve( InsetCurve[0] )
-            else:
-                InsetCurve = rs.coercecurve( InsetCurve[0] )
-            
-            srfc = ghc.BoundarySurfaces(InsetCurve)
-            self._glazing_surface = srfc
-            return srfc
+            return inset_srfc
 
     @property
     def u_w_installed(self):
@@ -287,6 +271,7 @@ class PHPP_Window(Object):
     @property
     def inset_window_surface(self):
         """Moves the window geometry based on the InstallDepth param """
+
         orientation = -1 # don't remember why this is...
 
         transform_vector = ghc.Amplitude(self.surface_normal, float(self.install_depth) * orientation)

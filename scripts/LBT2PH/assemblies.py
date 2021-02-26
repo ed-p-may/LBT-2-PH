@@ -169,7 +169,7 @@ def create_std_mass_material():
         return None
 
 def create_HB_material_no_mass(_material_name, _material_r_value):   
-    ''' Creates an HB Style "No-Mass" Material '''
+    """ Creates an HB Style "No-Mass" Material """
 
     try:
         # set the default material properties

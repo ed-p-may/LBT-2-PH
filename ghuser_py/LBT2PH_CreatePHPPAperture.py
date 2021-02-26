@@ -22,7 +22,7 @@
 """
 Use this component AFTER a Honeybee 'Aperture' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant.
 -
-EM February 11, 2021
+EM February 26, 2021
     Args:
         apertures: <list> The HB Aperture objects from a 'Aperture' component
         frames_: <list> Optional. PHPP Frame Object or Objects
@@ -34,7 +34,7 @@ EM February 11, 2021
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPAperture"
 ghenv.Component.NickName = "PHPP Aperture"
-ghenv.Component.Message = 'FEB_11_2021'
+ghenv.Component.Message = 'FEB_26_2021'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -45,10 +45,14 @@ import System
 import LBT2PH
 import LBT2PH.windows
 import LBT2PH.helpers
+import LBT2PH.helpers_geometry
 
 reload(LBT2PH)
 reload(LBT2PH.windows)
 reload(LBT2PH.helpers)
+reload(LBT2PH.helpers_geometry)
+
+from honeybee.aperture import Aperture
 
 def aperture_sources():
     ''' Find the component input source with the name "apertures" '''
@@ -105,7 +109,7 @@ ud_installs = cleanInput([installs_], len(apertures))
 gh_inputs = izip(ud_frames, ud_glazings,  ud_installs)
 
 
-# Get the Rhino Scene UserText (window Library)
+# Get the Rhino-Scene UserText (window Library)
 # Build Glazing, Frame and Install objects for everything that is found there
 #-------------------------------------------------------------------------------
 if apertures:
@@ -177,12 +181,16 @@ for aperture, window_guid, gh_input in izip(apertures, window_guids, gh_inputs):
     window_EP_material = LBT2PH.windows.create_EP_window_mat( window_obj )
     window_EP_const = LBT2PH.windows.create_EP_const( window_EP_material )
     
+    #---------------------------------------------------------------------------
+    # Inset the Surface just a little bit to ensure it can be hosted properly
+    inset_ap_geometry = LBT2PH.helpers_geometry.inset_LBT_Face3d(aperture.geometry, 0.0005)
+    
     
     #---------------------------------------------------------------------------
     # Create a new Aperture object and modify it's properties
     # Package up the data onto the 'Aperture' objects' user_data
     
-    new_ap = aperture.duplicate()
+    new_ap = Aperture(aperture.identifier, inset_ap_geometry, is_operable=aperture.is_operable)
     
     new_ap.properties.energy.construction = window_EP_const
     new_name = aperture_params.get('Object Name', None)
