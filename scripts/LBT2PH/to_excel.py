@@ -1435,7 +1435,12 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
         if boiler:
             hc_equip.append( PHPP_XL_Obj('Boiler', 'N21', boiler.type)) 
             hc_equip.append( PHPP_XL_Obj('Boiler', 'N22', boiler.fuel)) 
-            hc_equip.append( PHPP_XL_Obj('Boiler', 'M31', boiler.use_typical_vals)) 
+            
+            # If the use supplied detailed performance values, enter all of those
+            if boiler.params:
+                hc_equip.append( PHPP_XL_Obj('Boiler', 'M31', 'X'))
+                for cellrange, val in boiler.get_params().items():
+                    hc_equip.append( PHPP_XL_Obj('Boiler', str(cellrange), str(val)))
 
         #-----------------------------------------------------------------------
         hp_heating = params.get('hp_heating', None)

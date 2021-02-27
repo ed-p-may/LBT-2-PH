@@ -43,7 +43,7 @@ Leave blank if no secondary heat generation equipment is used.
         dhwFracPrimary_: <Optional, Default=100%> A number from 0-1. The percentage of DHW Energy that comes from the 'Primary' heater. The rest will come from the 'Secondary' heater.
         mech_cooling_: (bool) Default=False. This turns mechanical cooling (ac) 'on'. Leave blank or set False to have mechanical cooling 'off' in the PHPP model. Set TRUE in order to turn active cooling 'on'.
         
-        boiler_: <Optional, Default=None> A typical hot water Boiler system parameters. Connect to the 'Heating:Boiler' Component.
+        boiler_: <Optional, Default=None> A typical hot water Boiler system parameters. Connect to the 'Heating | Boiler' Component.
         hp_heating_: <Optional, Default=None> Heat Pump unit for space heating
         hp_DHW_: <Optional, Default=None> Heat Pump unit for Domestic Hot Water (DHW)
         hpGround_: <Optional, Default=None> Not implemented yet....

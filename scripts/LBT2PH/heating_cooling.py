@@ -127,19 +127,143 @@ class PHPP_PER(Object):
             self.dhw_frac,
             self.mech_cooling)
 
-class PHPP_Boiler(Object):
-    def __init__(self, _type=None, _fuel=None, _useTypical=True):
-        self.type = _type
-        self.name = _fuel
-        self.use_typical_vals = _useTypical
+class PHPP_Boiler(object):
+    
+    # Type Data and Type/Fuel combinations allowed
+    boiler_types = {
+        1:  {'name':'1-None',
+            'valid_fuels':['None', '-']},
+        10: {'name':'10-Improved gas condensing boiler',
+            'valid_fuels':[30, 31, 32, 98]},
+        12: {'name':'12-Gas condensing boiler',
+            'valid_fuels':[30, 31, 32, 98]},
+        20: {'name':'20-Low temperature boiler gas',
+            'valid_fuels':[30, 31, 32, 98]},
+        11: {'name':'11-Improved oil condensing boiler',
+            'valid_fuels':[20, 21, 22]},
+        13: {'name':'13-Oil condensing boiler',
+            'valid_fuels':[20, 21, 22]},
+        21: {'name':'21-Low temperature boiler oil',
+            'valid_fuels':[20, 21, 22]},
+        30: {'name':'30-Firewood pieces (direct and indirect heat emission)',
+            'valid_fuels':[44, 46, 47, 41, 42, 98]},
+        31: {'name':'31-Wood pellets (direct and indirect heat emission)',
+            'valid_fuels':[50]},
+        32: {'name':'32-Wood pellets (only indirect heat emission)',
+            'valid_fuels':[50]},
+    }
+
+    # PHPP Fuel-Type data
+    fuel_types = {
+        1:  {'name': 'None'},
+        20: {'name': '20-Heating oil'},
+        21: {'name': '21-Pyrolysis oil or bio oil'},
+        30: {'name': '30-Natural gas'},
+        31: {'name': '31-LPG'},
+        32: {'name': '32-Biogas'},
+        33: {'name': '33-RE-Gas'},
+        44: {'name': '44-Wood logs'},
+        46: {'name': '46-Forest woodchips'},
+        47: {'name': '47-Poplar woodchips'},
+        41: {'name': '41-Hard coal'},
+        42: {'name': '42-Brown coal'},
+        50: {'name': '50-Pellets'},
+    }
+
+    def __init__(self, _name="Default Boiler", _type='1-None', _fuel='None', _params=False):
+        self.id = random.randint(1000,9999)
+        self.name = _name
+        self._type = _type
+        self._type_num = 1
+        self._fuel = _fuel
+        self._fuel_num = 'None'
+        self.params = _params
+
+    @property
+    def type(self):
+        return self._type
+
+    @type.setter
+    def type(self, _in):
+        if not _in: return None
+
+        if '10' in str(_in): self._type_num = 10
+        elif '11' in str(_in): self._type_num = 11
+        elif '12' in str(_in): self._type_num = 12
+        elif '13' in str(_in): self._type_num = 13
+        elif '20' in str(_in): self._type_num = 20
+        elif '21' in str(_in): self._type_num = 21
+        elif '30' in str(_in): self._type_num = 30
+        elif '31' in str(_in): self._type_num = 31
+        elif '32' in str(_in): self._type_num = 32
+        else: self._type_num = 1
+
+        self._type = self.boiler_types[self._type_num]['name']
+    @property
+    def fuel(self):
+        return self._fuel
+
+    @fuel.setter
+    def fuel(self, _in):
+        if not _in: return None
+        
+        if '20' in str(_in): self._fuel_num = 20
+        elif '21' in str(_in): self._fuel_num = 21
+        elif '22' in str(_in): self._fuel_num = 22
+        elif '30' in str(_in): self._fuel_num = 30
+        elif '31' in str(_in): self._fuel_num = 31
+        elif '32' in str(_in): self._fuel_num = 32
+        elif '33' in str(_in): self._fuel_num = 33
+        elif '44' in str(_in): self._fuel_num = 44
+        elif '46' in str(_in): self._fuel_num = 46
+        elif '47' in str(_in): self._fuel_num = 47
+        elif '41' in str(_in): self._fuel_num = 41
+        elif '42' in str(_in): self._fuel_num = 42
+        elif '50' in str(_in): self._fuel_num = 50
+        else: self._fuel_num = 1
+        
+        self._fuel = self.fuel_types.get(self._fuel_num)['name']
+
+    def check_valid_fuel(self):
+        """ Gives a warning to the user if an invalid combination of type+fuel is input """
+        
+        valid_fuels = self.boiler_types.get(self._type_num)['valid_fuels']
+        if not self._fuel_num in valid_fuels:
+            msg =  'Please select a valid fuel type.\n'\
+                'The boiler type: "{}" is not \n'\
+                'compatible with fuel type: "{}".'.format(self.type, self.fuel)
+
+            return msg
+        
+    def get_params(self):
+        """ Splits the input string/list into a dictionary
+        Args:
+            self.params
+        Returns:
+            param_dict (dict): A dict with the structure {CellRange:Value, ....}
+        """
+        
+        if not self.params:
+            return {}
+        
+        param_dict = {}
+        for input_string in self.params:
+            parts = input_string.split(':')
+            if len(parts) != 2:
+                continue
+            else:
+                param_dict[parts[0]] = parts[1]
+
+        return param_dict
 
     def to_dict(self):
         d = {}
 
         d.update({'id':self.id})
-        d.update({'type':self.type})
         d.update({'name':self.name})
-        d.update({'use_typical_vals':self.use_typical_vals})
+        d.update({'type':self.type})
+        d.update({'fuel':self.fuel})
+        d.update({'params':self.params})
 
         return d
 
@@ -148,11 +272,28 @@ class PHPP_Boiler(Object):
         new_obj = cls()
         
         new_obj.id = _dict.get('id')
-        new_obj.type = _dict.get('type')
         new_obj.name = _dict.get('name')
-        new_obj.use_typical_vals = _dict.get('use_typical_vals')
+        new_obj.type = _dict.get('type')
+        new_obj.fuel = _dict.get('fuel')
+        new_obj.params = _dict.get('params')
 
         return new_obj
+
+    def __unicode__(self):
+        return u"A PHPP Boiler Object < {} >".format(self.id)
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+       return "{}(_name={!r}, _type={!r}, _fuel={!r}, _params={!r})".format(
+            self.__class__.__name__, 
+            self.name,
+            self.type,
+            self.fuel,
+            self._params,
+             )
+    def ToString(self):
+        return str(self)
+
 
 class PHPP_Cooling_SupplyAir(Object):
     def __init__(self, _on_off=None, _maxCap=1000, _seer=3):
@@ -222,6 +363,8 @@ class PHPP_Cooling_SupplyAir(Object):
             self.on_off,
             self.max_capacity,
             self.seer)
+    def ToString(self):
+        return str(self)
 
 class PHPP_Cooling_RecircAir(Object):
     def __init__(self, _on_off=None, _maxCap=1000, _nomVol=100, _varVol='x', _seer=3):
@@ -318,6 +461,8 @@ class PHPP_Cooling_RecircAir(Object):
             self.__class__.__name__, self.on_off,
             self.max_capacity, self.nominal_vol,
             self.variable_vol, self.seer)
+    def ToString(self):
+        return str(self)
 
 class PHPP_Cooling_Dehumid(Object):
     def __init__(self, _wst2Rm=None, _seer=3):
@@ -373,6 +518,8 @@ class PHPP_Cooling_Dehumid(Object):
     def __repr__(self):
        return "{}( _wst2Rm={!r}, _seer={!r} )".format(
             self.__class__.__name__,self.waste_to_room, self.seer)
+    def ToString(self):
+        return str(self)
 
 class PHPP_Cooling_Panel(Object):
     def __init__(self, _seer=3):
@@ -411,6 +558,8 @@ class PHPP_Cooling_Panel(Object):
     def __repr__(self):
        return "{}( _seer={!r} )".format(
             self.__class__.__name__, self.seer)
+    def ToString(self):
+        return str(self)
 
 class PHPP_HP_AirSource(Object):
     def __init__(self, _nm='Default Heat Pump', _src='1-Outdoor air', 
@@ -551,6 +700,8 @@ class PHPP_HP_AirSource(Object):
             self.__class__.__name__, self.name, self._source,
             self._T_sources, self._T_sinks, self._hcs,
             self._cops, self.sink_dt, self.warnings)
+    def ToString(self):
+        return str(self)
 
 class PHPP_HP_Options(Object):
     def __init__(self, _fwdT=35, _ph_dist='3-Supply air heating', _nPwr=None,
@@ -680,7 +831,8 @@ class PHPP_HP_Options(Object):
             self.dT_elec_flow,
             self.depth_groundwater,
             self.power_groundwater )
-
+    def ToString(self):
+        return str(self)
 
 
 
