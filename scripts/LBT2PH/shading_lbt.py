@@ -21,6 +21,23 @@ try:
 except ImportError as e:
     raise ImportError('\nFailed to import ladybug_rhino:\n\t{}'.format(e))
 
+"""
+Note: The main functions / methods used here come from the Ladybug Tools libraries. 
+For more information on Ladybug Tools see:
+> https://www.ladybug.tools/
+> https://github.com/ladybug-tools
+
+In particular, the follow functions are copied from the 
+Ladybug Tools (V1.1.1 - Feb 2021) 'IncidentRadiation' Component:
+> create_shading_mesh()
+> deconstruct_sky_matrix()
+> generate_intersection_data()
+> create_graphic_container()
+> create_rhino_mesh()
+
+it may be neccessary to upate these functions someday, depending on how the 
+codebase for Ladybug Tools evolves/updates
+"""
 
 # Cacl Radiation
 #-------------------------------------------------------------------------------

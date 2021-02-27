@@ -27,7 +27,7 @@ This will add the appliances to the entire model.
 Note that by default this component will ONLY modify the PHPP appliance set, not the EnergyPlus appliance set. In order to apply these loads to your Honeybee model as well as the PHPP set the 'set_honeybee_loads_' option to 'True'.
 - 
 
-EM December 9, 2020
+EM February 27, 2021
     Args:
         _HB_model: The Honeybee Model
         use_resi_defaults_: (bool) Default=False. Set this to 'True' in order to apply the 'typical' residential appliance package.
@@ -82,7 +82,7 @@ Note: LED strips may have substantially lower efficiencies!
 
 ghenv.Component.Name = "LBT2PH_SetResAppliances"
 ghenv.Component.NickName = "PHPP Residential Appliances"
-ghenv.Component.Message = 'DEC_09_2020'
+ghenv.Component.Message = 'FEB_27_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -91,6 +91,7 @@ import LBT2PH
 import LBT2PH.appliances
 import LBT2PH.schedules
 import LBT2PH.occupancy
+from LBT2PH.helpers import preview_obj
 
 reload( LBT2PH )
 reload( LBT2PH.appliances )
@@ -171,6 +172,9 @@ for each in other_[0:2]:
     app.name = name
     
     appliances_list.append( app )
+
+for each in appliances_list:
+    preview_obj(each)
 
 
 # Add to the PHPP User_Data Dict

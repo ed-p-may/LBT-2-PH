@@ -21,7 +21,7 @@
 #
 """
 -
-EM December 23, 2020
+EM February 27, 2020
     Args:
         north_: <Optional :float :vector> A number between -360 and 360 for the counterclockwise or a vector pointing 'north'
             difference between the North and the positive Y-axis in degrees.
@@ -54,7 +54,7 @@ EM December 23, 2020
 
 ghenv.Component.Name = "LBT2PH_ConvertLBT2PHPPObjs"
 ghenv.Component.NickName = "LBT-->PHPP"
-ghenv.Component.Message = 'DEC_23_2020'
+ghenv.Component.Message = 'FEB_27_2020'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "02 | LBT2PHPP"
@@ -67,12 +67,21 @@ import Grasshopper.Kernel as ghK
 import LBT2PH
 import LBT2PH.lbt_to_phpp
 import LBT2PH.to_excel
+import LBT2PH.helpers
 
-reload(LBT2PH)
-reload(LBT2PH.lbt_to_phpp)
+reload( LBT2PH)
+reload( LBT2PH.lbt_to_phpp)
 reload( LBT2PH.to_excel )
+reload( LBT2PH.helpers)
 
 excel_objects_ = DataTree[Object]() 
+
+#-------------------------------------------------------------------------------
+#Unit Check
+msg = LBT2PH.helpers.unit_check()
+if msg:
+    ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
+
 
 #-------------------------------------------------------------------------------
 # Get all the info from the LBT Model
@@ -96,6 +105,7 @@ if _HB_model:
     appliances              = LBT2PH.lbt_to_phpp.get_appliances(_HB_model)
     lighting                = LBT2PH.lbt_to_phpp.get_lighting(_HB_model)
     climate                 = LBT2PH.lbt_to_phpp.get_climate(_HB_model, epw_file_)
+    
     footprint               = LBT2PH.lbt_to_phpp.get_footprint(surfaces_opaque)
     footprint_              = footprint.Footprint_surface
     

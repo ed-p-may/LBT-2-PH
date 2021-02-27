@@ -454,34 +454,50 @@ def get_footprint( _surfaces ):
     # 3) Find the 'box' for the single joined brep
     # 4) Find the lowest Z points on the box, offset another 10 units 'down'
     # 5) Make a new Plane at this new location
-    # 6) Projects the brep onto the new Plane
+    # 6) Projects the brep edges onto the new Plane
+    # 7) Split a surface using the edges, combine back into a single surface
     
     Footprint = namedtuple('Footprint', ['Footprint_surface', 'Footprint_area'])
     
-    #-----
-    surfaces = [from_face3d(surface.Srfc) for surface in _surfaces]
+    #----- Build brep
+    surfaces = (from_face3d(surface.Srfc) for surface in _surfaces)
     bldg_mass = ghc.BrepJoin( surfaces ).breps
+    bldg_mass = ghc.BoundaryVolume(bldg_mass)
     if not bldg_mass:
         return Footprint(None, None)
     
     #------- Find Corners, Find 'bottom' (lowest Z)
-    return Footprint(bldg_mass, 4)
     bldg_mass_corners = [v for v in ghc.BoxCorners(bldg_mass)]
-
     bldg_mass_corners.sort(reverse=False, key=lambda point3D: point3D.Z)
     rect_pts = bldg_mass_corners[0:3]
-    
-    #------- Project Brep to Footprint
+
+    #------- Projection Plane
     projection_plane1 = ghc.Plane3Pt(rect_pts[0], rect_pts[1], rect_pts[2])
     projection_plane2 = ghc.Move(projection_plane1, ghc.UnitZ(-10)).geometry
     matrix = rs.XformPlanarProjection(projection_plane2)
-    footprint_srfc = ghc.Transform(bldg_mass, matrix )
-    footprint_area = ghc.Area(footprint_srfc).area
+
+    #------- Project Edges onto Projection Plane
+    projected_edges = []
+    for edge in ghc.DeconstructBrep(bldg_mass).edges:
+        projected_edges.append( ghc.Transform( edge, matrix) )
+
+    #------- Split the projection surface using the curves
+    l1 = ghc.Line(rect_pts[0], rect_pts[1])
+    l2 = ghc.Line(rect_pts[0], rect_pts[2])
+    max_length = max(ghc.Length(l1), ghc.Length(l2))
+
+    projection_surface = ghc.Polygon(projection_plane2, max_length*100, 4, 0).polygon
+    projected_surfaces = ghc.SurfaceSplit( projection_surface, projected_edges)
+
+    #------- Remove the biggest surface from the set(the background srfc)
+    projected_surfaces.sort( key=lambda x: x.GetArea()) 
+    projected_surfaces.pop(-1)
     
-    #------- Output
-    fp = Footprint(footprint_srfc, footprint_area)
-    
-    return fp
+    #------- Join the new srfcs back together into a single one
+    unioned_NURB = ghc.RegionUnion( projected_surfaces )
+    unioned_surface = ghc.BoundarySurfaces(unioned_NURB)
+
+    return Footprint(unioned_surface, unioned_surface.GetArea())
 
 def get_thermal_bridges(_model, _ghenv):
     results = []

@@ -788,4 +788,3 @@ def clean_input(_in, _nm, _unit='-', _ghenv=None):
         msg = '"{}" input should be a number'.format(_nm)
         _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
         return _in
-

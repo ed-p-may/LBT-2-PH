@@ -239,3 +239,20 @@ def get_rh_obj_UserText_dict(_ghdoc, _rh_obj_guid):
         object_rh_UserText_dict['Object Name'] = object_name
 
     return object_rh_UserText_dict
+
+def unit_check():
+    """ Warns the user if the Rhino doc is not set to 'Meters' as the unit """
+
+    current_unit_num = rs.UnitSystem()
+    current_unit_name = Rhino.UnitSystem(current_unit_num)
+    msg = None
+
+    if str(current_unit_name).upper() != 'METERS':
+        msg = "Warning: The Rhino scene's current units are set to: '{}'\n"\
+            "LBT2PH currently only works reliably when the Rhino scene units are\n"\
+            "are set to 'METERS'. You can still export to the IP version of PHPP,\n"\
+            "but within the Rhino scene, please set your units to 'METERS' otherwise\n"\
+            "some of the data will not be converted correctly. Sorry about that.\n"\
+            "We're working on it.....".format(current_unit_name)
+
+    return msg
