@@ -985,6 +985,17 @@ def combine_DHW_systems(_dhwSystems):
         else:
             return None
     
+    def combineSolar(_dhwSystems):
+        print('Not Implemented yet....')
+        #
+        #
+        #
+        #TODO
+        #
+        #
+        #
+        return None
+
     print('Combining together DHW Systems...')
     #Combine Usages
     showers = []
@@ -1054,6 +1065,10 @@ def combine_DHW_systems(_dhwSystems):
     tank2 = combineTank(_dhwSystems, 'tank2')
     tank_buffer = combineTank(_dhwSystems, 'tank_buffer')
     
+    # Combine Solar HW Systems
+    print('>>>>', _dhwSystems)
+    solar_combined = combineSolar(_dhwSystems)
+    
     # Build the combined / Averaged DHW System
     combinedDHWSys = LBT2PH.dhw.PHPP_DHW_System(
                          _name='Combined', 
@@ -1063,7 +1078,8 @@ def combine_DHW_systems(_dhwSystems):
                          _pBran=combined_BranchPipings, 
                          _t1=tank1, 
                          _t2=tank2, 
-                         _tBf=tank_buffer
+                         _tBf=tank_buffer,
+                         _solar=solar_combined,
                          )
     
     return combinedDHWSys
@@ -1091,7 +1107,7 @@ def build_DHW_system(_dhw_systems, _hb_rooms, _ghenv):
     # DHW System Excel Objs
     dhwSystem = []
     if dhw_:
-        print("Creating the 'DHW' Objects...")
+        print("Creating the 'DHW', 'SolarDHW' Objects...")
         dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J146', dhw_.forwardTemp, 'C', 'F'))
         dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P145', 0, 'C', 'F'))
         dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P29', 0, 'C', 'F'))
@@ -1176,7 +1192,25 @@ def build_DHW_system(_dhw_systems, _hb_rooms, _ghenv):
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P192', dhw_.tank_buffer.vol, 'LITER', 'GALLON'))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P195', dhw_.tank_buffer.location))
             dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P198', dhw_.tank_buffer.location_t, 'C', 'F'))
-        
+        if dhw_.solar:
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'G14', dhw_.solar.host_surface))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'G19', dhw_.solar.angle_off_north))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'G20', dhw_.solar.angle_off_horizontal))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'G22', dhw_.solar.collector_area))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'G24', dhw_.solar.collector_height))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'G25', dhw_.solar.horizon_height))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'G26', dhw_.solar.horizon_distance))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'G27', dhw_.solar.additional_reduction_fac))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'K14', dhw_.solar.collector_type))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'M15', dhw_.solar.heating_support))
+            dhwSystem.append( PHPP_XL_Obj('SolarDHW', 'M16', dhw_.solar.dhw_priority))
+
+            # Pumps for solar
+            dhwSystem.append( PHPP_XL_Obj('Aux Electricity', 'F31', 1))
+            dhwSystem.append( PHPP_XL_Obj('Aux Electricity', 'H31', 1))
+            dhwSystem.append( PHPP_XL_Obj('Aux Electricity', 'H35', 1))
+
+
     return dhwSystem
 
 def build_appliances(_appliances, _hb_room_names, _ghenv):

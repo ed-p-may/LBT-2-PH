@@ -10,20 +10,20 @@ from LBT2PH.helpers import convert_value_to_metric, context_rh_doc
 class PHPP_DHW_System(object):
     def __init__(self, _rms_assigned=[], _name='DHW',
                 _usage=None, _fwdT=60,
-                _pCirc={}, 
-                _pBran={}, 
-                _t1=None, 
-                _t2=None, 
-                _tBf=None):
+                _pCirc={}, _pBran={}, 
+                _t1=None, _t2=None, 
+                _tBf=None, _solar=None):
         self.id = random.randint(1000,9999)
         self.SystemName = _name
         self.usage = _usage
+          
         self.forwardTemp = _fwdT
         self.circulation_piping = _pCirc
         self.branch_piping = _pBran
         self._tank1 = _t1
         self._tank2 = _t2
         self.tank_buffer = _tBf
+        self.solar = _solar
         self.rooms_assigned_to = _rms_assigned
     
     @property
@@ -46,9 +46,7 @@ class PHPP_DHW_System(object):
 
     @tank2.setter
     def tank2(self, _in):
-        
-        if not _in:
-            return None
+        if not _in: return None
         
         if 'DEFAULT' in str(_in).upper():
             self._tank2 = PHPP_DHW_tank.from_default()
@@ -70,7 +68,8 @@ class PHPP_DHW_System(object):
         # Build default tank if bool True is input
         if self._tank1:       d.update( {'tank1':self.tank1.to_dict()} )
         if self._tank2:       d.update( {'tank2':self.tank2.to_dict()} )
-        if self.tank_buffer: d.update( {'tank_buffer':self.tank_buffer.to_dict() } )
+        if self.tank_buffer:  d.update( {'tank_buffer':self.tank_buffer.to_dict() } )
+        if self.solar:        d.update( {'solar':self.solar.to_dict() } ) 
 
         d.update( {'circulation_piping': {} } ) 
         circ_piping = {} or self.circulation_piping
@@ -106,6 +105,7 @@ class PHPP_DHW_System(object):
         new_obj.tank1 = PHPP_DHW_tank.from_dict( _dict.get('tank1') )
         new_obj.tank2 = PHPP_DHW_tank.from_dict( _dict.get('tank2') )
         new_obj.tank_buffer = PHPP_DHW_tank.from_dict( _dict.get('tank_buffer') )
+        new_obj.solar = PHPP_DHW_Solar.from_dict( _dict.get('solar') )
     
         usage = _dict.get('usage')
         if usage:
@@ -118,6 +118,24 @@ class PHPP_DHW_System(object):
         new_obj.usage = usage
         
         return new_obj
+
+    def check_tanks_for_solar_connection(self):
+        """Looks at all the tanks to see if any have a solar connection """
+        
+        solar_connection = False
+        for tank in [self.tank1, self.tank2, self.tank_buffer]:
+            if not tank: continue
+            if tank.solar:
+                solar_connection = True
+                break
+
+        if solar_connection:
+            msg = None
+        else:
+            msg = 'It appears you have a Solar Thermal systems applied, but none\n'\
+                'of the tanks have a solar thermal connection? Please make sure that\n'\
+                'at least one tank has "tank_solar_" set to "True".'
+        return msg
 
     def __unicode__(self):
         return u'A PHPP Style DHW System: < {self.SystemName} >'.format(self=self)
@@ -644,8 +662,113 @@ class PHPP_DHW_tank(Object):
     def ToString(self):
         return str(self)
 
+class PHPP_DHW_Solar(object):
+    def __init__(self, 
+                _angle_off_north=None, 
+                _angle_off_horizontal=None, 
+                _host_srfc=None,
+                _collector_type='6-Standard flat plate collector',                    
+                _collector_area=10,
+                _collector_height=1,
+                _horizon_height=0, 
+                _horizon_distance=1000,
+                _additional_reduction_fac=1,
+                _heating_support=None,
+                _dhw_priority='X'):
+        self.id = random.randint(1000,9999)
+        self.angle_off_north = _angle_off_north
+        self.angle_off_horizontal = _angle_off_horizontal
+        self.host_surface = _host_srfc
+        self._collector_type = _collector_type
+        self.collector_area = _collector_area
+        self.collector_height = _collector_height
+        self.horizon_height = _horizon_height
+        self.horizon_distance = _horizon_distance
+        self._additional_reduction_fac = _additional_reduction_fac
+        self.heating_support = _heating_support
+        self.dhw_priority = _dhw_priority
+
+    @property
+    def collector_type(self):
+        return self._collector_type
+
+    @collector_type.setter
+    def collector_type(self, _in):
+        if not _in: return None
+
+        if '7' in str(_in):
+            _type = '7-Improved flat place collector'
+        elif '8' in str(_in):
+            _type = '8-Evacuated tube collector'
+        else:
+            _type = '6-Standard flat plate collector'
+
+        self._collector_type = _type
+
+    @property
+    def additional_reduction_fac(self):
+        return self._additional_reduction_fac
+
+    @additional_reduction_fac.setter
+    def additional_reduction_fac(self, _in):
+        if not _in: return None
+
+        if float(_in) > 1:
+            value = float(_in) / 100
+        else:
+            value = float(_in)
+        
+        self._additional_reduction_fac = value
+
+    def to_dict(self):
+        d = {}
+
+        d.update( {'id':self.id} )
+        d.update( {'angle_off_north':self.angle_off_north} )
+        d.update( {'angle_off_horizontal':self.angle_off_horizontal} )
+        d.update( {'host_surface':self.host_surface} )
+        d.update( {'collector_type':self.collector_type} )
+        d.update( {'collector_area':self.collector_area} )
+        d.update( {'collector_height':self.collector_height} )
+        d.update( {'horizon_height':self.horizon_height} )
+        d.update( {'horizon_distance':self.horizon_distance} )
+        d.update( {'additional_reduction_fac':self.additional_reduction_fac} )
+        d.update( {'heating_support':self.heating_support} )
+        d.update( {'dhw_priority':self.dhw_priority} )
+
+        return d 
+
+    @classmethod
+    def from_dict(cls, _dict):
+        if not _dict: return None
+        
+        new_obj = cls()
+
+        new_obj.id = _dict.get('id')
+        new_obj.angle_off_north = _dict.get('angle_off_north')
+        new_obj.angle_off_horizontal = _dict.get('angle_off_horizontal')
+        new_obj.host_surface = _dict.get('host_surface')
+        new_obj.collector_type = _dict.get('collector_type')
+        new_obj.collector_area = _dict.get('collector_area')
+        new_obj.collector_height = _dict.get('collector_height')
+        new_obj.horizon_height = _dict.get('horizon_height')
+        new_obj.horizon_distance = _dict.get('horizon_distance')
+        new_obj.additional_reduction_fac = _dict.get('additional_reduction_fac')
+        new_obj.heating_support = _dict.get('heating_support')
+        new_obj.dhw_priority = _dict.get('dhw_priority')
+
+        return new_obj
+
+    def __unicode__(self):
+        return u"A Solar Thermal Hot Water System Object < {} >".format(self.id)
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+       return "{}()".format(self.__class__.__name__)
+    def ToString(self):
+        return str(self)
+
 def clean_input(_in, _nm, _unit='-', _ghenv=None):
-    
     try:
         out = float(convert_value_to_metric(_in, _unit) )
         
@@ -665,3 +788,4 @@ def clean_input(_in, _nm, _unit='-', _ghenv=None):
         msg = '"{}" input should be a number'.format(_nm)
         _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
         return _in
+
