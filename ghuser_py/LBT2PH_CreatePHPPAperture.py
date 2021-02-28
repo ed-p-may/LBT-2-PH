@@ -22,7 +22,7 @@
 """
 Use this component AFTER a Honeybee 'Aperture' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant.
 -
-EM February 26, 2021
+EM February 27, 2021
     Args:
         apertures: <list> The HB Aperture objects from a 'Aperture' component
         frames_: <list> Optional. PHPP Frame Object or Objects
@@ -34,7 +34,7 @@ EM February 26, 2021
 
 ghenv.Component.Name = "LBT2PH_CreatePHPPAperture"
 ghenv.Component.NickName = "PHPP Aperture"
-ghenv.Component.Message = 'FEB_26_2021'
+ghenv.Component.Message = 'FEB_27_2021'
 ghenv.Component.IconDisplayMode = ghenv.Component.IconDisplayMode.application
 ghenv.Component.Category = "PH-Tools"
 ghenv.Component.SubCategory = "01 | Model"
@@ -55,7 +55,7 @@ reload(LBT2PH.helpers_geometry)
 from honeybee.aperture import Aperture
 
 def aperture_sources():
-    ''' Find the component input source with the name "apertures" '''
+    ''' Find the component input source node with the name "apertures" '''
     
     for input in ghenv.Component.Params.Input:
         if input.NickName == 'apertures':
@@ -66,17 +66,29 @@ def aperture_sources():
 def window_rh_Guids():
     ''' Work backwards to get the Guid of the original input geom '''
     
-    apertures = aperture_sources()
-    if apertures is None:
+    apertures_input_node = aperture_sources()
+    if apertures_input_node is None:
         return None
     
-    hb_aperture_compo = apertures.Attributes.GetTopLevel.DocObject
+    aperture_source_compo = apertures_input_node.Attributes.GetTopLevel.DocObject
+    
+    # Since the user MIGHT be using the normal Honeybee 'Aperture' OR they
+    # might be using something like glazing by ratio, need to do some sort of check 
+    # regarding where the aperture is coming from. Use the name? So for now, this
+    # will only try and go get Rhino-scene info when used with the specific 
+    # HB component? Might want to change that someday....
     
     rh_doc_window_guids = []
-    for input in hb_aperture_compo.Params.Input[0].VolatileData[0]:
-        guid_as_str = input.ReferenceID.ToString() 
+    if aperture_source_compo.Name != "HB Aperture":
+        # if its not the 'HB Aperture' compo, just return about bunch of Nones....
+        for input_aperture in apertures_input_node.VolatileData:
+            rh_doc_window_guids.append( None )
         
+        return rh_doc_window_guids
+    
+    for input in aperture_source_compo.Params.Input[0].VolatileData[0]:
         try:
+            guid_as_str = input.ReferenceID.ToString() 
             rh_doc_window_guids.append( System.Guid(guid_as_str) )
         except:
             rh_doc_window_guids.append( None )
