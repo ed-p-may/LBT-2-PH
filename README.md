@@ -1,4 +1,4 @@
-# LBT-2-PH
+# LBT-2-PH v0.1 (Beta Release | March 1, 2021)
 LBT-2-PH is a free toolkit for creating PHPP energy models from Ladybug Tools v1.0+ definitions. These components are updated to work with the new LBTv1.+ tools and replace the older 'IDF-2-PH' toolkit.
 
 Folders:
