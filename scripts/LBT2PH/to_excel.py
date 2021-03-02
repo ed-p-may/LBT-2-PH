@@ -1231,23 +1231,23 @@ def build_appliances(_appliances, _hb_room_names, _ghenv):
     for appliance in _appliances:
         if 'dishwasher' in appliance.name:
             if appliance.nominal_demand:
-                apps.append( PHPP_XL_Obj('Electricity', 'F14', 1) )
+                apps.append( PHPP_XL_Obj('Electricity', 'F14', appliance.include) )
                 apps.append( PHPP_XL_Obj('Electricity', 'H14', 1) )
                 apps.append( PHPP_XL_Obj('Electricity', 'J14', appliance.nominal_demand) )
                 apps.append( PHPP_XL_Obj('Electricity', 'D15', appliance.type) )
             else:
-                apps.append( PHPP_XL_Obj('Electricity', 'F14', 1) )
+                apps.append( PHPP_XL_Obj('Electricity', 'F14', appliance.include) )
                 apps.append( PHPP_XL_Obj('Electricity', 'H14', 1) )
                 apps.append( PHPP_XL_Obj('Electricity', 'J14', appliance.nominal_demand) )
                 apps.append( PHPP_XL_Obj('Electricity', 'D15', appliance.type) )
         elif 'clothesWasher' in appliance.name:
-            apps.append( PHPP_XL_Obj('Electricity', 'F16', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'F16', appliance.include) )
             apps.append( PHPP_XL_Obj('Electricity', 'H16', 1) )
             apps.append( PHPP_XL_Obj('Electricity', 'J16', appliance.nominal_demand) )
             apps.append( PHPP_XL_Obj('Electricity', 'N16', appliance.utilization_factor) )
             apps.append( PHPP_XL_Obj('Electricity', 'D17', appliance.type) )
         elif 'clothesDryer' in appliance.name:
-            apps.append( PHPP_XL_Obj('Electricity', 'F18', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'F18', appliance.include) )
             apps.append( PHPP_XL_Obj('Electricity', 'H18', 1) )
             if 'GAS' in appliance.type.upper():
                 apps.append( PHPP_XL_Obj('Electricity', 'J19', appliance.nominal_demand) )
@@ -1256,15 +1256,15 @@ def build_appliances(_appliances, _hb_room_names, _ghenv):
             apps.append( PHPP_XL_Obj('Electricity', 'D19', appliance.type) )
             apps.append( PHPP_XL_Obj('Electricity', 'L19', 0.60) )
         elif 'fridge' == appliance.name:
-            apps.append( PHPP_XL_Obj('Electricity', 'F21', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'F21', appliance.include) )
             apps.append( PHPP_XL_Obj('Electricity', 'H21', 1) )
             apps.append( PHPP_XL_Obj('Electricity', 'J21', appliance.nominal_demand) )
         elif 'freezer' == appliance.name:
-            apps.append( PHPP_XL_Obj('Electricity', 'F22', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'F22', appliance.include) )
             apps.append( PHPP_XL_Obj('Electricity', 'H22', 1) )
             apps.append( PHPP_XL_Obj('Electricity', 'J22', appliance.nominal_demand) )
         elif 'fridgeFreezer' == appliance.name:
-            apps.append( PHPP_XL_Obj('Electricity', 'F23', 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'F23', appliance.include) )
             apps.append( PHPP_XL_Obj('Electricity', 'H23', 1) )
             apps.append( PHPP_XL_Obj('Electricity', 'J23', appliance.nominal_demand) )
         elif 'cooking' in appliance.name:
@@ -1276,7 +1276,7 @@ def build_appliances(_appliances, _hb_room_names, _ghenv):
         else:
             # Other
             apps.append( PHPP_XL_Obj('Electricity', 'D{}'.format(other_count+31), appliance.name) )
-            apps.append( PHPP_XL_Obj('Electricity', 'F{}'.format(other_count+31), 1) )
+            apps.append( PHPP_XL_Obj('Electricity', 'F{}'.format(other_count+31), appliance.include) )
             apps.append( PHPP_XL_Obj('Electricity', 'H{}'.format(other_count+31), 1) )
             apps.append( PHPP_XL_Obj('Electricity', 'J{}'.format(other_count+31), appliance.nominal_demand) )
             other_count +=1
@@ -1455,7 +1455,7 @@ def build_summ_vent( _summ_vent_objs ):
 
 def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
     hc_equip = []
-    hp_count = 0
+    hp_units = {'heating':None, 'dhw':None}
 
     if not _heating_cooling_objs:
         return hc_equip
@@ -1479,7 +1479,7 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
         #-----------------------------------------------------------------------
         hp_heating = params.get('hp_heating', None)
         if hp_heating:
-            hp_count +=1
+            hp_units['heating'] = 1
             hc_equip.append( PHPP_XL_Obj('HP', 'J21', '4-' + hp_heating.name))
             hc_equip.append( PHPP_XL_Obj('HP', 'I635', hp_heating.name)) 
             hc_equip.append( PHPP_XL_Obj('HP', 'I637', hp_heating.source)) 
@@ -1510,7 +1510,7 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
         #-----------------------------------------------------------------------
         dhw_hp = params.get('hp_DHW', None)
         if dhw_hp:
-            hp_count += 1
+            hp_units['dhw'] = 1
             hc_equip.append( PHPP_XL_Obj('HP', 'J36', '5-' + dhw_hp.name))
             hc_equip.append( PHPP_XL_Obj('HP', 'I665', dhw_hp.name))
             hc_equip.append( PHPP_XL_Obj('HP', 'I667', dhw_hp.source)) 
@@ -1524,7 +1524,11 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
                 hc_equip.append( PHPP_XL_Obj('HP', 'N{}'.format(i+670), item)) 
             hc_equip.append( PHPP_XL_Obj('HP', 'M688', dhw_hp.sink_dt)) 
         
-        hc_equip.append( PHPP_XL_Obj('HP', 'M18', 2 if hp_count>1 else 1)) # Can't ever be zero
+        if hp_units['heating'] and hp_units['dhw']:
+            hp_count = 2
+        else:
+            hp_count = 1
+        hc_equip.append( PHPP_XL_Obj('HP', 'M18', hp_count))
 
         #-----------------------------------------------------------------------
         supply_air_cooling = params.get('supply_air_cooling', None)
@@ -1681,6 +1685,14 @@ def build_variants( _var_obj ):
         variants.append( PHPP_XL_Obj('Ventilation', 'L12', '=D12' ))        
         for item in _var_obj.get_custom_rows():
             variants.append( PHPP_XL_Obj( item.worksheet, item.range, item.reference) )
+
+    for custom_var in _var_obj.custom:
+        worksheet = custom_var.get('worksheet')
+        cell_range = custom_var.get('range')
+        value = custom_var.get('value')
+
+        if worksheet and cell_range and value:
+            variants.append( PHPP_XL_Obj(worksheet, cell_range, value ))
 
     return variants
 

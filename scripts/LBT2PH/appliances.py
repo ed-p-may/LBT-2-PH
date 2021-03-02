@@ -103,20 +103,21 @@ class ApplianceSet(Object):
 
 class ElecEquipAppliance(Object):
     defaults = {
-        'dishwasher': {'demand': 1.1, 'util_frac': 1, 'freq':65},
-        'clothesWasher':{'demand':1.1, 'util_frac': 1, 'freq':57},
-        'clothesDryer':{'demand':3.5, 'util_frac': 1, 'freq':57},
-        # 'fridge':{'demand':0.78, 'util_frac': 1, 'freq':365},
-        # 'freezer':{'demand':0.88, 'util_frac': 1, 'freq':365},
-        'fridgeFreezer':{'demand':1.0, 'util_frac': 1, 'freq':365},
-        'cooking':{'demand':0.25, 'util_frac': 1, 'freq':500},
-        'other_kWhYear_':{'demand':0.0, 'util_frac': 1, 'freq':1},
-        'consumerElec':{'demand': 80.0, 'util_frac': 1, 'freq':0.55},
+        'dishwasher':   {'include':1, 'demand': 1.1, 'util_frac': 1, 'freq':65},
+        'clothesWasher':{'include':1, 'demand':1.1, 'util_frac': 1, 'freq':57},
+        'clothesDryer': {'include':1, 'demand':3.5, 'util_frac': 1, 'freq':57},
+        'fridge':       {'include':0, 'demand':0.78, 'util_frac': 1, 'freq':365},
+        'freezer':      {'include':0, 'demand':0.88, 'util_frac': 1, 'freq':365},
+        'fridgeFreezer':{'include':1, 'demand':1.0, 'util_frac': 1, 'freq':365},
+        'cooking':      {'include':1, 'demand':0.25, 'util_frac': 1, 'freq':500},
+        'other_kWhYear_':{'include':1, 'demand':0.0, 'util_frac': 1, 'freq':1},
+        'consumerElec': {'include':1, 'demand': 80.0, 'util_frac': 1, 'freq':0.55},
     }
     
     def __init__(self, _nm=None, _nomDem=None, _utilFac=None, _freq=None, _type=None):
         self.id = random.randint(1000,9999)
         self.name = _nm
+        self.include = 1
         self._nominal_demand = _nomDem
         self._utilization_factor = _utilFac
         self._frequency = _freq
@@ -213,6 +214,10 @@ class ElecEquipAppliance(Object):
             return None
         else:
             appliance_obj = cls()
+
+            if _name == 'fridge' or _name == 'freezer':
+                appliance_obj.include = 0
+ 
             appliance_obj.name = _name
             appliance_obj.utilization_factor = _utilFac
             appliance_obj.type = _type
@@ -235,6 +240,7 @@ class ElecEquipAppliance(Object):
 
         d.update( {'id':self.id} )
         d.update( {'name':self.name} )
+        d.update( {'include':self.include})
         d.update( {'_nominal_demand':self.nominal_demand} )
         d.update( {'_utilization_factor':self.utilization_factor} )
         d.update( {'_frequency':self.frequency} )
@@ -250,6 +256,7 @@ class ElecEquipAppliance(Object):
 
         new_obj.id = _dict.get('id')
         new_obj.name = _dict.get('name')
+        new_obj.include = _dict.get('include')
         new_obj._nominal_demand = _dict.get('_nominal_demand')
         new_obj._utilization_factor = _dict.get('_utilization_factor')
         new_obj._frequency = _dict.get('_frequency')
@@ -271,7 +278,8 @@ class ElecEquipAppliance(Object):
                 self.utilization_factor,
                 self.frequency,
                 self.type)
-
+    def ToString(self):
+        return str(self)
 
 class PNNL_ResidentialLoads:
     """Loads and Schedules for the Honyebee Room which match the PNNL Example files

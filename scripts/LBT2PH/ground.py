@@ -264,7 +264,7 @@ class PHPP_Ground_Floor_Element:
         Name and then the Document UserText library to get the U-Value of tha
         Construction Type. 
         
-        Returns 1.0 W/m2k as default on any errors.
+        Returns 0.5 W/m2k as default on any errors.
         
         Args:
             self:
@@ -298,16 +298,16 @@ class PHPP_Ground_Floor_Element:
                 'Rhino Document UserText with the name "{}?"'.format(srfcConstructionName.upper()),
                 'Check your Document UserText library to make sure that you have',
                 'your most recent assembly library file loaded?',
-                'For now applying a U-Value of 1.0 w/m2k for this surface.')
+                'For now applying a U-Value of 0.5 w/m2k (R11 hr-sf-F/Btu)  for this surface.')
                 self.ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
-                srfcUvalue = 1.0
+                srfcUvalue = 0.5
         else:
             warning = 'Warning: could not find a construction type in the\n'\
             'UserText for one or more surfaces? Are you sure you assigned a\n'\
             '"EPConstruction" parameter to the Floor Surface being input?\n'\
-            'For now applying a U-Value of 1.0 w/m2k for this surface.'
+            'For now applying a U-Value of 0.5 w/m2k (R11 hr-sf-F/Btu) for this surface.'
             self.ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
-            srfcUvalue = 1.0
+            srfcUvalue = 0.5
         
         return srfcUvalue
 

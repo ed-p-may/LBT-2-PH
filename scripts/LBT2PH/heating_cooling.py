@@ -289,11 +289,10 @@ class PHPP_Boiler(object):
             self.name,
             self.type,
             self.fuel,
-            self._params,
+            self.params,
              )
     def ToString(self):
         return str(self)
-
 
 class PHPP_Cooling_SupplyAir(Object):
     def __init__(self, _on_off=None, _maxCap=1000, _seer=3):

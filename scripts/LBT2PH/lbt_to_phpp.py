@@ -3,7 +3,6 @@ import ghpythonlib.components as ghc
 import Rhino.Geometry.Vector2d
 import rhinoscriptsyntax as rs
 import math
-import json
 from collections import OrderedDict
 from collections import namedtuple
 
@@ -109,7 +108,6 @@ class PHPP_Zone:
        return "{}(_room={!r})".format(
             self.__class__.__name__, self.hb_room)
 
-
 def rhino_vector2d_from_angle(_angle=0):
     """ Get a Rhino Vector2d from a numeric angle
 
@@ -168,9 +166,19 @@ def get_exposed_surfaces_from_model(_model, _north, _ghenv):
         
         for face in room:       
             bc = str(face.boundary_condition)
-            if bc != 'Surface':
-                phpp_srfc = LBT2PH.surfaces.PHPP_Surface(face, room_name, room_id, _north, _ghenv )
-                exposed_surfaces.append(phpp_srfc)
+
+            if bc == 'Surface': continue
+            phpp_srfc = LBT2PH.surfaces.PHPP_Surface(face, room_name, room_id, _north, _ghenv )
+            
+            # Pull out any custom attributes set within the GH scene
+            # Set Object Attributes using the Key / Value
+            if face.user_data:
+                custom_attributes = face.user_data.get('phpp', {})
+            
+                for k, v in custom_attributes.items():
+                    setattr(phpp_srfc, k, v)
+                
+            exposed_surfaces.append(phpp_srfc)
 
     return exposed_surfaces
 

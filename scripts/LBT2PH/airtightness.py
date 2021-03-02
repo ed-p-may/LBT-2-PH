@@ -21,6 +21,7 @@ def get_room_infiltration_rate(_n50, _q50, _blower_pressure, _hb_room, _phpp_spa
     print('INPUTS:')
     print('  >HB-Room PHPP Space Volumes (Vn50): {:.2f} m3'.format(phpp_spaces_vn50))
     print('  >HB-Room E+ Volume (Gross): {:.1f} m3'.format(_hb_room.volume))
+    print(_hb_room.floor_area)
     print('  >HB-Room E+ Floor Area (Gross): {:.1f} m2'.format(_hb_room.floor_area))
     print('  >HB-Room E+ Exposed Surface Area: {:.1f} m2'.format(_hb_room.exposed_area))
     print('  >HB-Room Infiltration Flowrate: {:.2f} m3/hr ({:.4f} m3/s) @ {}Pa'.format(room_infil_airflow*60*60, room_infil_airflow, _blower_pressure))

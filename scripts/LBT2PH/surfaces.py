@@ -2,18 +2,16 @@ import System
 import rhinoscriptsyntax as rs
 import helpers
 import Grasshopper.Kernel as ghK
-import ghpythonlib.components as ghc
 import Rhino
 import math
+import random
 from collections import namedtuple
 
 try:  # import the core honeybee dependencies
-    from honeybee.model import Model
     from honeybee.boundarycondition import Surface, Outdoors, Ground, Adiabatic
     from honeybee.facetype import Wall, RoofCeiling, Floor
-    from honeybee.typing import clean_and_id_ep_string
-    from honeybee_energy.material.opaque import EnergyMaterialNoMass
     import ladybug_geometry
+    from ladybug_rhino.togeometry import to_face3d
 except ImportError as e:
     raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
@@ -63,23 +61,28 @@ class hb_surface:
         'SHADING': {'legacy': 6, 'lbt1': 'Wall'}
         }
         
-    def __init__(self, _srfc, _constructions, _ghenv):
+    def __init__(self, _srfc, _constructions):
+        self.id = random.randint(1000,9999)
         self.geometry = _srfc.geom
         self.params = _srfc.params
         self.constructions = _constructions
         self.rad_mod = None
-        self._warn_no_name(_ghenv)
     
-    def _warn_no_name(self, _ghenv):
+    def check_surface_names(self):
+        """ Used to provide the user warnings if surfaces without names are found. """
+        
         nm = self.params.get('Object Name', None)
+        warning = None
+
         if nm is None or nm == 'None':
-            warning = "Warning: Some Surfaces look like they are missing names? It is likely that\n"\
-            "the Honeybee solveAdjc component will not work correctly without names.\n"\
+            warning = "Warning: Some Surfaces look like they are missing names? It is possible that\n"\
+            "the Honeybee 'solveAdjc' component will not work correctly without names.\n"\
             "This is especially true for 'interior' surfaces up against other thermal zones.\n"\
-            "Please apply a unique name to all surfaces before proceeding. Use the\n"\
-            "IDF2PH 'Set Window Names' tool to do this automatically (works on regular srfcs too)"
-            _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Remark, warning)
+            "If you run into trouble later, maybe try applying a unique name to all surfaces.\n"\
+            "For now, I will apply a random/default name to each surface."
     
+        return warning
+
     def _add_ext_flag_to_name(self, _ud_value):
         """ So that the EP Results can be properly sorted at the very end, add an EXT or INT flag to the srfc"""
         
@@ -99,12 +102,17 @@ class hb_surface:
 
     @property
     def name(self):
+        default_name = 'No_Name_{}'.format(self.id)
+        
         try:
-            ud_value = self.params.get('Object Name', 'No Name')
+            ud_value = self.params.get('Object Name', default_name)
+            if str(ud_value) == 'None':
+                ud_value = default_name
+            
             ud_value = self._add_ext_flag_to_name(ud_value)
             return ud_value
         except:
-            return 'No Name'
+            return default_name
 
     @property
     def type(self):
@@ -362,16 +370,17 @@ def get_input_geom( _input_list, _ghenv ):
             try:
                 for srfc in geom.Faces:
                     output.append( Geom(srfc, input_guid) )
-            except AttributeError as e:                
+            except AttributeError as e:
                 output.append( Geom(geom, input_guid) )
         else:
+            
             # Must be some Grasshopper Geometry being input
             try:
-                for srfc in input_obj.Surfaces:
+                for srfc in input_obj.Faces:
                     output.append( Geom(srfc, None) )
-            except AttributeError as e:                
-                output.append( Geom(input_obj, None)  )
-
+            except AttributeError as e:
+                output.append( Geom(input_obj, None) )
+    
     return output
 
 def get_rh_srfc_params(_input_geom, _ghenv, _ghdoc):
@@ -405,15 +414,13 @@ def determine_surface_type_by_orientation(_surfaces):
         surface_type: A new list of Surface objs with their Surface Type modified as appropriate
     """
     
-    assert type(_surfaces) == list, "'_surfaces' input should be a list"
-    
     surfaces = []
     for srfc_geom, srfc_params in _surfaces:
         # Code here adapted from Honeybee Legacy 'decomposeZone' method
         # Checks the surface normal and depending on the direction, 
         # assigns it as a 'wall', 'floor' or 'roof'
         
-        def find_srfc_normal(_f):
+        def find_srfc_normal(_f):           
             centroid = Rhino.Geometry.AreaMassProperties.Compute(_f).Centroid
             b, u, v = _f.ClosestPoint(centroid)
             face_normal = _f.NormalAt(u, v)

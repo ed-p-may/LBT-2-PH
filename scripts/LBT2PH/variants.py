@@ -4,6 +4,14 @@ from collections import namedtuple
 
 class Variants(Object):
 
+    bldgtyp_large_phpp_standard = [
+        'Additional Vent!F{141}=Variants!D856',
+        'Additional Vent!H{171}=Variants!D858',
+        'Additional Vent!H{172}=Variants!D858',
+        'Additional Vent!L{171}=Variants!D857',
+        'Additional Vent!L{172}=Variants!D857',
+    ]
+
     def __init__(self, _ghenv=None):
         self.ghenv = _ghenv
         self.windows = False
@@ -14,6 +22,7 @@ class Variants(Object):
         self.primary_energy = False
         self.default_ventilation = False
         self.custom_ventlilation = False
+        self._custom_writes = []
 
     @property
     def ventilation(self):
@@ -21,13 +30,6 @@ class Variants(Object):
     
     @ventilation.setter
     def ventilation(self, _in):
-        if len(_in)==1:
-            self.default_ventilation = bool(_in[0])
-            self.custom_ventlilation = False
-        else:
-            self.default_ventilation = False
-            self.custom_ventlilation = _in[0:5]
-        
         if len(_in) not in [0, 1, 5]:
             self.default_ventilation = False
             self.custom_ventlilation = False
@@ -45,6 +47,56 @@ class Variants(Object):
                 "   Additional Vent!L{Your Row Number}=Variants!D857\n"\
                 "   Additional Vent!L{Your Row Number}=Variants!D857\n"
             self.ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
+   
+        if len(_in)==1:
+            if isinstance(_in[0], str):
+                # Secret bldgtyp method
+                self.default_ventilation = False
+                self.custom_ventlilation = self.bldgtyp_large_phpp_standard
+            else:
+                self.default_ventilation = bool(_in[0])
+                self.custom_ventlilation = False
+        else:
+            self.default_ventilation = False
+            self.custom_ventlilation = _in[0:5]
+        
+    @property
+    def custom(self):
+        return self._custom_writes
+    
+    @custom.setter
+    def custom(self, _in):
+        if not _in: return None
+
+        format_msg = "'custom_' input format is not correct. Input should look like:\n"\
+            "\n"\
+            "Worksheet:Range=Worksheet:Range\n"\
+            "\n"\
+            "Make sure that you use a colon (':') to separate the worksheet name\n"\
+            "from the Range value. And be sure to use an equal ('=') in between\n"\
+            "the source and target items."
+        
+        customs = []
+
+        for input_item in _in:
+            assert '=' in input_item, format_msg
+            assert ':' in input_item, format_msg
+
+            custom_write_item = {'worksheet':None, 'range':None, 'value':None}
+            
+            #---- Parse the input
+            target, source = input_item.split('=')
+            target_wrkshert, target_range = target.split(':')
+            source_wrksheet, source_range = source.split(':')
+
+            #---- Build the new write item            
+            custom_write_item['worksheet'] = target_wrkshert
+            custom_write_item['range'] = target_range
+            custom_write_item['value'] = '={}!{}'.format(source_wrksheet, source_range)
+
+            customs.append(custom_write_item)
+
+        self._custom_writes = customs
 
     @property
     def use_default_locations(self):
