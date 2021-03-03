@@ -415,6 +415,7 @@ def determine_surface_type_by_orientation(_surfaces):
     """
     
     surfaces = []
+    warnings = {}
     for srfc_geom, srfc_params in _surfaces:
         # Code here adapted from Honeybee Legacy 'decomposeZone' method
         # Checks the surface normal and depending on the direction, 
@@ -429,20 +430,10 @@ def determine_surface_type_by_orientation(_surfaces):
 
         maximumRoofAngle = 30
         try:
-            # Find the surface normal of the srfc
+            #---- Find the surface normal of the srfc
             normal = find_srfc_normal(srfc_geom)
 
-            """"        
-            # Deprecated?
-            if hasattr(srfc_geom, 'Faces'):
-                normals = [find_srfc_normal(face) for face in srfc_geom.Faces]
-            else:
-                normals = [find_srfc_normal(face) for face in srfc_geom.ToBrep().Faces]
-            
-            normal = avg_normal_vectors(normals)
-            # """
-        
-            # --- Find the surface type based on the normal
+            #---- Find the surface type based on the normal
             angle2Z = math.degrees(Rhino.Geometry.Vector3d.VectorAngle(normal, Rhino.Geometry.Vector3d.ZAxis))
             
             if  angle2Z < maximumRoofAngle or angle2Z > 360 - maximumRoofAngle:
@@ -451,6 +442,18 @@ def determine_surface_type_by_orientation(_surfaces):
             elif  160 < angle2Z <200:
                 srfc_type = 'Floor'
                 bc = 'Ground'
+
+                #---- Warn the user if it should have been a floor, 
+                # but wasn't tagged as one.
+                msg = "I found a surface which looks like it should be a 'Floor' but is\n"\
+                    "not tagged as a floor? To correct this, either:\n"\
+                    "    1) Check your Rhino-scene surface assignnements and geometry\n"\
+                    "    2) Try setting this component's 'auto-orientation_' intput to 'True'?"\
+
+                ud_srfc_type = srfc_params.get('srfType')
+                if ud_srfc_type != 'FLOOR':
+                    warnings['Floor'] = {'level':'Warning', 'msg':msg}
+
             else: 
                 srfc_type = 'Wall'
                 bc = 'Outdoors'
@@ -459,12 +462,17 @@ def determine_surface_type_by_orientation(_surfaces):
             srfc_type = 'Wall'
             bc = 'Outdoors'
         
-        srfc_params['srfType'] = srfc_type
-        srfc_params['EPBC'] = bc
-        new_srfc_obj = Temp_Surface(srfc_geom, srfc_params)
+        #--- Build the new surface with the modified params
+        nm = srfc_params.get('Object Name')
+        new_srfc_params = {
+            'Object Name': nm,
+            'srfType': srfc_type,
+            'EPBC': bc,
+            }
+        new_srfc_obj = Temp_Surface(srfc_geom, new_srfc_params)
         surfaces.append(new_srfc_obj)
 
-    return surfaces
+    return surfaces, warnings
 
 def _get_surface_rh_userText(_srfc_GUID, _ghdoc, _ghenv):
     """ Takes in an objects GUID and returns the full dictionary of

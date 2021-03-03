@@ -8,6 +8,16 @@ import Grasshopper.Kernel as ghK
 import rhinoscriptsyntax as rs
 from timeit import default_timer
 
+def get_warning_level(_warning_level):
+    """Takes warning level as text, returns ghK object """
+    
+    if str(_warning_level).upper() == 'WARNING':
+        return ghK.GH_RuntimeMessageLevel.Warning
+    elif str(_warning_level).upper() == 'ERROR':
+        return ghK.GH_RuntimeMessageLevel.Warning
+    else:
+        return ghK.GH_RuntimeMessageLevel.Remark
+
 def add_to_HB_model( _hb_model, _key, _dict, _ghenv, _write='update' ):
 
     user_data = deepcopy( _hb_model.user_data )
