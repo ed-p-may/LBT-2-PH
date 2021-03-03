@@ -15,7 +15,9 @@ Next, Install the custom toolbar "PH_Tools.rui" into your Rhino instance to get 
 Reboot Rhino. Should be working now.
 
 # INSTALL
-For detailed installation instructions, check out the website here: http://www.passivehousetools.com/lbt2ph.html
+For detailed installation instructions, 
+* Check out the website for detailed instructions here: http://www.passivehousetools.com/lbt2ph.html
+* Watch a detailed walkthrough of the download/install process here: https://youtu.be/MlW40a1A9H0
 
 # HOW-TO
 For more information on the use of these tools, check out the YouTube playlist here:
