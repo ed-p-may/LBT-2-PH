@@ -572,12 +572,12 @@ def build_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):
             # ------------------------------------------------------------------
             # Get the Ventilation Schedule from the room if it has any
             try:
-                speed_high = phpp_space.vent_sched._speed_high
-                time_high  = phpp_space.vent_sched._time_high
-                speed_med  = phpp_space.vent_sched._speed_med
-                time_med   = phpp_space.vent_sched._time_med
-                speed_low  = phpp_space.vent_sched._speed_low
-                time_low   = phpp_space.vent_sched._time_low
+                speed_high = phpp_space.vent_sched.speed_high
+                time_high  = phpp_space.vent_sched.time_high
+                speed_med  = phpp_space.vent_sched.speed_med
+                time_med   = phpp_space.vent_sched.time_med
+                speed_low  = phpp_space.vent_sched.speed_low
+                time_low   = phpp_space.vent_sched.time_low
             except:
                 speed_high = 1
                 time_high = 1
@@ -623,12 +623,12 @@ def build_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):
             addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_Util_days, '7'))
             addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_Holidays,'0'))
             
-            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventSpeed_high, speed_high if speed_high else 1))
-            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventTime_high, time_high if time_high else 1))
-            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventSpeed_med,speed_med if speed_med else 1))
-            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventTime_med, time_med if time_med else 0))
-            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventSpeed_low,speed_low if speed_low else 0))
-            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventTime_low, time_low if time_low else 0))
+            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventSpeed_high, speed_high))
+            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventTime_high, time_high))
+            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventSpeed_med,speed_med))
+            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventTime_med, time_med))
+            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventSpeed_low,speed_low))
+            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ventTime_low, time_low))
             
             # Keep track of the names of the Vent units used
             ventUnitsUsed.append( ventUnitName )

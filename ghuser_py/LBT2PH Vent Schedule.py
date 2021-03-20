@@ -28,7 +28,7 @@ within the utilisation period can be considered. All of these attributes can
 be manually input using the Rhino-Scene PHPP tool 'Set TFA Surface Factor(s)'.
 > All times % values should add up to 100%
 -
-EM March 1, 2021
+EM March 20, 2021
 
     Args:
         _fanSpeed_high: Fan Speed factor (in %) in relation to the maximum volume 
@@ -61,7 +61,7 @@ reload(LBT2PH.helpers)
 reload(LBT2PH.ventilation)
 
 ghenv.Component.Name = "LBT2PH Vent Schedule"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
+LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_20_2021')
 #-------------------------------------------------------------------------------
 
 def cleanGet(_in, _default=None):
@@ -76,19 +76,19 @@ def cleanGet(_in, _default=None):
     except:
         return _default
 
-def checkInputs(_in):
-    total = _in._time_high + _in._time_med + _in._time_low
-    if int(total) != 1:
-        mssgLostRoom = "The Operation times don't add up to 100%? Please correct the inputs."
-        ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, mssgLostRoom)
+phpp_ventilation_sched_ = LBT2PH.ventilation.PHPP_Sys_VentSchedule()
 
-phpp_ventilation_sched_ = LBT2PH.ventilation.PHPP_Sys_VentSchedule(cleanGet(_fanSpeed_high, 1.0),
-                            cleanGet(_operationTime_high, 1.0),
-                            cleanGet(_fanSpeed_med, 0.77),
-                            cleanGet(_operationTime_med, 0.0),
-                            cleanGet(_fanSpeed_low, 0.4),
-                            cleanGet(_operationTime_low, 0.0)
-                            )
+# Have to check is non None cus' if you want to pass 0 ever...
+if _fan_speed_high is not None: phpp_ventilation_sched_.speed_high = _fan_speed_high
+if _fan_speed_med is not None:  phpp_ventilation_sched_.speed_med = _fan_speed_med
+if _fan_speed_low is not None:  phpp_ventilation_sched_.speed_low = _fan_speed_low
 
-checkInputs( phpp_ventilation_sched_ )
+if _operation_time_high is not None: phpp_ventilation_sched_.time_high = cleanGet(_operation_time_high)
+if _operation_time_med is not None:  phpp_ventilation_sched_.time_med = cleanGet(_operation_time_med)
+if _operation_time_low is not None:  phpp_ventilation_sched_.time_low = cleanGet(_operation_time_low)
+
+msg = phpp_ventilation_sched_.check_total()
+if msg:
+    ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
+
 LBT2PH.helpers.preview_obj(phpp_ventilation_sched_)

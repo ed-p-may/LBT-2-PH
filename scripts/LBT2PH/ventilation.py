@@ -500,22 +500,22 @@ class PHPP_Sys_ExhaustVent(Object):
 class PHPP_Sys_VentSchedule(Object):
     def __init__(self, s_h=1.0, t_h=1.0, s_m=0.77, t_m=0.0, s_l=0.4, t_l=0.0):
         self.id = random.randint(1000,9999)
-        self._speed_high = s_h
-        self._time_high = t_h
-        self._speed_med = s_m
-        self._time_med = t_m
-        self._speed_low = s_l
-        self._time_low = t_l
+        self.speed_high = s_h
+        self.time_high = t_h
+        self.speed_med = s_m
+        self.time_med = t_m
+        self.speed_low = s_l
+        self.time_low = t_l
 
     def to_dict(self):
         d = {}
         d.update( {'id':self.id} )
-        d.update( {'_speed_high':self._speed_high} )
-        d.update( {'_time_high':self._time_high} )
-        d.update( {'_speed_med':self._speed_med} )
-        d.update( {'_time_med':self._time_med} )
-        d.update( {'_speed_low':self._speed_low} )
-        d.update( {'_time_low':self._time_low} )
+        d.update( {'speed_high':self.speed_high} )
+        d.update( {'time_high':self.time_high} )
+        d.update( {'speed_med':self.speed_med} )
+        d.update( {'time_med':self.time_med} )
+        d.update( {'speed_low':self.speed_low} )
+        d.update( {'time_low':self.time_low} )
 
         return d
 
@@ -523,14 +523,22 @@ class PHPP_Sys_VentSchedule(Object):
     def from_dict(cls, _dict):
         new_sched = cls()
         new_sched.id = _dict['id']
-        new_sched._speed_high = _dict['_speed_high']
-        new_sched._time_high = _dict['_time_high']
-        new_sched._speed_med = _dict['_speed_med']
-        new_sched._time_med = _dict['_time_med']
-        new_sched._speed_low = _dict['_speed_low']
-        new_sched._time_low = _dict['_time_low']
+        new_sched.speed_high = _dict['speed_high']
+        new_sched.time_high = _dict['time_high']
+        new_sched.speed_med = _dict['speed_med']
+        new_sched.time_med = _dict['time_med']
+        new_sched.speed_low = _dict['speed_low']
+        new_sched.time_low = _dict['time_low']
 
         return new_sched
+
+    def check_total(self):
+        total_time = self.time_high + self.time_med + self.time_low
+        if total_time > 1.001 or total_time < 0.999:
+            msg = "Error. The Operation times don't add up to 100%? Please correct the inputs."
+            return msg
+        else:
+            return None
 
     def __str__(self):
         return unicode(self).encode('utf-8')
@@ -539,12 +547,12 @@ class PHPP_Sys_VentSchedule(Object):
     def __repr__(self):
         return "{}( s_h={!r}, t_h={!r}, s_m={!r}, t_m={!r}, s_l={!r}, t_l={!r})".format(
                 self.__class__.__name__,
-                self._speed_high,
-                self._time_high,
-                self._speed_med,
-                self._time_med,
-                self._speed_low,
-                self._time_low)
+                self.speed_high,
+                self.time_high,
+                self.speed_med,
+                self.time_med,
+                self.speed_low,
+                self.time_low)
     def ToString(self):
         return str(self)
 
@@ -848,9 +856,9 @@ def calc_space_vent_schedule(_space, _hb_room, _hb_room_tfa):
     
     # Calc total airflow for People
     # Calc the flow rates for people based on the HB Schedule values
-    roomFlowrate_People_High = (room_sched_from_hb._speed_high * roomFlowrate_People_Peak) 
-    roomFlowrate_People_Med = (room_sched_from_hb._speed_med * roomFlowrate_People_Peak) 
-    roomFlowrate_People_Low = (room_sched_from_hb._speed_low * roomFlowrate_People_Peak) 
+    roomFlowrate_People_High = (room_sched_from_hb.speed_high * roomFlowrate_People_Peak) 
+    roomFlowrate_People_Med = (room_sched_from_hb.speed_med * roomFlowrate_People_Peak) 
+    roomFlowrate_People_Low = (room_sched_from_hb.speed_low * roomFlowrate_People_Peak) 
     
     roomVentilationPerArea = (vent_flow_per_area * _hb_room.floor_area * 60 * 60 * percentZoneTotalTFA)
     
