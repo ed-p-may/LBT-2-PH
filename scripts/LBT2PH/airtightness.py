@@ -7,7 +7,12 @@ reload(LBT2PH)
 reload(LBT2PH.spaces)
 
 def get_room_infiltration_rate(_n50, _q50, _blower_pressure, _hb_room, _phpp_space_dict):
-    phpp_spaces = [ LBT2PH.spaces.Space.from_dict( dict ) for dict in _phpp_space_dict['spaces'].values()  ]
+    for spave in _phpp_space_dict['spaces'].values():
+        print(spave)
+        
+    phpp_spaces = [ LBT2PH.spaces.Space.from_dict( dict ) 
+                    for dict 
+                    in _phpp_space_dict['spaces'].values()  ]
     phpp_spaces_vn50 = sum( [space.space_vn50 for space in phpp_spaces] )
     
     if _n50:

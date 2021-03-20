@@ -8,7 +8,7 @@ from System import Object
 try:  # import the core honeybee dependencies
     from ladybug_rhino.togeometry import to_face3d
     from ladybug_rhino.fromgeometry import from_face3d
-    from ladybug_geometry.geometry3d import Point3D
+    from ladybug_geometry.geometry3d import Point3D, Face3D
 except ImportError as e:
     raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
@@ -21,7 +21,8 @@ reload(LBT2PH.ventilation)
 class TFA_Surface(Object):
     ''' Represents an individual TFA Surface floor element '''
     
-    def __init__(self, _surface=None, _host_room_name=None, _params={}, _sub_surfaces=[]):
+    def __init__(self, _surface=None, _host_room_name=None, 
+                _params={}, _sub_surfaces=[]):
         self._inset = 0.150
         self._neighbors = None
         self._area_gross = None
@@ -294,7 +295,13 @@ class TFA_Surface(Object):
         d.update( {'depth':self.depth} )
 
         if self.surface:
-            d.update( {'surface_list':to_face3d(self.surface)} )
+            # Remeber, to_face3d returns a LIST of surfaces incase it triangulates
+            # so for now, just getitng the first one in that list to pass along
+            # Someday this'll break everything...
+
+            lbt_surface = to_face3d(self.surface)
+            
+            d.update( {'surface_list': lbt_surface[0].to_dict()  } )
 
         return d
 
@@ -318,7 +325,13 @@ class TFA_Surface(Object):
 
         srfc_list = _dict_tfa.get('surface_list')
         if srfc_list:
-            new_tfa_obj.surface = from_face3d( srfc_list[0] )
+            # Remeber, to_face3d returns a LIST of surfaces incase it triangulates
+            # so for now, just getitng the first one in that list to pass along
+            # Someday this'll break everything...
+
+            lbt_surface = Face3D.from_dict( srfc_list )
+            rh_surface = from_face3d( lbt_surface )
+            new_tfa_obj.surface = rh_surface
 
         return new_tfa_obj
 

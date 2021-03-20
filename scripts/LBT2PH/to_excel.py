@@ -142,9 +142,29 @@ def start_rows( _udIn, _ghenv ):
                 'Kitchen':77},
             }
     
+
+    # For the 'normal' long format BLDGTYP PHPP files. Only works if you 
+    # work for BLDGTYP and have one of our PHPPs. Sorry.
+    bldgtyp_standard = {'Additional Ventilation': 
+                {'Rooms':56,
+                'Vent Unit Selection':141,
+                'Vent Ducts':171 },
+            'Components':
+                {'Ventilator':15},
+            'Areas':
+                {'TB':145, 'Surfaces':41},
+            'Electricity non-res':
+                {'Lighting': 19,
+                'Office Equip': 62,
+                'Kitchen':77},
+            }
+
     if _udIn:
         try:
             for each in _udIn:
+                if str(each) == 'bldgtyp_standard':
+                    return bldgtyp_standard
+                
                 parsed = each.split(':')
                 newRowStart = int(parsed[1])
                 worksheet, startItem = (parsed[0].split(','))
