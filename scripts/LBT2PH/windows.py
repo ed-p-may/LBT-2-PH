@@ -744,7 +744,6 @@ class PHPP_Glazing(Object):
             _gValue (float): The g-Value (SHGC) value of the glass only as per EN 410 (%)
             _uValue (float): The Thermal Trasmittance value of the center of glass (W/m2k) as per EN 673
         """
-
         self.name = _nm
         self._gValue = _gValue
         self._uValue = _uValue
@@ -755,8 +754,11 @@ class PHPP_Glazing(Object):
 
     @gValue.setter
     def gValue(self, _in):
-        if _in:
-            self._gValue = _in
+        try:
+            if float(_in) is not None:
+                self._gValue = _in
+        except Exception:
+            raise Exception('Error: Enter only numeric input for the g-Value.')
 
     @property
     def uValue(self):
@@ -764,8 +766,11 @@ class PHPP_Glazing(Object):
 
     @uValue.setter
     def uValue(self, _in):
-        if _in:
-            self._uValue = _in
+        try:
+            if float(_in) is not None:
+                self._uValue = _in
+        except Exception:
+            raise Exception('Error: Enter only numeric input for the U-Value.')
 
     @property
     def display_name(self):
