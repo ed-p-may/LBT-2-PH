@@ -23,7 +23,7 @@
 Collects and organizes data for a simple fresh-air ventilation system (HRV/ERV). 
 Outputs a 'ventilation' class object to apply to a HB Zone.
 -
-EM March 1, 2021
+EM March 21, 2021
     Args:
         ventUnitType_: Input Type. Either: "1-Balanced PH ventilation with HR 
             [Default]", "2-Extract air unit", "3-Only window ventilation"
@@ -43,8 +43,6 @@ EM March 1, 2021
             input on the 'Set Zone Vent' Component.
 """
 
-import Rhino
-
 import LBT2PH
 import LBT2PH.__versions__
 import LBT2PH.ventilation
@@ -56,7 +54,7 @@ reload(LBT2PH.ventilation)
 reload(LBT2PH.helpers)
 
 ghenv.Component.Name = "LBT2PH Vent System"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
+LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_21_2021')
 #-------------------------------------------------------------------------------
 
 def getDuctInputIndexNumbers():
@@ -77,27 +75,37 @@ def getDuctInputIndexNumbers():
     
     return hrvDuct_01_inputNum, hrvDuct_02_inputNum
 
-def determineDuctToUse(_input, _inputIndexNum):
+def build_duct(_input, _inputIndexNum):
+    if not _input: return None
     
-    if not _input:
-        return None
-    
+    #---------------------------------------------------------------------------
+    # First, see if it is a 'duct' object, if so, use that.
     try:
         duct_dict = _input[0].to_dict()
         duct = LBT2PH.ventilation.PHPP_Sys_Duct.from_dict( duct_dict )
         return duct
-    except:
-        pass
-    
-    ductLengths = []
-    for i, item in enumerate(_input):
-        if isinstance(item, Rhino.Geometry.Curve):
-            duct01GUID = ghenv.Component.Params.Input[_inputIndexNum].VolatileData[0][i].ReferenceID.ToString()
-            ductLengths.append( duct01GUID )
-        else:
-            ductLengths.append( LBT2PH.helpers.convert_value_to_metric(item, 'M') )
-    
-    return LBT2PH.ventilation.PHPP_Sys_Duct(_duct_input=ductLengths, _ghdoc=ghdoc)
+    except Exception as e:
+        # Must not be a 'duct' object... So then lets build a new duct
+        #-----------------------------------------------------------------------
+        duct_segments = []
+        for i, duct_segment in enumerate(_input):
+            # Build a basic Duct Segment
+            new_duct_segment = LBT2PH.ventilation.PHPP_Sys_Duct_Segment()
+            
+            length, width, i_thickness, i_lambda  = input_handler.get_segment(i, duct_segment, _inputIndexNum)
+            if length: new_duct_segment.length = length
+            if width: new_duct_segment.width = width
+            if i_thickness: new_duct_segment.insul_thick = i_thickness
+            if i_lambda: new_duct_segment.insul_lambda = i_lambda
+            
+            duct_segments.append( new_duct_segment )
+        
+        # Build the Duct from the Segments
+        #-----------------------------------------------------------------------
+        duct_ = LBT2PH.ventilation.PHPP_Sys_Duct()
+        if duct_segments: duct_.segments = duct_segments
+        
+        return duct_
 
 def handle_system_type(_in):
      if '2' in str(_in):
@@ -111,8 +119,9 @@ def handle_system_type(_in):
 # Handle Duct Inputs
 #-------------------------------------------------------------------------------
 hrvDuct_01_inputNum, hrvDuct_02_inputNum = getDuctInputIndexNumbers()
-hrvDuct1 = determineDuctToUse(hrv_duct_01_, hrvDuct_01_inputNum)
-hrvDuct2 = determineDuctToUse(hrv_duct_02_, hrvDuct_02_inputNum)
+input_handler = LBT2PH.ventilation.duct_input_handler(ghdoc, ghenv)
+hrvDuct1 = build_duct(hrv_duct_01_, hrvDuct_01_inputNum)
+hrvDuct2 = build_duct(hrv_duct_02_, hrvDuct_02_inputNum)
 
 
 # Build the system

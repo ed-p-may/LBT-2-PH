@@ -1,12 +1,12 @@
-from random import randint
-import rhinoscriptsyntax as rs
-import ghpythonlib.components as ghc
-import Grasshopper.Kernel as ghK
+from collections import namedtuple
 import re
 import random
-import scriptcontext as sc
+
+import rhinoscriptsyntax as rs
+import ghpythonlib.components as ghc
+import Rhino
+import Grasshopper.Kernel as ghK
 from System import Object
-from collections import namedtuple
 
 from honeybee_energy.schedule.ruleset import ScheduleRuleset
 from honeybee_energy.lib.schedules import schedule_by_identifier
@@ -18,214 +18,234 @@ import LBT2PH.helpers
 reload( LBT2PH )
 reload( LBT2PH.helpers )
 
-class PHPP_Sys_Duct(Object):
-    def __init__(self, _duct_input=[], _wMM=[], _iThckMM=[], _iLambda=[], _ghdoc=[]):
-        """
-        Args:
-            _duct_input (List<float | Curve>): The individual duct segments for a single 'leg' of the ERV. ERV will have two 'legs' total. Input can be either number or a Curve
-            _wMM (List<float>): The duct segment widths (for round ducts) value is the diameter in MM
-            _iThckMM (List<float>): The duct segment insualtion thicknesses in MM 
-            _iLambda (List<float>): The duct segment insualtion lambda valies in W/mk
-            _ghdoc: The "ghdoc" object from the Grasshopper scene
-        """
-        
-        self.duct_id = random.randint(1000,9999)
-        self.Warnings = []
-        self._ghdoc = _ghdoc
-        self._duct_input = _duct_input
-        self._duct_length = None
-        self._duct_width = None
-        self._insulation_thickness = None
-        self._insulation_lambda = None
-
-        self._set_params_from_defaults()
-        self._set_params_from_rhino_obj( _duct_input )
-        self._set_params_from_user_input( _duct_input, _wMM, _iThckMM, _iLambda )
-
-    @property
-    def duct_length(self):
-        try:
-            return float(self._duct_length[0])
-        except Exception as e:
-            print(e, self._duct_length)
-            return 5.0
-
-    @property
-    def duct_width(self):
-        try:
-            return float(self._duct_width[0])
-        except Exception as e:
-            print(e, self._duct_width)
-            return 104
+class duct_input_handler:
+    """Manages the varous types of inputs that the user might give for the ducts """
     
-    @property
-    def insulation_thickness(self):
-        try:
-            return float(self._insulation_thickness[0])
-        except Exception as e:
-            print(e, self._insulation_thickness)
-            return 52
-
-    @property
-    def insulation_lambda(self):
-        try:
-            return float(self._insulation_lambda[0])
-        except Exception as e:
-            print(e, self._insulation_lambda)
-            return 0.04
-
-    def _set_params_from_defaults(self):
-        self._duct_length = [5]
-        self._duct_width = [104]
-        self._insulation_thickness = [52]
-        self._insulation_lambda = [0.04]
-
-    def _set_params_from_rhino_obj(self, _duct_input):
-        if not self._ghdoc:
-            return None
-
-        if not self._duct_input:
-            return None
-
-        rhino_guids = []
-        with LBT2PH.helpers.context_rh_doc(self._ghdoc):
-            for input in _duct_input:
-                try:
-                    rs.coercecurve( input )
-                    rhino_guids.append( input )
-                except:
-                    pass
+    def __init__(self, _ghdoc, _ghenv):
+        self.ghdoc = _ghdoc
+        self.ghenv = _ghenv
+    
+    def is_gh_geometry(self, _in):
+        """Geom that is generated 'in' Grasshopper has a 0 GUID """
         
-        if rhino_guids:
-            le, wd, tk, la = self._calculate_segment_params( rhino_guids )
+        if _in == '00000000-0000-0000-0000-000000000000':
+            return True
+        else:
+            return False
+    
+    def get_input_GUID(self, i, index_num):
+        """Find the actual GUID of the input object from its input node 
+        Args:
+            i (int): The index of the input list to look at
+            index_num (int): The index number of the input-node to look at
+        """
+        
+        guid = self.ghenv.Component.Params.Input[index_num].VolatileData[0][i].ReferenceID.ToString()
+        
+        return guid
+    
+    def get_params_from_rhino(self, _in):
+        """Got and find any param values in the geometry in the RH Scene 
+        Args:
+            _in (Rhino.Geometry.Curve): The Rhino Curve object to look at
+        Returns:
+            (tuple) length, width, thickness, lambda
+        """
+        
+        with LBT2PH.helpers.context_rh_doc(self.ghdoc):
+            try:
+                l = float( ghc.Length(_in) )
+                w = float( rs.GetUserText(_in, 'ductWidth') )
+                t = float( rs.GetUserText(_in, 'insulThickness') )
+                c = float( rs.GetUserText(_in, 'insulConductivity') )
+            except Exception as e:
+                print('Error getting values from Rhino Scene\n{}'.format(e))
+                return None, None, None, None
             
-            self._duct_length = [le]
-            self._duct_width = [wd]
-            self._insulation_thickness = [tk]
-            self._insulation_lambda = [la]
-
-    def _calculate_segment_params(self, _rhino_curves):
-        # Combine duct segments with different param into a single 'leg', find the length-weighted avg values
-        l, w, t, c = self._get_param_values_from_rhino(_rhino_curves)
-        
-        totalLen = sum(l) if sum(l) != 0 else 1
-        len_weighted_width = (sum([(len*width) for (len, width) in zip(l, w)])) / totalLen
-        len_weighted_insul_thickness =(sum([(len*thck) for (len, thck) in zip(l, t)])) / totalLen
-        len_weighted_insul_lambda =(sum([(len*cond) for (len, cond) in zip(l, c)])) / totalLen
-
-        return (totalLen, len_weighted_width, len_weighted_insul_thickness, len_weighted_insul_lambda)
-
-    def _get_param_values_from_rhino(self, _rhino_objects):
-        """ Looks at Rhino scene to try get Param values from UserText """
-        if not self._ghdoc:
-            return
-
-        l, w, t, c = [], [], [], []
-        
-        with LBT2PH.helpers.context_rh_doc(self._ghdoc):
-            for rhino_obj in _rhino_objects:
-                try:
-                    l.append( float(ghc.Length(rhino_obj)) )
-                    w.append( float( self.get_UserText_with_default(rhino_obj, 'ductWidth', self._duct_width) ))
-                    t.append( float( self.get_UserText_with_default(rhino_obj, 'insulThickness', self._insulation_thickness) ))
-                    c.append( float( self.get_UserText_with_default(rhino_obj, 'insulConductivity', self._insulation_lambda) ))
-                except:
-                    self.Warnings.append('No param values found in Rhino. Using GH values or defaults.')
-        
         return l, w, t, c
 
-    @staticmethod
-    def get_UserText_with_default(_obj, _key, _default=None):
-        """ Why doesn't rs.GetUserText() do this by Default already? Sheesh...."""
-        result = rs.GetUserText(_obj, _key)
-        if result:
-            return result
-        else:
-            return _default
-
-    def _set_params_from_user_input(self, _duct_input, _wMM, _iThckMM, _iLambda):
-        def constant_len_list(_input_list, _target_len):
-            if not _input_list:
-                return None
-
-            if len(_input_list) == _target_len:
-                return _input_list
-            else:
-                return [ _input_list[0] ]*_target_len
-
-        if not _duct_input:
-            return None
-
-        # Clean up the inputs, make all the same length
-        input_widths = constant_len_list(_wMM, len(_duct_input))
-        input_thicknesses = constant_len_list(_iThckMM, len(_duct_input))
-        input_lambdas = constant_len_list(_iLambda, len(_duct_input))
-
-        # Get the length values
-        input_lengths = []
-        if _duct_input:
-            for input in _duct_input:
-                try:
-                    input_lengths.append( float(input) )
-                except:
-                    pass
+    def get_segment(self, i, _in, _input_node_index_num):
+        """Sorts out and gets the params of the input (number | curve | line) 
+        Args:
+            i (int): The index of the segment to be analysed
+            _in (number | curve | line): The input item to be analysed 
+        Returns:
+            (namedtuple) Segment(length='', width='', i_thickness='', i_lambda='')
+        """
         
-        if input_lengths:
-            self._duct_length = [ sum(input_lengths) ]
-        else:
-            input_lengths = self._duct_length
+        Segment = namedtuple('Segment', ['length', 'width', 'i_thickness', 'i_lambda'])
+        
+        try:
+            # If its just a regular number input
+            length =  float(LBT2PH.helpers.convert_value_to_metric(_in, 'M'))
+            return Segment(length, None, None, None)
+        except AttributeError as e:
+            # OK, so its not a regular number, try and sort out what geometry it is...
+            seg_GUID = self.get_input_GUID(i, _input_node_index_num)
+            
+            if isinstance(_in, Rhino.Geometry.Curve):
+                if self.is_gh_geometry(seg_GUID):
+                    crv = rs.coercecurve(_in)
+                    crv_length = crv.GetLength()
+                    return Segment(crv_length, None, None, None)
+                else:
+                    return Segment( *self.get_params_from_rhino(seg_GUID) )
+            
+            elif isinstance(_in, Rhino.Geometry.Line):
+                if self.is_gh_geometry(seg_GUID):
+                    line = rs.coerceline(_in)
+                    line_len = line.Length
+                    return Segment(line_len, None, None, None)
+                else:
+                    return Segment( *self.get_params_from_rhino(seg_GUID) )
+            
+            else:
+                msg = ' Sorry, I do not understand the input for _duct_length?\n'\
+                        'Please input either: a list of Rhino Curves, Lines or numbers representing\n'\
+                        'the lengths of the duct segments.\n\n{}'.format(e)
+                raise Exception(msg)
 
-        # Calc all the length-weighted total values
-        if input_widths:
-            length_weighted_width = sum([l*w for l, w in zip(input_lengths, input_widths)])/sum(input_lengths)
-            self._duct_width = [length_weighted_width]
-        if input_thicknesses:
-            length_weighted_thickness = sum([l*t for l, t in zip(input_lengths, input_thicknesses)])/sum(input_lengths)
-            self._insulation_thickness = [length_weighted_thickness]
-        if input_lambdas:
-            length_weighted_lambda = sum([l*k for l, k in zip(input_lengths, input_lambdas)])/sum(input_lengths)
-            self._insulation_lambda = [length_weighted_lambda]
+
+class PHPP_Sys_Duct_Segment(Object):
+    def __init__(self, _len=1, _width=104, _i_thick=52, _i_lambda=0.04):
+        """An individual duct segment. A duct is made of 1 or more segments.
+
+        Args:
+            _len (float): The length of the segment in Meters
+            _width (float): The width of the segment in MM
+            _i_thick (float): The thickness of the segment's insualtion, in MM
+            _i_lambda (float): The lambda condictivity of the segment's insualtion in W/mk
+        """
+        
+        self.id = random.randint(1000,9999)
+        self.length = _len
+        self.width = _width
+        self.insul_thick = _i_thick
+        self.insul_lambda = _i_lambda
 
     def to_dict(self):
         d = {}
-        d.update( { 'duct_id':self.duct_id} )
-        d.update( { 'duct_input':self._duct_input } )
-        d.update( { 'duct_length':self._duct_length } )
-        d.update( { 'duct_width':self._duct_width } )
-        d.update( { 'insulation_thickness':self._insulation_thickness } )
-        d.update( { 'insulation_lambda':self._insulation_lambda } )
+        d.update( { 'id':self.id} )
+        d.update( { 'length':self.length } )
+        d.update( { 'width':self.width } )
+        d.update( { 'insulation_thickness':self.insul_thick } )
+        d.update( { 'insulation_lambda':self.insul_lambda } )
         
         return d
-    
+
     @classmethod
     def from_dict(cls, _dict):
-        new_duct = cls()
-        new_duct.duct_id = _dict['duct_id']
-        new_duct.Warnings = []
-        new_duct._ghdoc = None
-        new_duct._duct_length = _dict['duct_length']
-        new_duct._duct_input = _dict['duct_input']
-        new_duct._duct_width = _dict['duct_width']
-        new_duct._insulation_thickness = _dict['insulation_thickness']
-        new_duct._insulation_lambda = _dict['insulation_lambda']
+        new_segment = cls()
+        new_segment.id = _dict.get('id')
+        new_segment.length = _dict.get('length')
+        new_segment.width = _dict.get('width')
+        new_segment.insul_thick = _dict.get('insulation_thickness')
+        new_segment.insul_lambda = _dict.get('insulation_lambda')
         
-        return new_duct
+        return new_segment
+
+    def __unicode__(self):
+        return u'PHPP Ventilation Duct-Segment Object'
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+        return "{}( _len={!r}, _width={!r}, _i_thick={!r}, _i_lambda={!r})".format(
+                self.__class__.__name__,
+                self.length,        
+                self.width,
+                self.insul_thick,
+                self.insul_lambda
+                )
+    def ToString(self):
+        return str(self)
+
+
+class PHPP_Sys_Duct(Object):
+    def __init__(self, _segments=[PHPP_Sys_Duct_Segment()] ):
+        """A Single Duct Object representing a collection of Duct-Segments
+
+        Args: _segments (list): A list of 'PHPP_Sys_Duct_Segment' objects 
+        """
+        self.id = random.randint(1000,9999)
+        self._segments = _segments
+
+    def _len_weighted_avg(self, _attr):
+        """Returns length-weighted average duct attr """
+        print('here', self._segments)
+        for seg in self._segments:
+            print(seg.length, _attr, getattr(seg, _attr))
+
+        weighted_total = sum(seg.length * getattr(seg, _attr) for seg in self._segments)
+        
+        try:
+            return weighted_total / self.duct_length
+        except ZeroDivisionError:
+            msg = " Can't calculate the weighted average. Duct segment has a 0m length?"
+            raise ZeroDivisionError(msg)
+
+    @property
+    def segments(self):
+        return self._segments
+
+    @segments.setter
+    def segments(self, _in):
+        if isinstance(_in, list):
+            self._segments = _in
+        else:
+            msg = 'Error: input for {} "segments" must be a list.'.format(self.__class__.__name__)
+            raise Exception(msg)
+    @property
+    def duct_length(self):       
+        return sum(segment.length for segment in self._segments)
+
+    @property
+    def duct_width(self):
+        return self._len_weighted_avg('width')
+
+    @property
+    def insulation_thickness(self):
+        return self._len_weighted_avg('insul_thick')
+
+    @property
+    def insulation_lambda(self):
+        return self._len_weighted_avg('insul_lambda')
+    
+    def to_dict(self):
+        d = {}
+
+        d.update( { 'id':self.id} )
+
+        seg_d = {}
+        for segment in self._segments:
+            seg_d.update( {segment.id: segment.to_dict()} )
+        d.update( { 'segments':seg_d} )
+
+        return d
+
+    @classmethod
+    def from_dict(cls, _dict):
+        new_obj = cls()
+        new_obj.id = _dict.get('id')
+
+        segments = []
+        for segment in _dict.get('segments', {}).values():
+            seg = PHPP_Sys_Duct_Segment.from_dict(segment)
+            segments.append(seg)
+        new_obj.segments = segments
+
+        return new_obj
 
     def __unicode__(self):
         return u'PHPP Ventilation Duct Object'
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
-        return "{}( _lenM={!r}, _wMM={!r}, _iThckMM={!r}, _iLambda={!r}, _ghdoc={!r})".format(
+        return "{}( _segments={!r})".format(
                 self.__class__.__name__,
-                self._duct_input,        
-                self._duct_width,
-                self._insulation_thickness,
-                self._insulation_lambda,
-                self._ghdoc)
+                self.segments)
     def ToString(self):
         return str(self)
-
+    
 
 class PHPP_Sys_VentUnit(Object):
     def __init__(self, _nm='97ud-Default HRV unit', _hr=0.75, _mr=0, _elec=0.45, _frsotT=-5, _ext=False):

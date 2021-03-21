@@ -25,7 +25,7 @@ hood, fireplace makeup air, dryer, etc.
 For guidance on modeling and design of exhaust air systems, see PHI's guidebook:
 "https://passiv.de/downloads/05_extractor_hoods_guideline.pdf"
 -
-EM March 1, 2021
+EM March 21, 2021
     Args:
         _name: (String) A Name to describe the Exhaust Vent item. This will be the name given in the 'Additional
         airFlowRate_On: <Optional> (Int) The airflow (m3/h) of the exhaust ventilation devide when ON.
@@ -57,11 +57,11 @@ reload(LBT2PH.ventilation)
 reload(LBT2PH.helpers)
 
 ghenv.Component.Name = "LBT2PH Vent Exhaust Unit"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
+LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_21_2021')
 
 #-------------------------------------------------------------------------------
 
-defaultDuct = LBT2PH.ventilation.PHPP_Sys_Duct(_duct_input=[1])
+defaultDuct = LBT2PH.ventilation.PHPP_Sys_Duct()
 exhaustVent_ = LBT2PH.ventilation.PHPP_Sys_ExhaustVent()
 if _name:
     exhaustVent_.name = _name

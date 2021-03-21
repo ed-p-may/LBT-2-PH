@@ -51,9 +51,7 @@ if _name:
     
     PHPPGlazing_ = LBT2PH.windows.PHPP_Glazing()
     if _name:   PHPPGlazing_.name = _name
+    if _gValue: PHPPGlazing_.gValue = convert_value_to_metric(_gValue, '-')
     if _uValue: PHPPGlazing_.uValue = convert_value_to_metric(_uValue, 'W/M2K')
-    if _gValue: 
-        PHPPGlazing_.gValue = convert_value_to_metric(_gValue, '-')
-
     
     preview_obj(PHPPGlazing_)
