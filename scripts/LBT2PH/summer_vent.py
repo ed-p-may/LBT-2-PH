@@ -15,7 +15,7 @@ class PHPP_SummVent(Object):
     def day_ach(self, _in):
         if _in == 'default':
             self._day_ach = '=L20*0.5'
-        elif _in:
+        elif _in is not None:
             self._day_ach = _in
     
     @property
@@ -26,7 +26,7 @@ class PHPP_SummVent(Object):
     def night_ach(self, _in):
         if _in == 'default':
             self._night_ach = '=L31'
-        elif _in:
+        elif _in is not None:
             self._night_ach = _in
     
     def to_dict(self):

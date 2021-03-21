@@ -1439,6 +1439,8 @@ def build_settings( _settings_objs ):
 def build_summ_vent( _summ_vent_objs ):
     print('Creating the Summer Ventilation Objects...')
     
+    if not _summ_vent_objs: return []
+
     #---------------------------------------------------------------------------
     # Combine all the HB-Room Vent Objs
     day_ach_vals, night_ach_vals = 0, 0
@@ -1449,21 +1451,20 @@ def build_summ_vent( _summ_vent_objs ):
             day_ach_vals += float( each.day_ach )
         except Exception as e:
             day_ach = each.day_ach
-        
+
+    for each in _summ_vent_objs:
         try:
             night_ach_vals += float( each.night_ach )
         except Exception as e:
             night_ach = each.night_ach
     
-    if day_ach_vals: day_ach = day_ach_vals
-    if night_ach_vals: night_ach = night_ach_vals
+    if day_ach is None: day_ach = day_ach_vals
+    if night_ach is None: night_ach = night_ach_vals
 
     #---------------------------------------------------------------------------
     # Write out to Excel
     summerVent_ = []
-    if not day_ach and not night_ach:
-        return summerVent_
-
+    
     summerVent_.append( PHPP_XL_Obj('SummVent', 'L31', day_ach) )
     summerVent_.append( PHPP_XL_Obj('SummVent', 'P59', night_ach))
     summerVent_.append( PHPP_XL_Obj('SummVent', 'R21', ''))                     # HRV Summer Bypass - Clear

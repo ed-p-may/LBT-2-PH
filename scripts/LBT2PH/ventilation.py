@@ -171,9 +171,6 @@ class PHPP_Sys_Duct(Object):
 
     def _len_weighted_avg(self, _attr):
         """Returns length-weighted average duct attr """
-        print('here', self._segments)
-        for seg in self._segments:
-            print(seg.length, _attr, getattr(seg, _attr))
 
         weighted_total = sum(seg.length * getattr(seg, _attr) for seg in self._segments)
         
