@@ -141,7 +141,7 @@ def convert_value_to_metric(_inputString, _outputUnit):
                 'M3':   {'SI':1, 'FT3':0.028316847},
                 '-' :   {'SI':1, '-':1},
                 'M3/H': {'SI':1, 'CFM':1.699010796, 'IP':1.699010796, 'CFH':101.9406477},
-                'L':    {'SI':1, 'L':1, 'GALLON':3.78541, "GA":3.78541},
+                'L':    {'SI':1, 'L':1, 'GALLON':3.78541, "GA":3.78541, "GAL":3.78541},
                 'KW':   {'SI':1, 'KW':1, 'W':1000, 'BTUH':3412.141156, 'KBTUH':3.412141156, 'TON':0.284345096},
                 'W':    {'SI':1, 'W':1, 'KW':0.001, 'BTUH':3.412141156, 'KBTUH':0.003412141, 'TON':0.000284345},
                 'W/W':  {'SI':1, 'BTU/WH':0.293071111, 'IP':0.293071111}
@@ -253,16 +253,27 @@ def get_rh_obj_UserText_dict(_ghdoc, _rh_obj_guid):
 def unit_check():
     """ Warns the user if the Rhino doc is not set to 'Meters' as the unit """
 
-    current_unit_num = rs.UnitSystem()
-    current_unit_name = Rhino.UnitSystem(current_unit_num)
-    msg = None
+    try:
+        # Check if its Rhino 7 or better first
+        rhino_major_version = int(str(Rhino.RhinoApp.Version)[0])
+        
+        if rhino_major_version >= 7:
+            current_unit_num = rs.UnitSystem()
+            current_unit_name = Rhino.UnitSystem(current_unit_num)
+            msg = None
 
-    if str(current_unit_name).upper() != 'METERS':
-        msg = "Warning: The Rhino scene's current units are set to: '{}'\n"\
-            "LBT2PH currently only works reliably when the Rhino scene units are\n"\
-            "are set to 'METERS'. You can still export to the IP version of PHPP,\n"\
-            "but within the Rhino scene, please set your units to 'METERS' otherwise\n"\
-            "some of the data will not be converted correctly. Sorry about that.\n"\
-            "We're working on it.....".format(current_unit_name)
-
+            if str(current_unit_name).upper() != 'METERS':
+                msg = "Warning: The Rhino scene's current units are set to: '{}'\n"\
+                    "LBT2PH currently only works reliably when the Rhino scene units are\n"\
+                    "are set to 'METERS'. You can still export to the IP version of PHPP,\n"\
+                    "but within the Rhino scene, please set your units to 'METERS' otherwise\n"\
+                    "some of the data will not be converted correctly. Sorry about that.\n"\
+                    "We're working on it.....".format(current_unit_name)
+        else:
+            msg = None
+    
+    except Exception:
+        # So its not Rhino 7, don't know how to check units properly in 6
+        msg = 'g'
+    
     return msg
