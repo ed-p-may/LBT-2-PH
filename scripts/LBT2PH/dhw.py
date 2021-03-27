@@ -142,9 +142,13 @@ class PHPP_DHW_System(object):
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
-       return "{}( _name={!r}, _usage={!r}, _fwdT={!r}, _pCirc={!r}, "\
-              "_pBran={!r}, _t1={!r}, _t2={!r}, _tBf={!r} )".format(
+       return "{}(_rms_assigned={!r}, _name={!r},"\
+                "_usage={!r}, _fwdT={!r},"\
+                "_pCirc={!r}, _pBran={!r}, "\
+                "_t1={!r}, _t2={!r}, "\
+                "_tBf={!r}, _solar={!r})".format(
                self.__class__.__name__,
+               self.rooms_assigned_to,
                self.SystemName,
                self.usage,
                self.forwardTemp,
@@ -152,7 +156,8 @@ class PHPP_DHW_System(object):
                self.branch_piping,
                self.tank1,
                self.tank2,
-               self.tank_buffer)
+               self.tank_buffer,
+               self.solar)
 
 class PHPP_DHW_usage_Res(Object):
     
@@ -657,8 +662,8 @@ class PHPP_DHW_tank(Object):
                self.hl_rate,
                self.vol,
                self.stndbyFrac,
-               self.loction,
-               self.locaton_t)
+               self.location,
+               self.location_t)
     def ToString(self):
         return str(self)
 

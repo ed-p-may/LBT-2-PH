@@ -978,7 +978,7 @@ def combine_DHW_systems(_dhwSystems):
         # Combine Tank 1s
         hasTank = False
         tankObj = {'type':[], 'solar':[], 'hl_rate':[], 'vol':[],
-        'stndbyFrac':[], 'loction':[], 'locaton_t':[]}
+        'stndbyFrac':[], 'location':[], 'location_t':[]}
         for v in _dhwSystems.values():
             vTankObj = getattr(v, _tankName)
             
@@ -989,8 +989,8 @@ def combine_DHW_systems(_dhwSystems):
                 tankObj['hl_rate'].append( getattr(vTankObj, 'hl_rate') )
                 tankObj['vol'].append( getattr(vTankObj, 'vol') )
                 tankObj['stndbyFrac'].append( getattr(vTankObj, 'stndbyFrac') )
-                tankObj['loction'].append( getattr(vTankObj, 'loction') )
-                tankObj['locaton_t'].append( getattr(vTankObj, 'locaton_t') )
+                tankObj['location'].append( getattr(vTankObj, 'location') )
+                tankObj['location_t'].append( getattr(vTankObj, 'location_t') )
         
         if hasTank:
             return LBT2PH.dhw.PHPP_DHW_tank(
@@ -999,8 +999,8 @@ def combine_DHW_systems(_dhwSystems):
                                 _hl_rate = statistics.mean(tankObj['hl_rate']) if len(tankObj['hl_rate']) != 0 else None,
                                 _vol = statistics.mean(tankObj['vol']) if len(tankObj['vol']) != 0 else None,
                                 _stndby_frac = statistics.mean(tankObj['stndbyFrac']) if len(tankObj['stndbyFrac']) != 0 else None,
-                                _loc = tankObj['loction'][0] if len(tankObj['loction']) != 0 else None,
-                                _loc_T = tankObj['locaton_t'][0] if len(tankObj['locaton_t']) != 0 else None,
+                                _loc = tankObj['location'][0] if len(tankObj['location']) != 0 else None,
+                                _loc_T = tankObj['location_t'][0] if len(tankObj['location_t']) != 0 else None,
                                 )
         else:
             return None
@@ -1018,19 +1018,28 @@ def combine_DHW_systems(_dhwSystems):
 
     print('Combining together DHW Systems...')
     #Combine Usages
+    #---------------------------------------------------------------------------
     showers = []
     other = []
+    
     for v in _dhwSystems.values():
-        if isinstance(v.usage, LBT2PH.dhw.PHPP_DHW_usage):
+        if isinstance(v.usage, LBT2PH.dhw.PHPP_DHW_usage_Res):
             showers.append( getattr(v.usage, 'demand_showers' ) )
             other.append( getattr(v.usage, 'demand_others' ) )
+        elif isinstance(v.usage, LBT2PH.dhw.PHPP_DHW_usage_Res):
+            # TODO
+            pass
     
-    dhwInputs = {'showers_demand_': sum(showers)/len(showers),
-    'other_demand_': sum(other)/len(other)}
-    
-    combinedUsage = LBT2PH.dhw.PHPP_DHW_usage( dhwInputs )
+    if showers and other:
+        dhwInputs = {'showers_demand_': sum(showers)/len(showers),
+                    'other_demand_': sum(other)/len(other)}
+        combinedUsage = LBT2PH.dhw.PHPP_DHW_usage_Res.from_dict( dhwInputs )
+    else:
+        combinedUsage = LBT2PH.dhw.PHPP_DHW_usage_Res()
+
     
     # Combine Branch Pipings
+    #---------------------------------------------------------------------------
     combined_Diams = getBranchPipeAttr(_dhwSystems, 'diameter', 'branch_piping', 'Average')
     combined_Lens = getBranchPipeAttr(_dhwSystems, 'totalLength', 'branch_piping', 'Sum')
     combined_Taps =  getBranchPipeAttr(_dhwSystems, 'totalTapPoints', 'branch_piping',  'Sum')
@@ -1049,6 +1058,7 @@ def combine_DHW_systems(_dhwSystems):
         combined_BranchPipings.append( combinedBranchPiping )
     
     # Combine Recirculation Pipings
+    #---------------------------------------------------------------------------
     hasRecircPiping = False
     recircObj = {'length':[], 'diam':[], 'insulThck':[],
     'insulCond':[], 'insulRefl':[], 'quality':[], 'period':[],}
@@ -1081,15 +1091,17 @@ def combine_DHW_systems(_dhwSystems):
         combined_RecircPipings = []
     
     # Combine the Tanks
+    #---------------------------------------------------------------------------
     tank1 = combineTank(_dhwSystems, 'tank1')
     tank2 = combineTank(_dhwSystems, 'tank2')
     tank_buffer = combineTank(_dhwSystems, 'tank_buffer')
     
     # Combine Solar HW Systems
-    print('>>>>', _dhwSystems)
+    #---------------------------------------------------------------------------
     solar_combined = combineSolar(_dhwSystems)
     
     # Build the combined / Averaged DHW System
+    #---------------------------------------------------------------------------
     combinedDHWSys = LBT2PH.dhw.PHPP_DHW_System(
                          _name='Combined', 
                          _usage=combinedUsage,

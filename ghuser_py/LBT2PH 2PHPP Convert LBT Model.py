@@ -149,6 +149,7 @@ if _HB_model:
     vent                             = LBT2PH.to_excel.build_addnl_vent_systems( ventilation_system, ventUnitsUsed, start_row_dict )
     airtightness                     = LBT2PH.to_excel.build_infiltration( hb_rooms, hb_room_names)
     ground                           = LBT2PH.to_excel.build_ground( ground_objs, hb_room_names, ghenv )
+    
     dhw                              = LBT2PH.to_excel.build_DHW_system( dhw_systems, hb_room_names, ghenv )
     nonRes_Elec                      = LBT2PH.to_excel.build_non_res_space_info( phpp_spaces, hb_room_names, start_row_dict )
     location                         = LBT2PH.to_excel.build_location( climate )
