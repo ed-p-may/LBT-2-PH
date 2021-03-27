@@ -493,7 +493,7 @@ def get_footprint( _surfaces ):
     l1 = ghc.Line(rect_pts[0], rect_pts[1])
     l2 = ghc.Line(rect_pts[0], rect_pts[2])
     max_length = max(ghc.Length(l1), ghc.Length(l2))
-
+    
     projection_surface = ghc.Polygon(projection_plane2, max_length*100, 4, 0).polygon
     projected_surfaces = ghc.SurfaceSplit( projection_surface, projected_edges)
 
@@ -502,9 +502,12 @@ def get_footprint( _surfaces ):
     projected_surfaces.pop(-1)
     
     #------- Join the new srfcs back together into a single one
-    unioned_NURB = ghc.RegionUnion( projected_surfaces )
-    unioned_surface = ghc.BoundarySurfaces(unioned_NURB)
 
+    # Adding SolidUnion to see if it fixes the problem with 'donut' surfaces
+    unioned_breps = ghc.SolidUnion(projected_surfaces)
+    unioned_NURB = ghc.RegionUnion( unioned_breps )
+    unioned_surface = ghc.BoundarySurfaces(unioned_NURB)
+    
     return Footprint(unioned_surface, unioned_surface.GetArea())
 
 def get_thermal_bridges(_model, _ghenv):
