@@ -869,12 +869,12 @@ def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):
     
     # Note: move the centroid 'up' just a tiny bit, otherwise 'is_point_inside'
     # test will return False. Must not work if point is 'on' a surface...
-    move_distance = 0.01
+    move_distance = 0.1
     srfc_centroid_b = Rhino.Geometry.Point3d(srfc_centroid_a.X, srfc_centroid_a.Y, srfc_centroid_a.Z + move_distance)
-
+    
     # Also, to use 'is_point_inside' need to convert the Point to a Ladybug Point3D
     srfc_centroid_c = Point3D(srfc_centroid_b.X, srfc_centroid_b.Y, srfc_centroid_b.Z)
-
+    
     host_room = None
     for room in _hb_rooms:
         if room.geometry.is_point_inside( srfc_centroid_c ):
@@ -1002,7 +1002,7 @@ def join_touching_tfa_groups(_tfa_surface_groups, _ghenv=None):
 def display_host_error(_tfa_obj, _ghenv):
 
     try:
-        tfa_id = _tfa_obj.get_dict_key()
+        tfa_id = _tfa_obj.dict_key
         msg = "Couldn't figure out which room/zone the tfa surface '{}' should "\
         "go in?\nMake sure the room is completely inside one or another zone.".format(tfa_id)
         _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
