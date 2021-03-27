@@ -24,7 +24,14 @@ class Temp_Surface:
 
     def __iter__(self):
         return (i for i in (self.geom, self.params))
-
+    
+    def __unicode__(self):
+        return u'A Temporary Surface with Geom and Params'
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+        return "_geom={!r}, _params={!r}".format(self.geom, self.params)
+    
 class hb_surface:
     """ Simple class to organize data for a 'surface'. Used to set up data for a HB-Face Component
     
@@ -468,6 +475,7 @@ def determine_surface_type_by_orientation(_surfaces):
             'Object Name': nm,
             'srfType': srfc_type,
             'EPBC': bc,
+            'EPConstruction':srfc_params.get('EPConstruction', None),
             }
         new_srfc_obj = Temp_Surface(srfc_geom, new_srfc_params)
         surfaces.append(new_srfc_obj)
