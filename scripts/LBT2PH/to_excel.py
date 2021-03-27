@@ -16,7 +16,7 @@ class PHPP_XL_Obj:
     
     # {Unit You have: {Unit you Want}, {...}, ...}
     conversionSchema = {
-            'C'    : {'SI':'*1', 'C':'*1', 'F':'*(9/5)+32'},
+            'C'    : {'SI':'*1', 'C':'*1', 'F':'*1.8+32'},
             'LITER': {'SI':'*1', 'LITER':'*1', 'GALLON':'*0.264172'},
             'MM'   : {'SI':'*1', 'MM':'*1', 'FT':'*0.00328084', 'IN':'*0.0394'},
             'M'    : {'SI':'*1', 'M':'*1', 'FT':'*3.280839895', 'IN':'*39.3701'},
@@ -31,7 +31,7 @@ class PHPP_XL_Obj:
             'M2K/W': {'SI':'*1', 'M2K/W':'*1', 'HR-FT2-F/BTU':'*5.678264134'},
             'W/MK' : {'SI':'*1', 'W/MK':'*1', 'HR-FT2-F/BTU-IN':'**-1*0.144227909', 'BTU/HR-FT-F':'*0.577789236'},
             'W/K'  : {'SI':'*1', 'W/K':'*1', 'BTU/HR-F':'*1.895633976'},
-            'KW'   : {'SI':'*1', 'KW':'*1','BTU/H':'*3412.141156'},
+            'KW'   : {'SI':'*1', 'KW':'*1','BTU/H':'*3412.141156', 'KBTU/H':'*3.412141156'},
             'W/W'  : {'SI':'*1', 'W/W':'*1', 'BTU/HW':'*3.412141156'} # SEER
             }
     
@@ -87,7 +87,11 @@ class PHPP_XL_Obj:
         try:
             schema = self.conversionSchema.get(self.Unit_SI, {'SI':1})
             conversionFactor = schema.get(targetUnit, 1)
-            return eval( str(self.Value)+str(conversionFactor))
+
+            expression = str(self.Value)+str(conversionFactor)
+            result = eval( expression )
+
+            return result
         except:
             return self.Value
     
@@ -1517,11 +1521,11 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
             hc_equip.append( PHPP_XL_Obj('HP', 'I635', hp_heating.name)) 
             hc_equip.append( PHPP_XL_Obj('HP', 'I637', hp_heating.source)) 
             for i, item in enumerate(hp_heating.temps_sources):
-                hc_equip.append( PHPP_XL_Obj('HP', 'K{}'.format(i+640), item)) 
+                hc_equip.append( PHPP_XL_Obj('HP', 'K{}'.format(i+640), item, 'C', 'F')) 
             for i, item in enumerate(hp_heating.temps_sinks):
-                hc_equip.append( PHPP_XL_Obj('HP', 'L{}'.format(i+640), item)) 
+                hc_equip.append( PHPP_XL_Obj('HP', 'L{}'.format(i+640), item, 'C', 'F')) 
             for i, item in enumerate(hp_heating.heating_capacities):
-                hc_equip.append( PHPP_XL_Obj('HP', 'M{}'.format(i+640), item)) 
+                hc_equip.append( PHPP_XL_Obj('HP', 'M{}'.format(i+640), item, 'KW', 'KBTU/H')) 
             for i, item in enumerate(hp_heating.cops):
                 hc_equip.append( PHPP_XL_Obj('HP', 'N{}'.format(i+640), item)) 
             hc_equip.append( PHPP_XL_Obj('HP', 'M658', hp_heating.sink_dt))   
@@ -1529,16 +1533,16 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
         #-----------------------------------------------------------------------
         hp_options = params.get('hp_options', None)
         if hp_options:
-            hc_equip.append( PHPP_XL_Obj('DHW+Distribution', 'J30', hp_options.frwd_temp))
+            hc_equip.append( PHPP_XL_Obj('DHW+Distribution', 'J30', hp_options.frwd_temp, 'C', 'F'))
             hc_equip.append( PHPP_XL_Obj('HP', 'M22', hp_options.hp_distribution))
-            hc_equip.append( PHPP_XL_Obj('HP', 'M27', hp_options.nom_power))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M27', hp_options.nom_power, 'KW', 'KBTU/H'))
             hc_equip.append( PHPP_XL_Obj('HP', 'M28', hp_options.rad_exponent))
             hc_equip.append( PHPP_XL_Obj('HP', 'M42', hp_options.backup_type))
-            hc_equip.append( PHPP_XL_Obj('HP', 'M43', hp_options.dT_elec_flow))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M43', hp_options.dT_elec_flow, 'C', 'F'))
             hc_equip.append( PHPP_XL_Obj('HP', 'M46', hp_options.hp_priority))
             hc_equip.append( PHPP_XL_Obj('HP', 'M48', hp_options.hp_control))
-            hc_equip.append( PHPP_XL_Obj('HP', 'M50', hp_options.depth_groundwater))
-            hc_equip.append( PHPP_XL_Obj('HP', 'M51', hp_options.power_groundwater))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M50', hp_options.depth_groundwater, 'M', 'FT'))
+            hc_equip.append( PHPP_XL_Obj('HP', 'M51', hp_options.power_groundwater, 'KW', 'KW',))
 
         #-----------------------------------------------------------------------
         dhw_hp = params.get('hp_DHW', None)
@@ -1548,11 +1552,11 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
             hc_equip.append( PHPP_XL_Obj('HP', 'I665', dhw_hp.name))
             hc_equip.append( PHPP_XL_Obj('HP', 'I667', dhw_hp.source)) 
             for i, item in enumerate(dhw_hp.temps_sources):
-                hc_equip.append( PHPP_XL_Obj('HP', 'K{}'.format(i+670), item)) 
+                hc_equip.append( PHPP_XL_Obj('HP', 'K{}'.format(i+670), item, 'C', 'F')) 
             for i, item in enumerate(dhw_hp.temps_sinks):
-                hc_equip.append( PHPP_XL_Obj('HP', 'L{}'.format(i+670), item)) 
+                hc_equip.append( PHPP_XL_Obj('HP', 'L{}'.format(i+670), item, 'C', 'F')) 
             for i, item in enumerate(dhw_hp.heating_capacities):
-                hc_equip.append( PHPP_XL_Obj('HP', 'M{}'.format(i+670), item)) 
+                hc_equip.append( PHPP_XL_Obj('HP', 'M{}'.format(i+670), item, 'KW', 'KBTU/H')) 
             for i, item in enumerate(dhw_hp.cops):
                 hc_equip.append( PHPP_XL_Obj('HP', 'N{}'.format(i+670), item)) 
             hc_equip.append( PHPP_XL_Obj('HP', 'M688', dhw_hp.sink_dt)) 
@@ -1586,7 +1590,7 @@ def build_heating_cooling( _heating_cooling_objs, _hb_room_names ):
         if addnl_dehumid:
             hc_equip.append( PHPP_XL_Obj('Cooling units', 'I32', 'x' ))
             hc_equip.append( PHPP_XL_Obj('Cooling units', 'P34', addnl_dehumid.waste_to_room))
-            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P35', addnl_dehumid.seer, 'W/W', 'BTU/HW'))
+            hc_equip.append( PHPP_XL_Obj('Cooling units', 'P35', addnl_dehumid.seer))
 
         #-----------------------------------------------------------------------
         panel_cooling = params.get('panel_cooling', None)
