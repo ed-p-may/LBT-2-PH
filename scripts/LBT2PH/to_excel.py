@@ -708,7 +708,7 @@ def build_addnl_vent_systems(_inputBranch, _ventUnitsUsed, _startRows):
     ductColCount = ord('Q')
     
     print("Creating 'Additional Ventilation' Systems...")
-    vent.append( PHPP_XL_Obj('SummVent', 'L20', "='Addl vent'!T24*0.5"))
+    vent.append( PHPP_XL_Obj('SummVent', 'L20', "='Additional Vent'!T24*0.5"))
     vent.append( PHPP_XL_Obj('Ventilation', 'H42', 'x') ) # Turn on Additional Vent
     vent.append( PHPP_XL_Obj('Additional Vent', 'F'+str(ventDuctsRowStart-11) , "=AVERAGE(Climate!E24, Climate!F24, Climate!N24, Climate!O24, Climate!P24") ) # External Average Temp
     
