@@ -458,7 +458,8 @@ def determine_surface_type_by_orientation(_surfaces):
                     "    2) Try setting this component's 'auto-orientation_' intput to 'True'?"\
 
                 ud_srfc_type = srfc_params.get('srfType')
-                if ud_srfc_type != 'FLOOR':
+                floor_types = ['FLOOR', 'ExposedFloor', 'UndergroundSlab', 'SlabOnGrade']
+                if ud_srfc_type not in floor_types:
                     warnings['Floor'] = {'level':'Warning', 'msg':msg}
 
             else: 
