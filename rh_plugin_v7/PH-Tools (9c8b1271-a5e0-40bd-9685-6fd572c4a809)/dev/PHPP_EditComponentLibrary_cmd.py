@@ -25,7 +25,7 @@ including window Psi-Installs. This uses a Model-View-Controller configuration
 mostly just cus' I wanted to test that out. Might be way overkill for something like
 this... but was fun to build.
 -
-EM September 21, 2020
+EM April 7, 2021
 """
 
 import rhinoscriptsyntax as rs
@@ -711,7 +711,7 @@ class View(Eto.Forms.Dialog):
         Scroll_panel = Eto.Forms.Scrollable()
         Scroll_panel.ExpandContentWidth = True
         Scroll_panel.ExpandContentHeight = True
-        Scroll_panel.Size = Eto.Drawing.Size(600, 200)
+        Scroll_panel.Size = Eto.Drawing.Size(600, 150)
         Scroll_panel.Content = _grContent
         
         return Scroll_panel
@@ -845,24 +845,34 @@ class Controller:
         # Determine if the user provides some 'Units' such as 'ft' or 'in' 
         # If so, do the conversion to the right SI value and reset the grid cell value
         
-        #print('-'*20)
-        #for attr in dir(sender):
-            #print attr, '::', getattr(sender, attr)
+        # print('-'*20)
+        # for attr in dir(sender):
+        #     print attr, '::', getattr(sender, attr)
         
-        #print('-'*20)
-        #for attr in dir(e):
-            #print attr, '::', getattr(e, attr)
+        # print('-'*20)
+        # for attr in dir(e):
+        #     print attr, '::', getattr(e, attr)
         
         #Figure out the correct 'units' for the column being edited
         GridColumn = getattr(e, 'GridColumn')
+        
+        # print('-'*20)
+        # for attr in dir(GridColumn):
+        #     print attr, '::', getattr(GridColumn, attr)
+    
         colProperties = getattr(GridColumn, 'Properties')
         for each in colProperties:
             if each.Key == 'ColumnUnit':
                 colUnit = each.Value
         
         # Get the input value, decide what to do with it
+        # If its the name column, don't do any conversions
         inputVal = sender.DataStore.Item[e.Row][e.Column]
-        displayVal = self.model.determineDisplayVal(inputVal, colUnit)
+        column_name = getattr(GridColumn, 'HeaderText')
+        if str(column_name).upper() == 'NAME':
+            displayVal = inputVal
+        else:
+            displayVal = self.model.determineDisplayVal(inputVal, colUnit)
         
         # Update with the new value
         sender.DataStore.Item[e.Row][e.Column] = displayVal
