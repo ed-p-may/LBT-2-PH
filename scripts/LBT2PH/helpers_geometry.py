@@ -92,8 +92,16 @@ def inset_rhino_surface(_srfc, _inset_dist=0.001, _srfc_name=""):
     return new_srfc
 
 def inset_LBT_Face3d(_face3d, _inset_dist=0.001):
-    rhino_geom = from_face3d(_face3d)
-    rhino_geom_inset = inset_rhino_surface(rhino_geom, _inset_dist)
+    try:
+        rhino_geom = from_face3d(_face3d)
+        rhino_geom_inset = inset_rhino_surface(rhino_geom, _inset_dist)
+    except Exception as e:
+        msg ='Error: Something went wrong trying to "inset" the window geometry.\n'\
+            'Please double check your windows? Are they planar and the surface normals\n'\
+            'are all pointing "out"?'
+        print('Error:', e)
+        raise Exception(msg)
+
     lbt_face3d = to_face3d(rhino_geom_inset)
 
     if lbt_face3d:
