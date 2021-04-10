@@ -175,7 +175,7 @@ class Model:
         #-----------------------------------------------------------------------
         # Add a warning to the user before proceeding
         # https://developer.rhino3d.com/api/rhinoscript/user_interface_methods/messagebox.htm
-        msg = "Loading component parameters from a file will overwright all "\
+        msg = "Loading component parameters from a file will overwrite all "\
         "the Assembly, Glazing and Window-Frame values in the current Rhino "\
         "file's library. Be sure you want to do this before proceeding."
         proceed = rs.MessageBox(msg, 1 | 48, 'Warning:')
