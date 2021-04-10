@@ -28,7 +28,7 @@ class TFA_Surface(Object):
         self._area_gross = None
         self._depth = None
 
-        self.id = random.randint(1000,9999)
+        self.id = random.randint(0,99999)
         self.surface = _surface
         self.host_room_name = _host_room_name
         self.params = _params
@@ -376,7 +376,7 @@ class Volume:
     ''' Represents an individual volume / part of a larger Space '''
 
     def __init__(self, _tfa_surface=None, _space_geometry=None, _space_height=2.5):
-        self.id = random.randint(1000,9999)
+        self.id = random.randint(0,99999)
         self.tfa_surface = _tfa_surface
         self._space_geom = _space_geometry
         self._space_height = _space_height
@@ -564,7 +564,7 @@ class Space:
     ''' A 'Space' or Room in a Zone. Made up of one or more Volumes/parts '''
     
     def __init__(self, _volumes=None, _vent_sched=LBT2PH.ventilation.PHPP_Sys_VentSchedule() ):
-        self.id = random.randint(1000,9999)
+        self.id = random.randint(0,99999)
         self.volumes = _volumes
         self.phpp_vent_system_id = 'default'
         self._phpp_vent_flow_rates = {'V_sup':0, 'V_eta':0, 'V_trans':0}
@@ -833,7 +833,13 @@ def find_all_tfa_surfaces( _tfa_surfaces, _ghenv, _ghdoc ):
         else:
             # Input is a Grasshoppper-generated surface
             geom = rs.coercegeometry( tfa_input )
+            
+            # Give each room a unique number so it won't try and
+            # join them together into a single room later
             params = {}
+            #params['Object Name'] = 'Unnamed Room' #<--- make this 'turn on-able'
+            #params['Room_Number'] = i
+
             tfa_obj = ( geom, params )
             rhino_tfa_objects.append( tfa_obj )
     
@@ -900,20 +906,38 @@ def find_neighbors(_dict_of_TFA_objs):
 
     return None
 
-def bin_tfa_srfcs_by_neighbor(_tfa_srfc_objs):
+def bin_tfa_srfcs_by_neighbor(_dict_of_tfa_surfaces_by_room_id):
+    """ I honestly don't remember what this is doing. Gotta write better comments...
+    Args:
+        _dict_of_tfa_surfaces_by_room_id: (dict): Looks like ->
+                {'19-Kitchen': {5775: TFA_Surface...},
+                 '20-Bedroom': {5776: TFA_Surface...},
+                 ...
+                }
+    Returns:
+        srfcSets: (dict) :Looks like -->
+                {
+                    5775: [TFA_Surface, TFA_Surface, ...],
+                    5776: [TFA_Surface],
+                    ...
+                }
+    """
+
     srfcSets = {}
-    for room_name, room in _tfa_srfc_objs.items():
-        for k2, v2 in room.items():
-            if len(v2.neighbors) == 1:
-                srfcSets[v2.id] = [v2]
+    for _tfa_srfc_room_id, _tfa_srfc_dict in _dict_of_tfa_surfaces_by_room_id.items():
+        for tfa_id, tfa_surface_obj in _tfa_srfc_dict.items():
+
+            if len(tfa_surface_obj.neighbors) == 1:
+                srfcSets[tfa_surface_obj.id] = [ tfa_surface_obj ]
+            
             else:
-                for id_num in v2.neighbors:
+                for id_num in tfa_surface_obj.neighbors:
                     if id_num in srfcSets.keys():
-                        srfcSets[id_num].append(v2)
-                        break
+                        srfcSets[id_num].append( tfa_surface_obj )
+                        continue
                 else:
-                    srfcSets[v2.id] = [v2]
-    
+                    srfcSets[tfa_surface_obj.id] = [ tfa_surface_obj ]
+
     return srfcSets
 
 def join_touching_tfa_groups(_tfa_surface_groups, _ghenv=None):
