@@ -4,6 +4,8 @@ import ghpythonlib.components as ghc
 import Grasshopper.Kernel as ghK
 import Rhino
 from System import Object
+from ladybug_rhino.fromgeometry import from_face3d
+
 
 try:  # import the core honeybee dependencies
     from ladybug_rhino.togeometry import to_face3d
@@ -233,15 +235,25 @@ class TFA_Surface(Object):
         # Get the inset Curve
         srfcCentroid = Rhino.Geometry.AreaMassProperties.Compute(rh_srfc).Centroid
         plane = ghc.XYPlane(srfcCentroid)
+        plane = ghc.IsPlanar(rh_srfc, True).plane
         srfcPerim_Inset_Pos = ghc.OffsetCurve(srfcPerim, _inset_dist, plane, 1)
         srfcPerim_Inset_Neg = ghc.OffsetCurve(srfcPerim, _inset_dist*-1, srfcCentroid, 1)
-        
+
         # Choose the right Offset Curve. The one with the smaller area
-        srfcInset_Pos = ghc.BoundarySurfaces( srfcPerim_Inset_Pos )
-        srfcInset_Neg = ghc.BoundarySurfaces( srfcPerim_Inset_Neg )
+        # Check IsPlanar first to avoid ghc.BoundarySurfaces error
+        if srfcPerim_Inset_Pos.IsPlanar:
+            srfcInset_Pos = ghc.BoundarySurfaces( srfcPerim_Inset_Pos )
+        else:
+            srfcInset_Pos = ghc.BoundarySurfaces( srfcPerim ) # Use the normal perim
+
+        if srfcPerim_Inset_Neg.IsPlanar():
+            srfcInset_Neg = ghc.BoundarySurfaces( srfcPerim_Inset_Neg )
+        else:
+            srfcInset_Neg = ghc.BoundarySurfaces( srfcPerim ) # Use the normal perim
+        
         area_Pos = ghc.Area(srfcInset_Pos).area
         area_neg = ghc.Area(srfcInset_Neg).area
-        
+
         if area_Pos < area_neg:
             return srfcInset_Pos
         else:
@@ -886,6 +898,24 @@ def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):
         if room.geometry.is_point_inside( srfc_centroid_c ):
             host_room = room.display_name
             break
+        else:
+            # Incase the Ladybug test doesn't work (seems to fail on some complex geom)
+            # Try doing a test using real Rhino Geometry as well...
+            
+            surfaces = []
+            for face in room.faces:
+                surfaces.append( from_face3d(face.geometry) )
+            
+            joined_breps = ghc.BrepJoin(surfaces).breps
+            
+            if isinstance(joined_breps, list):
+                if ghc.PointInBreps(joined_breps, srfc_centroid_b, True):
+                    host_room = room.display_name
+                    break
+            else:
+                if ghc.PointInBrep(joined_breps, srfc_centroid_b, True):
+                    host_room = room.display_name
+                    break
 
     return srfc_centroid_a, host_room
 
@@ -941,15 +971,24 @@ def bin_tfa_srfcs_by_neighbor(_dict_of_tfa_surfaces_by_room_id):
     return srfcSets
 
 def join_touching_tfa_groups(_tfa_surface_groups, _ghenv=None):
+    """ Do not really rememember how it works....
+
+        Args:
+            _tfa_surface_groups: (?)
+        Returns:
+            tfa_srfcs_joined: (?)
+    """
+    
     tfa_srfcs_joined = []
     
     for group in _tfa_surface_groups.values():
         # if there is only a single element in the group, add it to the list
         # otherwise, try and join together the elements in the group
-        
+
         if len(group) == 1:
             tfa_srfcs_joined.append(group[0])
         else:
+            # Need to do a weighted Join for the surfaces
             ventFlowRates_Sup = []
             ventFlowRates_Eta = []
             ventFlowRates_Tran = []
@@ -960,25 +999,31 @@ def join_touching_tfa_groups(_tfa_surface_groups, _ghenv=None):
             usage = []
             lighting = []
             motion = []
+
             for tfa_srfc in group:
-                # Get the ventilation flow rates
+                #----- Get the ventilation flow rates
                 ventFlowRates_Sup.append( tfa_srfc.get_vent_flow_rate('V_sup') )
                 ventFlowRates_Eta.append( tfa_srfc.get_vent_flow_rate('V_eta') )
                 ventFlowRates_Tran.append( tfa_srfc.get_vent_flow_rate('V_trans') )
 
-                # Get the geometric information
+                #----- Get the geometric information
                 areas_tfa.append(tfa_srfc.area_tfa)
                 areas_gross.append(tfa_srfc.area_gross)
                 srfc_exterior_perimeters.append(tfa_srfc.surface_perimeter)
                 sub_surfaces.append(tfa_srfc)
 
-                # Get the Non-Res params
+                #----- Get the Non-Res params
                 usage.append(tfa_srfc.non_res_usage)
                 lighting.append(tfa_srfc.non_res_lighting)
                 motion.append(tfa_srfc.non_res_motion)
 
-            # Build the new TFA surface
+            #----- Try to Build the new TFA surface
             perim_curve = ghc.RegionUnion(srfc_exterior_perimeters)
+            if not perim_curve:
+                # If the Region Union fails, just return the TFA Surfaces without joining
+                tfa_srfcs_joined.append(group[0])
+                continue
+            
             unioned_surface = Rhino.Geometry.Brep.CreatePlanarBreps(perim_curve, 0.01)
             if len(unioned_surface) != 0:
                 unioned_surface = unioned_surface[0]
@@ -989,7 +1034,7 @@ def join_touching_tfa_groups(_tfa_surface_groups, _ghenv=None):
             params = group[0].params
             unionedTFAObj = TFA_Surface(unioned_surface, host_room_name, params, sub_surfaces)
 
-            # Set the new TFA Surface's param properties
+            #---- Set the new TFA Surface's param properties
             unionedTFAObj.area_gross = sum(areas_gross)
             unionedTFAObj.tfa_factor = sum(areas_tfa) / sum(areas_gross)
             unionedTFAObj.space_number = group[0].space_number
@@ -998,7 +1043,7 @@ def join_touching_tfa_groups(_tfa_surface_groups, _ghenv=None):
             unionedTFAObj.set_surface_param('V_eta', max(ventFlowRates_Eta) )
             unionedTFAObj.set_surface_param('V_trans', max(ventFlowRates_Tran) )
 
-            # Set the new TFA Surface's Non-Res params
+            #---- Set the new TFA Surface's Non-Res params
             usage = sorted(list(set(filter(None, usage))))
             lighting = sorted(list(set(filter(None, lighting))))
             motion = sorted(list(set(filter(None, motion))))
