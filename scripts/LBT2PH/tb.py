@@ -118,8 +118,8 @@ def get_values_from_rhino_obj( _count, _rh_lib, _ghenv ):
     Output = namedtuple('Output', ['length', 'group', 'typename', 'psi_value', 'fRsi'])
     
     try:
-        input_index = 3
-        rhinoGuid = _ghenv.Component.Params.Input[input_index].VolatileData[0][_count].ReferenceID#.ToString()
+        input_index = 2
+        rhinoGuid = _ghenv.Component.Params.Input[input_index].VolatileData[0][_count].ReferenceID#.ToString()       
         rh_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( rhinoGuid )
         
         length = rh_obj.CurveGeometry.GetLength()
