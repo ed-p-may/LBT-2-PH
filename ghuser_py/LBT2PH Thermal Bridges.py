@@ -20,32 +20,41 @@
 # @license GPL-3.0+ <http://spdx.org/licenses/GPL-3.0+>
 #
 """
-Builds Thermal Bridge (linear, point) objects to add to the PHPP. Use this component AFTER you create the Honeybee model - the TB values here are applied to the entire model.
+Builds Thermal Bridge (linear, point) objects to add to the PHPP. Use this component 
+AFTER you create the Honeybee model - the TB values here are applied to the entire model.
 -
-Note that these objects are generally not inluced in the EnergyPlus model and so may be a source or discrepancy between the EnergyPlus reslults and the PHPP results. It will be more accurate to include these items in the final model.
+Note that these objects are generally not inluced in the EnergyPlus model and so may 
+be a source or discrepancy between the EnergyPlus reslults and the PHPP results. It 
+will be more accurate to include these items in the final model.
 -
-EM March 1, 2021
+EM Aptil 11, 2021
 
     Args:
         estimated_tb_: <Optional> A single number (0 to 1) which represents the % increase in heat loss due to thermal bridging.
-        Typical values could be: Passive House: +0.05, Good: +0.10,Medium: +0.25, Bad +0.40
-        linear_tb_names_: <Optional> A list of names for the Thermal Bridge items to add to the PHPP. This will override any inputs in 'linear_tb_geom_'
-        linear_tb_lengths_: <Optional> A list of Lengths (m) for the Thermal Bridge items to add to the PHPP. This will override any inputs in 'linear_tb_geom_'
-        linear_tb_PsiValues_: <Optional> Either a single number or a list of Psi-Values (W/mk) to use for any Thermal Bridge items.
-        If no values are passed, a default 0.01 W/mk value will be used for all Thermal Bridge items. If only one number is input, it will be used for all Psi-Value items output.
-        linear_tb_geom_: <Optional> A list of Rhino Geometry (curves, lines) to use for finding lengths and names automatically.
-        ------
-        If you want this to read from Rhino rather than GH, pass all your referenced geometry thorugh an 'ID' (Primitive/GUID) object first before inputting.
-        This will try and read the name from the Rhino-Scene object and use the object's name for the PHPP entry (Rhino: Properties/Object Name/...)
-        -----
-        point_tb_Names_: <Optional> A list of the Point-Thermal-Bridge names. Each name will become a unique point-TB object in the PHPP.
-        point_tb_ChiValues_: <Optional> A list of Chi Values (W/mk) to use for the Point thermal bridges. If this list matches the 'point_tb_Names' input each will be used. If only one value is input, it will be used for all Chi-Values. If no values are input, a default of 0.1-W/mk will be used for all.
-        Returns:
-        thermalBridges_: Thermal Bridge objects to write to Excel. Connect to the 'thermalBridges_' input on the '2XL |  PHPP Geom' Component
+            Typical values could be: Passive House: +0.05, Good: +0.10,Medium: +0.25, Bad +0.40
+        
+        linear_tb_lengths_: <Optional> A list of lengths for the Thermal Bridge items
+            to add to the PHPP. Alternatively - you can input a list of Curves from Rhino
+            which already have TB information applied to them.
+        linear_tb_psi_values_: <Optional> Either a single number or a list of 
+            Psi-Values (W/mk) to use for any Thermal Bridge items.
+        If no values are passed, a default 0.01 W/mk value will be used for all 
+            Thermal Bridge items. If only one number is input, it will be used 
+            for all Psi-Value items output.
+        linear_tb_fRsi_values_: <Optional> A list of fRsi temperature factors to apply
+            to the TB Items.
+        
+        point_tb_Names_: <Optional> A list of the Point-Thermal-Bridge names. Each 
+            name will become a unique point-TB object in the PHPP.
+        point_tb_ChiValues_: <Optional> A list of Chi Values (W/mk) to use for the
+            Point thermal bridges. If this list matches the 'point_tb_Names' 
+                input each will be used. If only one value is input, it will be 
+                used for all Chi-Values. If no values are input, a default of 
+                0.1-W/mk will be used for all.
+        point_tb_fRsi_values_: <Optional>
+    Returns:
+        HB_model_: The Honeybee Model with the Thermal Bridge objects applied
 """
-
-import Grasshopper.Kernel as ghK
-from copy import deepcopy
 
 import LBT2PH
 import LBT2PH.__versions__
@@ -58,7 +67,7 @@ reload( LBT2PH.tb )
 reload( LBT2PH.helpers )
 
 ghenv.Component.Name = "LBT2PH Thermal Bridges"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
+LBT2PH.__versions__.set_component_params(ghenv, dev='APR_11_2021')
 #-------------------------------------------------------------------------------
 
 def default_get(i, _input_list, _default=None):

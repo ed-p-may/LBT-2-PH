@@ -1,5 +1,6 @@
 import Grasshopper.Kernel as ghK
 import ghpythonlib.components as ghc
+import Rhino
 import Rhino.Geometry.Vector2d
 import rhinoscriptsyntax as rs
 import math
@@ -468,46 +469,66 @@ def get_footprint( _surfaces ):
     Footprint = namedtuple('Footprint', ['Footprint_surface', 'Footprint_area'])
     
     #----- Build brep
-    surfaces = (from_face3d(surface.Srfc) for surface in _surfaces)
+    surfaces = [from_face3d(surface.Srfc) for surface in _surfaces]
     bldg_mass = ghc.BrepJoin( surfaces ).breps
-    bldg_mass = ghc.BoundaryVolume(bldg_mass)
+    
+    if isinstance(bldg_mass, list): # returns a list of breps if its 'open' sometimes
+        bldg_mass = ghc.BrepJoin( bldg_mass ).breps
+    else:
+        bldg_mass = ghc.BoundaryVolume(bldg_mass)
+    
     if not bldg_mass:
-        return Footprint(None, None)
+        return Footprint(bldg_mass, None)
     
     #------- Find Corners, Find 'bottom' (lowest Z)
     bldg_mass_corners = [v for v in ghc.BoxCorners(bldg_mass)]
     bldg_mass_corners.sort(reverse=False, key=lambda point3D: point3D.Z)
     rect_pts = bldg_mass_corners[0:3]
-
+    
     #------- Projection Plane
     projection_plane1 = ghc.Plane3Pt(rect_pts[0], rect_pts[1], rect_pts[2])
     projection_plane2 = ghc.Move(projection_plane1, ghc.UnitZ(-10)).geometry
     matrix = rs.XformPlanarProjection(projection_plane2)
-
+    
     #------- Project Edges onto Projection Plane
     projected_edges = []
     for edge in ghc.DeconstructBrep(bldg_mass).edges:
         projected_edges.append( ghc.Transform( edge, matrix) )
-
+    
     #------- Split the projection surface using the curves
     l1 = ghc.Line(rect_pts[0], rect_pts[1])
     l2 = ghc.Line(rect_pts[0], rect_pts[2])
     max_length = max(ghc.Length(l1), ghc.Length(l2))
-    
+
     projection_surface = ghc.Polygon(projection_plane2, max_length*100, 4, 0).polygon
     projected_surfaces = ghc.SurfaceSplit( projection_surface, projected_edges)
 
     #------- Remove the biggest surface from the set(the background srfc)
     projected_surfaces.sort( key=lambda x: x.GetArea()) 
     projected_surfaces.pop(-1)
-    
-    #------- Join the new srfcs back together into a single one
 
-    # Adding SolidUnion to see if it fixes the problem with 'donut' surfaces
+    #------- Join the new srfcs back together into a single one
+    """
+    # 
+    # Note: this was the 'old' solution.
+    # April 2021 Changed to use a Mesh technique to handle cases better
+    # Still not sure it works on all cases? Donuts, open Breps, etc...
+    # 
     unioned_breps = ghc.SolidUnion(projected_surfaces)
     unioned_NURB = ghc.RegionUnion( unioned_breps )
-    unioned_surface = ghc.BoundarySurfaces(unioned_NURB)
-    
+    """
+
+    #------- Convert to Meshes -----NEW APRIL 2021
+    # Use list() and .extend Cus it returns an Array
+    mesh_srfcs = []
+    ms = Rhino.Geometry.MeshingParameters().Default
+    for srfc in projected_surfaces:
+        mesh_srfcs.extend(list(Rhino.Geometry.Mesh.CreateFromBrep(srfc, ms)))
+
+    joined_mesh = ghc.MeshJoin(mesh_srfcs)
+    mesh_perim_crv = ghc.MeshEdges(joined_mesh).naked_edges
+    unioned_surface = ghc.BoundarySurfaces(mesh_perim_crv)
+
     return Footprint(unioned_surface, unioned_surface.GetArea())
 
 def get_thermal_bridges(_model, _ghenv):
