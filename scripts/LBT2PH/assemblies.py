@@ -95,11 +95,20 @@ def generate_all_HB_constructions(_rh_doc_constructions, _ghenv):
             nm = construction.get('Name', 'NO_NAME').upper()
             uval = float(construction.get('uValue', 1.0))
             rval = float(1/uval)
-            intInsul = construction.get('intInsulation', None)
-            if intInsul:
-                intInsul = 1
-            else:
-                intInsul = 0
+        
+            #---- Try and sort out the IntInsul flag
+            try:
+                intInsul = bool(float(construction.get('intInsulation', None)))
+                if intInsul:
+                    intInsul = 1
+                else:
+                    intInsul = 0
+            except Exception as e:
+                msg = 'Something went wrong reading the "IntInsualtion" flag? What the heck?'\
+                    'Check the type of the "IntInsul" flag coming from Rhino? Should be a string'\
+                    'either "0.0" or "1.0"?'
+                raise Exception(msg)
+
         except Exception as e:
             print(e)
             nm = construction.get('Name', 'NO_NAME').upper()
