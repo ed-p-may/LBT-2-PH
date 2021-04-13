@@ -157,8 +157,8 @@ class PHPP_Surface:
         self.ghenv = _ghenv
         self.Factor_Shading = 0.5
         self.Factor_Absorptivity = 0.6
-        self.Factor_Emissivity = 0.9
-    
+        self.Factor_Emissivity = 0.9        
+
     def calc_scene_north_vector(self, _input_vector):
         ''' 
         Arguments:
@@ -193,6 +193,16 @@ class PHPP_Surface:
             return clean_name
         except Exception as e:
             print('Error getting name from the LBT Face?', e)
+            return 'NameError'
+
+    @property
+    def identifier(self):
+        try:
+            lbt_srfc_identifier = self.lbt_srfc.identifier
+            clean_identifier = lbt_srfc_identifier.replace('EXT_', '').replace('INT_', '')
+            return clean_identifier
+        except Exception as e:
+            print('Error getting idetifier from the LBT Face?', e)
             return 'NameError'
 
     @property

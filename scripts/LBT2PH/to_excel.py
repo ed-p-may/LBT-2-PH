@@ -363,6 +363,7 @@ def build_areas(_surfaces, _hb_room_names, _uValueUIDs):
 
         # Get the Surface Parameters
         nm = surface.Name
+        identifier = surface.identifier
         groupNum = surface.GroupNum
         quantity = 1
         surfaceArea = surface.SurfaceArea
@@ -401,7 +402,7 @@ def build_areas(_surfaces, _hb_room_names, _uValueUIDs):
         setattr(surface, 'UD_Srfc_Name', '{:d}-{}'.format(uID_Count, nm) )
         
         # Keep track of which Surfaces are included in the output
-        surfacesIncluded.append(nm)
+        surfacesIncluded.append(identifier)
         
         uID_Count += 1
         areaCount += 1
@@ -445,7 +446,7 @@ def build_windows(_inputBranch, _surfacesIncluded, _srfcBranch):
         if includeWindow:
             # Find the Window's Host Surface UD
             for srfc in _srfcBranch:
-                if host == srfc.Name:
+                if host == srfc.identifier:
                     hostUD = srfc.UD_Srfc_Name
            
            # Get the Window Range Addresses

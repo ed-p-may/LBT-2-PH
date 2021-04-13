@@ -166,7 +166,8 @@ class PHPP_Window(Object):
     
     @property
     def host_surface(self):
-        return self.aperture.parent.display_name.replace('EXT_', '')
+        #return self.aperture.parent.display_name.replace('EXT_', '')
+        return self.aperture.parent.identifier.replace('EXT_', '')
 
     @property
     def height(self):

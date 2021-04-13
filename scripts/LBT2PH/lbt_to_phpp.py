@@ -164,8 +164,8 @@ def get_exposed_surfaces_from_model(_model, _north, _ghenv):
     for room in _model.rooms: 
         room_name = room.display_name
         room_id = room.identifier
-        
-        for face in room:       
+
+        for face in room:
             bc = str(face.boundary_condition)
 
             if bc == 'Surface': continue
@@ -519,15 +519,41 @@ def get_footprint( _surfaces ):
     """
 
     #------- Convert to Meshes -----NEW APRIL 2021
-    # Use list() and .extend Cus it returns an Array
-    mesh_srfcs = []
-    ms = Rhino.Geometry.MeshingParameters().Default
-    for srfc in projected_surfaces:
-        mesh_srfcs.extend(list(Rhino.Geometry.Mesh.CreateFromBrep(srfc, ms)))
+    def join_building_surfaces( _surfaces_to_join ):
+        """Takes in a set of surfaces and tries to join them into a single surface 
 
-    joined_mesh = ghc.MeshJoin(mesh_srfcs)
-    mesh_perim_crv = ghc.MeshEdges(joined_mesh).naked_edges
-    unioned_surface = ghc.BoundarySurfaces(mesh_perim_crv)
+        -> A single surface (if it worked) or a list of surfaces (if it didn't work)
+
+        Args:
+            _surfaces_to_join: [itearble] A list of surfaces to join
+        Returns:
+            joined_surface: [surface] or [list] A single surface OR a list of surfaces
+        """
+
+        mesh_srfcs = []
+        ms = Rhino.Geometry.MeshingParameters().Default
+        for srfc in projected_surfaces:
+            # Use list() and .extend Cus it returns an Array
+            mesh_srfcs.extend(list(Rhino.Geometry.Mesh.CreateFromBrep(srfc, ms)))
+
+        joined_mesh = ghc.MeshJoin(mesh_srfcs)
+        mesh_perim_crv = ghc.MeshEdges(joined_mesh).naked_edges
+        joined_surface = ghc.BoundarySurfaces(mesh_perim_crv)
+
+        return joined_surface
+
+    unioned_surface = join_building_surfaces(projected_surfaces)
+    
+    """If it doesn't work, I'll get a list of surfaces instead of a single one. 
+    Not sure what do do? I suppose I'll try and join them together somehow... """
+    if isinstance(unioned_surface, list):
+        unioned_surface = join_building_surfaces(unioned_surface) # Try one more time
+        if isinstance(unioned_surface, list):
+            total_area = 0
+            for srfc in unioned_surface:
+                total_area += srfc.GetArea()
+
+            return Footprint(unioned_surface, total_area)
 
     return Footprint(unioned_surface, unioned_surface.GetArea())
 
