@@ -22,7 +22,7 @@
 """
 Creates DHW Tank for the 'DHW+Distribution' PHPP worksheet.
 -
-EM March 1, 2021
+EM April 15, 2021
     Args:
         _tank_type: ("0-No storage tank", "1-DHW and heating", "2-DHW only") The type of use for this tank.
         tank_solar_: (True/False) Is this tank hooked up to a Solar HW system?
@@ -42,25 +42,27 @@ import Grasshopper.Kernel as ghK
 import LBT2PH
 import LBT2PH.__versions__
 import LBT2PH.dhw
+import LBT2PH.dhw_IO
 from LBT2PH.helpers import preview_obj
 
 reload( LBT2PH )
-reload(LBT2PH.__versions__)
+reload( LBT2PH.__versions__ )
 reload( LBT2PH.dhw )
+reload( LBT2PH.dhw_IO )
 reload( LBT2PH.helpers )
 
 ghenv.Component.Name = "LBT2PH DHW Tank"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
+LBT2PH.__versions__.set_component_params(ghenv, dev='APR_15_2021')
 
 #-------------------------------------------------------------------------------
 # Creat Storage Tank
 storage_tank_ = LBT2PH.dhw.PHPP_DHW_tank()
 if _tank_type: storage_tank_.type = _tank_type
 if tank_solar_: storage_tank_.solar = tank_solar_
-if tank_HLrate_: storage_tank_.hl_rate = LBT2PH.dhw.clean_input(tank_HLrate_, 'tank_HLrate_', 'W/K', ghenv)
-if tank_volume_: storage_tank_.vol = LBT2PH.dhw.clean_input(tank_volume_, 'tank_volume_', 'L', ghenv)
-if tank_standby_frac_: storage_tank_.stndbyFrac = LBT2PH.dhw.clean_input(tank_standby_frac_, 'tank_standby_frac_', '-', ghenv)
+if tank_HLrate_: storage_tank_.hl_rate = LBT2PH.dhw_IO.clean_input(tank_HLrate_, 'tank_HLrate_', 'W/K', ghenv)
+if tank_volume_: storage_tank_.vol = LBT2PH.dhw_IO.clean_input(tank_volume_, 'tank_volume_', 'L', ghenv)
+if tank_standby_frac_: storage_tank_.stndbyFrac = LBT2PH.dhw_IO.clean_input(tank_standby_frac_, 'tank_standby_frac_', '-', ghenv)
 if tank_location_: storage_tank_.location = tank_location_
-if tank_location_T_: storage_tank_.location_t = LBT2PH.dhw.clean_input(tank_location_T_, 'tank_location_T_', 'C', ghenv)
+if tank_location_T_: storage_tank_.location_t = LBT2PH.dhw_IO.clean_input(tank_location_T_, 'tank_location_T_', 'C', ghenv)
 
 preview_obj(storage_tank_)

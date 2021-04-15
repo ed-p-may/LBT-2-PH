@@ -131,7 +131,7 @@ def piping_input_values(_input_node=0, _user_input=[], _user_attr_dicts=[{}], _g
     
     return piping_inputs
 
-def _clean_input(_in, _nm, _unit='-', _ghenv=None):
+def clean_input(_in, _nm, _unit='-', _ghenv=None):
     """Utility function to clean input date, give useful warnings about out-of-bounds inputs """
     
     try:
