@@ -22,43 +22,60 @@
 """
 Creates DHW Branch Piping set for the 'DHW+Distribution' PHPP worksheet.
 -
-EM March 1, 2021
+EM April 15, 2021
     Args:
-        pipe_geom_: (list: Curves:) A list of recirculation piping elements. Accepts 
-            either numeric values representing the lenghts, or Curve objects from Rhino.
-        diameter_: (m) The nominal size of the branch piping lengths. Default is 0.0127m (1/2").
-        tapOpenings_: The number of tap openings / person every day. Default is 6 openings/person/day.
-        utilisation_: The days/year the DHW system is operational. Default is 365 days/year.
+        pipe_segments_: list[float] (meters) | list[Rhino.Geometry.Curve] A list of branch piping elements. Accepts 
+            either numeric values representing the lengths (m), or Polyline/Curve objects from Rhino.
+        diameters_: list[float] (meters) The nominal size of the branch piping lengths. Default is 0.0127m (1/2").
     Returns:
-        branch_piping_: The Branch Piping object(s). Connect this to the 'branch_piping_' 
+        branch_piping_: [List] The Branch Piping object(s). Connect this to the 'branch_piping_' 
             input on the 'DHW' component in order to pass along to the PHPP.
 """
 
+from itertools import izip_longest
+import Grasshopper.Kernel as ghK
+import rhinoscriptsyntax as rs
+
 import LBT2PH
 import LBT2PH.__versions__
-from LBT2PH.helpers import convert_value_to_metric
-from LBT2PH.dhw import PHPP_DHW_branch_piping
-from LBT2PH.dhw import clean_input
+import LBT2PH.dhw
+import LBT2PH.dhw_IO
+from LBT2PH.helpers import convert_value_to_metric, context_rh_doc
 
 reload( LBT2PH )
-reload(LBT2PH.__versions__)
+reload( LBT2PH.__versions__ )
 reload( LBT2PH.dhw )
+reload( LBT2PH.dhw_IO )
 reload( LBT2PH.helpers )
 
 ghenv.Component.Name = "LBT2PH DHW Piping Branches"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
+LBT2PH.__versions__.set_component_params(ghenv, dev='APR_15_2021')
 
-# ------------------------------------------------------------------------------
-branch_piping_ = PHPP_DHW_branch_piping()
+if diameters_ and  len(pipe_segments_) != len(diameters_):
+    msg = 'Warning: Your diameters_ input length does not match the pipe_segments length.\n'\
+        'I will use the default diameter for all missing inputs.'
+    ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
 
-if pipe_geom_:
-    branch_piping_.set_pipe_lengths(pipe_geom_, ghdoc, ghenv)
+#----- Build the standardized inputs
+#-------------------------------------------------------------------------------
+attr_dicts = []
+for i, v in enumerate(pipe_segments_):
+    attr_dict = {}
+    attr_dict['pipe_diameter'] = diameters_[i] if i<len(diameters_) else None
+    attr_dicts.append(attr_dict)
+
+piping_inputs = LBT2PH.dhw_IO.piping_input_values(_input_node=0, _user_input=pipe_segments_, 
+                                _user_attr_dicts=attr_dicts, _ghenv=ghenv, _ghdoc=ghdoc)
+
+#---- Build the actual Piping Objects
+#-------------------------------------------------------------------------------
+branch_piping_ = []
+for segment in piping_inputs:
+    new_segment = LBT2PH.dhw.PHPP_DHW_Pipe_Segment()
+    new_segment.length = segment.get('length')
+    if segment.get('pipe_diameter'): new_segment.diameter = segment.get('pipe_diameter')
     
-    if diameter_:
-        branch_piping_.diameter = clean_input(diameter_, "diameter_", 'M', ghenv)
-    if tap_openings_:
-        branch_piping_.tap_openings = clean_input(tap_openings_, "tapOpenings_", '-', ghenv)
-    if utilisation_:
-        branch_piping_.utilisation = clean_input(utilisation_, "utilisation_", '-', ghenv)
+    branch_piping_.append(new_segment)
 
-LBT2PH.helpers.preview_obj(branch_piping_)
+for each in branch_piping_:
+    LBT2PH.helpers.preview_obj(each)

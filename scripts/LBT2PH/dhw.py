@@ -1,31 +1,204 @@
-import random
-from System import Object
-import Grasshopper.Kernel as ghK
-import ghpythonlib.components as ghc
-import rhinoscriptsyntax as rs
-import Rhino
+from uuid import uuid4
+from collections import defaultdict
 
-from LBT2PH.helpers import convert_value_to_metric, context_rh_doc
+class PHPP_DHW_Tap_Point:
+    """A single DHW Tap point (faucet, fixture, etc) """
+
+    def __init__(self):
+        self.location = None # Point3D
+        self.openings_per_day = 6
+        self.utilization = 365
+
+class PHPP_DHW_Pipe_Segment(object):
+    """ The base element of a Pipe Section / Run. Represents a single pipe piece / segment """
+    
+    def __init__(self):
+        self.id = uuid4()
+        self.length = 10 #m
+        self._diameter = 0.0127 #m
+        self._insul_thickness = 0.0127 #m
+        self._insul_conductivity = 0.04 #W/mk
+        self._insul_reflective = True
+        self._quality = '1-None'
+        self._period = 18
+    
+    @property
+    def diameter(self):
+        return self._diameter
+    
+    @diameter.setter
+    def diameter(self, _in):
+        """Allows for my sloppy input types / formats from RH dict """
+        
+        try:
+            input = float(_in)
+        except ValueError:
+            try:
+                # sometimes gets an input like: "25.4 (1in)"
+                input = float( str(_in).split(' ')[0] )
+            except ValueError as e:
+                raise e
+
+        if input > 1:
+            input = input / 1000 #convert to m
+        self._diameter = input
+
+    @property
+    def insulation_thickness(self):
+        return self._insul_thickness
+
+    @insulation_thickness.setter
+    def insulation_thickness(self, _in):
+        try:
+            self._insul_thickness = float(_in)
+        except:
+            try:
+                # sometimes gets inpiut like '25.5 (1in)'...
+                self._insul_thickness = float(str(_in).split(' ')[0])
+            except:
+                raise Exception('Error: Insualtion Thickness input: "{}" should be a number.'.format(_in))
+
+    @property
+    def insulation_conductivity(self):
+        return self._insul_thickness
+
+    @insulation_conductivity.setter
+    def insulation_conductivity(self, _in):
+        try:
+            self._insul_conductivity = float(_in)
+        except:
+            raise Exception('Error: Insualtion Conductivity input: "{}" should be a number.'.format(_in))
+
+    @property
+    def insulation_reflective(self):
+        return self._insul_reflective
+
+    @insulation_reflective.setter
+    def insulation_reflective(self, _in):
+        self._insul_reflective = _in
+
+    @property
+    def insul_quality(self):
+        return self._quality
+
+    @insul_quality.setter
+    def insul_quality(self, _in):
+        if '2' in str(_in):
+            self._quality = '2 - Moderate'
+        elif '3' in str(_in):
+            self._quality = '3 - Good'
+        else:
+            self._quality = '1-None'
+    
+    @property
+    def daily_period(self):
+        return self._period
+
+    @daily_period.setter
+    def daily_period(self, _in):
+        try:
+            self._period = float(_in)
+        except Exception as e:
+            raise e('Error: Daily Period input: "{}" should be a number.'.format(_in))
+        
+        assert self._period > 0  and self._period < 24, 'Error: Daily Period should be a number between 0 and 24 hours.'
+    
+    def __add__(self, other):
+        """Allows you to '+' or sum() PHPP_DHW_Pipe_Segment instances """
+        new_obj = self.__class__()
+        new_obj.length = self.length + other.length
+        new_obj.diameter = other.diameter
+
+        return new_obj
+
+    __radd__ = __add__
+
+    def to_dict(self):
+        d = {}
+
+        d.update( {'id':self.id} )
+        d.update( {'length':self.length} )
+        d.update( {'diameter':self.diameter} )
+
+        return d
+
+    @classmethod
+    def from_dict(cls, _dict):
+        new_obj = cls()
+
+        new_obj.id = _dict.get('id')
+        new_obj.length = _dict.get('length')
+        new_obj.diameter = _dict.get('diameter')
+
+        return new_obj
+
+    @classmethod
+    def from_existing(cls, other):
+        """Create a new object based on another """
+
+        new_obj = cls()
+        
+        new_obj.length = other.length
+        new_obj.diameter = other.diameter
+        new_obj.insulation_thickness = other.insulation_thickness
+        new_obj.insulation_conductivity = other.insulation_conductivity
+        new_obj.insulation_reflective = other.insulation_reflective
+        new_obj.insul_quality = other.insul_quality
+        new_obj.daily_period = other.daily_period
+
+        return new_obj
+
+    def __unicode__(self):
+        return u'A PHPP Style DHW Pipe Branch: < {} >'.format(self.id)
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+        return '{}: len={}, diam={}'.format(
+            self.__class__.__name__,
+            self.length,
+            self.diameter,
+        )    
+    def ToString(self):
+        return str(self)
 
 class PHPP_DHW_System(object):
-    def __init__(self, _rms_assigned=[], _name='DHW',
-                _usage=None, _fwdT=60,
-                _pCirc={}, _pBran={}, 
-                _t1=None, _t2=None, 
-                _tBf=None, _solar=None):
-        self.id = random.randint(1000,9999)
-        self.SystemName = _name
-        self.usage = _usage
-          
-        self.forwardTemp = _fwdT
-        self.circulation_piping = _pCirc
-        self.branch_piping = _pBran
-        self._tank1 = _t1
-        self._tank2 = _t2
-        self.tank_buffer = _tBf
-        self.solar = _solar
-        self.rooms_assigned_to = _rms_assigned
+    """An organized collection of DHW items """
+
+    def __init__(self):
+        self._id = uuid4()
+        self.system_name = 'DHW'
+        self.usage = PHPP_DHW_usage_Res()
+        self.forward_temp = 60 #C
+        self.tap_points = []
+        self.circulation_piping = []
+        self.branch_piping = []
+        self.rooms_assigned_to = []
+        self._tank1 = None
+        self._tank2 = None
+        self.tank_buffer = None
+        self.solar = None
+
+    @property
+    def id(self):
+        return str(self._id)
+
+    @id.setter
+    def id(self, _in):
+        if _in:
+            self._in = _in
+
+    @property
+    def number_of_tap_points(self):
+        return len(self.tap_points)
+
+    @property
+    def tap_openings_per_day(self):
+        return 6
     
+    @property
+    def tap_utilisation_days(self):
+        return 365
+   
     @property
     def tank1(self):
         return self._tank1
@@ -53,71 +226,112 @@ class PHPP_DHW_System(object):
         else:
             self._tank2 = _in
 
-    def to_dict(self):
-        d = {}
-
-        d.update( {'id':self.id} )
-        d.update( {'rooms_assigned_to': self.rooms_assigned_to} )
-        d.update( {'SystemName':self.SystemName} )
+    @staticmethod
+    def _add_tanks(t1, t2):
+        """Clean join of tank objects when combining systems since either could be 'None' """
         
-        d.update( {'forwardTemp':self.forwardTemp} )
-        
-        # Protect against Nones
-        if self.usage:       d.update( {'usage': self.usage.to_dict() } )
-
-        # Build default tank if bool True is input
-        if self._tank1:       d.update( {'tank1':self.tank1.to_dict()} )
-        if self._tank2:       d.update( {'tank2':self.tank2.to_dict()} )
-        if self.tank_buffer:  d.update( {'tank_buffer':self.tank_buffer.to_dict() } )
-        if self.solar:        d.update( {'solar':self.solar.to_dict() } ) 
-
-        d.update( {'circulation_piping': {} } ) 
-        circ_piping = {} or self.circulation_piping
-        for circ_piping_obj in circ_piping.values():
-            d['circulation_piping'].update( { circ_piping_obj.id:circ_piping_obj.to_dict() } )
-        
-        d.update( {'branch_piping': {} } ) 
-        branch_piping = {} or self.branch_piping
-        for piping_obj in branch_piping.values():
-            d['branch_piping'].update( { piping_obj.id:piping_obj.to_dict() } )
-
-        return d
-
-    @classmethod
-    def from_dict(cls, _dict):
-        new_obj = cls()
-        
-        new_obj.id = _dict.get('id')
-        new_obj.rooms_assigned_to = _dict.get('rooms_assigned_to')
-        new_obj.SystemName = _dict.get('SystemName')
-        new_obj.forwardTemp = _dict.get('forwardTemp')
-        
-        circ_pipings = _dict.get('circulation_piping')
-        for circ_piping in circ_pipings.values():
-            new_piping_obj = PHPP_DHW_RecircPipe.from_dict( circ_piping )
-            new_obj.circulation_piping.update( {new_piping_obj.id:new_piping_obj} )
-
-        branch_piping = _dict.get('branch_piping')
-        for branch_pipe_obj in branch_piping.values():
-            new_piping_obj = PHPP_DHW_branch_piping.from_dict( branch_pipe_obj )
-            new_obj.branch_piping.update( {new_piping_obj.id:new_piping_obj} )
-        
-        new_obj.tank1 = PHPP_DHW_tank.from_dict( _dict.get('tank1') )
-        new_obj.tank2 = PHPP_DHW_tank.from_dict( _dict.get('tank2') )
-        new_obj.tank_buffer = PHPP_DHW_tank.from_dict( _dict.get('tank_buffer') )
-        new_obj.solar = PHPP_DHW_Solar.from_dict( _dict.get('solar') )
-    
-        usage = _dict.get('usage')
-        if usage:
-            if usage.get('type') == 'Res':
-                usage = PHPP_DHW_usage_Res.from_dict( _dict.get('usage') )
-            elif usage.get('type') == 'NonRes':
-                usage = PHPP_DHW_usage_NonRes.from_dict( _dict.get('usage') )
+        if t1 and not t2:
+            return t1
+        elif t2 and not t1:
+            return t2
+        elif t1 and t2:
+            return t1 + t2
         else:
-            usage = None
-        new_obj.usage = usage
+            return None
+
+    @staticmethod
+    def _add_solars(s1, s2):
+        """Clean join of Solar thermal systems when combining systems since either could be 'None' """
         
+        if s1 and not s2:
+            return s1
+        elif s2 and not s1:
+            return s2
+        elif s1 and s2:
+            return s1 + s2
+        else:
+            return None
+
+    def __add__(self, other):
+        """Allows you to '+' or sum() PHPP_DHW_System instances """
+        new_obj = self.__class__()
+
+        new_obj.system_name = 'Combined System'
+        new_obj.usage = self.usage + other.usage
+        new_obj.tap_points = self.tap_points + other.tap_points
+        new_obj.circulation_piping = self.circulation_piping + other.circulation_piping
+        new_obj.branch_piping = self.branch_piping + other.branch_piping
+        new_obj.rooms_assigned_to = self.rooms_assigned_to + self.rooms_assigned_to
+        new_obj.forward_temp = (self.forward_temp + other.forward_temp)/2
+        
+        new_obj.tank1 = self._add_tanks( self.tank1, other.tank1 )
+        new_obj.tank2 = self._add_tanks( self.tank2, other.tank2 )
+        new_obj.tank_buffer = self._add_tanks( self.tank_buffer, other.tank_buffer )
+        new_obj.solar = self._add_solars( self.solar, other.solar)
+   
         return new_obj
+    
+    __raddd__ = __add__
+    
+    @property
+    def recirc_piping_PHPP_sets(self): #-> [List]
+        """Sorted list of the branch piping 'sets' for the PHPP. Sets are joined
+            together based on the input
+        
+        Returns:
+            sets [list] ie: [ seg1, seg2, seg3... ]
+        """
+
+        return self._get_piping_set( self.circulation_piping )
+
+    @property
+    def branch_piping_PHPP_sets(self): #-> [List]
+        """Sorted list of the branch piping 'sets' for the PHPP. Sets are joined
+            together based on the input
+        
+        Returns:
+            sets [list] ie: [ seg1, seg2, seg3... ]
+        """
+
+        return self._get_piping_set( self.branch_piping )
+
+    def _get_piping_set(self, _piping): #-> [List]
+        """Sorted list of the branch piping 'sets' for the PHPP. Sets are joined
+            together based on the input
+        Args:
+            _piping [list]: The piping objects to organize
+        Returns:
+            sets [list] ie: [ seg1, seg2, seg3... ]
+        """
+        
+        set_dict = self._get_piping_set_by_diameter(_piping)
+        list_of_segments = [ set_dict[key] for key in sorted(set_dict.keys(), reverse=True)]
+
+        sets = []
+        for set in list_of_segments:
+            sets.append( sum(set, start=PHPP_DHW_Pipe_Segment())  )
+
+        return sets
+
+    def _get_piping_set_by_diameter(self, _piping): #-> [Dict]
+        """ Returns a dict with pipe segments organized/binned by their diameter 
+        
+        This is used to split up / organize the data for the PHPP which has 5 
+        'sets' of Piping it can accept. The 'sets' should be organized / diferentiated
+        based on the diameter of the piping and the insulation thickness / type (for recirc)
+
+        Args:
+            __piping [list]: The piping objects to organize
+        Returns:
+            pipe_sets [dict] ie: { 25mm: [seg1, seg2, ...], 75mm:[seg4, seg12, ...] }
+        """
+        
+        pipe_sets = defaultdict(list)
+
+        for pipe_segment in _piping:
+            pipe_sets[pipe_segment.diameter].append(pipe_segment)
+
+        return pipe_sets
 
     def check_tanks_for_solar_connection(self):
         """Looks at all the tanks to see if any have a solar connection """
@@ -137,36 +351,91 @@ class PHPP_DHW_System(object):
                 'at least one tank has "tank_solar_" set to "True".'
         return msg
 
+    def to_dict(self):
+        d = {}
+        d.update( {'id':self.id} )
+        d.update( {'rooms_assigned_to': self.rooms_assigned_to} )
+        d.update( {'system_name':self.system_name} )
+        d.update( {'forward_temp':self.forward_temp} )
+
+        d.update( {'branch_piping': {} } ) 
+        for piping_obj in self.branch_piping:
+            d['branch_piping'].update( { piping_obj.id:piping_obj.to_dict() } )
+        
+        if self.usage:       d.update( {'usage': self.usage.to_dict() } )
+        if self._tank1:       d.update( {'tank1':self.tank1.to_dict()} )
+        if self._tank2:       d.update( {'tank2':self.tank2.to_dict()} )
+        if self.tank_buffer:  d.update( {'tank_buffer':self.tank_buffer.to_dict() } )
+        if self.solar:        d.update( {'solar':self.solar.to_dict() } ) 
+        
+        return d
+    
+    @classmethod
+    def from_dict(cls, _dict):
+        new_obj = cls()
+        
+        new_obj.id = _dict.get('id')
+        new_obj.rooms_assigned_to = _dict.get('rooms_assigned_to')
+        new_obj.system_name = _dict.get('system_name')
+        new_obj.forward_temp = _dict.get('forward_temp')
+
+        branch_piping = _dict.get('branch_piping')
+        for branch_pipe_obj in branch_piping.values():
+            new_piping_obj = PHPP_DHW_Pipe_Segment.from_dict( branch_pipe_obj )
+            new_obj.branch_piping.append( new_piping_obj )
+
+        new_obj.tank1 = PHPP_DHW_tank.from_dict( _dict.get('tank1') )
+        new_obj.tank2 = PHPP_DHW_tank.from_dict( _dict.get('tank2') )
+        new_obj.tank_buffer = PHPP_DHW_tank.from_dict( _dict.get('tank_buffer') )
+        new_obj.solar = PHPP_DHW_Solar.from_dict( _dict.get('solar') )
+        
+        usage = _dict.get('usage')
+        if usage:
+            if usage.get('type') == 'Res':
+                usage = PHPP_DHW_usage_Res.from_dict( _dict.get('usage') )
+            elif usage.get('type') == 'NonRes':
+                usage = PHPP_DHW_usage_NonRes.from_dict( _dict.get('usage') )
+        else:
+            usage = None
+        new_obj.usage = usage
+        
+        return new_obj
+
     def __unicode__(self):
-        return u'A PHPP Style DHW System: < {self.SystemName} >'.format(self=self)
+        return u'A PHPP Style DHW System: < {} >'.format(self.id)
     def __str__(self):
         return unicode(self).encode('utf-8')
     def __repr__(self):
-       return "{}(_rms_assigned={!r}, _name={!r},"\
-                "_usage={!r}, _fwdT={!r},"\
-                "_pCirc={!r}, _pBran={!r}, "\
-                "_t1={!r}, _t2={!r}, "\
-                "_tBf={!r}, _solar={!r})".format(
-               self.__class__.__name__,
-               self.rooms_assigned_to,
-               self.SystemName,
-               self.usage,
-               self.forwardTemp,
-               self.circulation_piping,
-               self.branch_piping,
-               self.tank1,
-               self.tank2,
-               self.tank_buffer,
-               self.solar)
+        return '{}()'.format(self.__class__.__name__)
+    def ToString(self):
+        return str(self)
 
-class PHPP_DHW_usage_Res(Object):
+class PHPP_DHW_usage_Res(object):
     
     def __init__(self, _type='Res', _shwr=16, _other=9):
-        self.id = random.randint(1000,9999)
+        self._id = uuid4()
         self.type = 'Res'
         self.demand_showers = _shwr
         self.demand_others = _other
     
+    @property
+    def id(self):
+        return str(self._id)
+
+    @id.setter
+    def id(self, _in):
+        if _in:
+            self._in = _in
+
+    def __add__(self, other):
+        new_obj = self.__class__()
+
+        new_obj.demand_showers = (self.demand_showers + other.demand_showers)/2
+        new_obj.demand_others = (self.demand_others + other.demand_others)/2
+
+        return new_obj  
+    __radd__ = __add__
+
     def to_dict(self):
         d = {}
 
@@ -199,10 +468,10 @@ class PHPP_DHW_usage_Res(Object):
     def ToString(self):
         return str(self)
 
-class PHPP_DHW_usage_NonRes(Object):
+class PHPP_DHW_usage_NonRes(object):
     
     def __init__(self, args={}):
-        self.id = random.randint(1000,9999)
+        self._id = uuid4()
         self.type = 'NonRes'
         self.use_daysPerYear = args.get('useDaysPerYear_', 365)
         self.useShowers = args.get('showers_', 'x')
@@ -216,6 +485,28 @@ class PHPP_DHW_usage_NonRes(Object):
         self.useCleanKitchen = args.get('cleaningKitchen_', 'x')
         self.useCleanRooms = args.get('cleaningRooms_', 'x')
     
+    @property
+    def id(self):
+        return str(self._id)
+
+    @id.setter
+    def id(self, _in):
+        if _in:
+            self._in = _in
+    
+    def __add__(self, other):
+        new_obj = self.__class__()
+        #
+        #
+        #
+        #TODO
+        #
+        #
+        #        
+        return self
+
+    __radd__ = __add__
+
     def to_dict(self):
         d = {}
 
@@ -275,307 +566,10 @@ class PHPP_DHW_usage_NonRes(Object):
     def ToString(self):
         return str(self)
 
-class PHPP_DHW_RecircPipe(Object):
-    def __init__(self, _len=[], _d=[25.4], _t=[12.7], _lam=[0.04],
-                    _ref=['x'], _q='1-None', _p=18):    
-        self.id = random.randint(1000,9999)
-        self.lengths = _len
-        self.diams = _d
-        self.insul_thicknesses = _t
-        self.insul_conductivities = _lam
-        self.insul_reflectives = _ref
-        self._quality = _q
-        self.period = _p
-    
-    def _len_weighted(self, _input_list, _default_value):
-        """ Utils function to return length-weighted avg. value """
-
-        if not self.lengths:
-            return None
-        
-        weighted_result = []
-        for i, segment_len in enumerate( self.lengths ):
-            try:
-                weighted_result.append( float(segment_len) * float(_input_list[i]) )
-            except:
-                try:
-                    weighted_result.append( float(segment_len) * float(_input_list[0]) )
-                except SystemError as e:
-                    # Catches any 'None' values in the list
-                    print('-'*25)
-                    print(e)
-                    print("DHW Error. Parameter value is missing on Rhino piping curve someplace?")
-                    print(_input_list)
-                    weighted_result.append( float(segment_len) * _default_value)
-        
-        return sum(weighted_result) / sum(self.lengths)
-
-    @property
-    def length(self):
-        return sum(self.lengths)
-
-    @property
-    def diameter(self):
-        return self._len_weighted( self.diams, 0.0254 )
-
-    @property
-    def insul_thickness(self):
-        return self._len_weighted( self.insul_thicknesses, 0.0254 )
-
-    @property
-    def insul_relfective(self):
-        return 'x' if 'x' in self.insul_reflectives else ''
-    
-    @property
-    def insul_lambda(self):
-        return self._len_weighted( self.insul_conductivities, 0.04 )
-
-    @property
-    def quality(self):
-        return self._quality
-
-    @quality.setter
-    def quality(self, _in):
-        if '2' in str(_in):
-            self._quality = '2-Moderate'
-        elif '3' in str(_in):
-            self._quality = '3-Good'
-        else:
-            self._quality = '1-None'
-
-    def set_values_from_Rhino(self, _inputs, _ghenv, _input_num=0):
-        """ Will try and pull relevant data for the Recirc loop from the Rhino scene
-
-        Arguments:
-            _inputs: (float: curve:)
-            _ghenv: (ghenv)
-            _input_num: (int) The index (zero based) of the GH Component input to look at
-        """
-        
-        def cleanPipeDimInputs(_diam, _thickness):
-            # Clean diam, thickness
-            if _diam != None:
-                if " (" in _diam: 
-                    _diam = float( _diam.split(" (")[0] )
-            
-            if _thickness != None:
-                if " (" in _thickness: 
-                    _thickness = float( _thickness.split(" (")[0] )
-            
-            return _diam, _thickness
-        
-        # First, see if I can pull any data from the Rhino scene?
-        # Otherwise, if its just a number, use that as the length
-        lengths, diams, insul_thks, insul_lambdas, refectives = [], [], [], [], []
-        for i, input in enumerate( _inputs ):
-            try:
-                lengths.append( float(convert_value_to_metric( input, 'M' )) )
-            except AttributeError as e:
-                try:
-                    rhinoGuid = _ghenv.Component.Params.Input[_input_num].VolatileData[0][i].ReferenceID
-                    rh_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( rhinoGuid )
-                    
-                    length = float(rh_obj.CurveGeometry.GetLength())
-                    
-                    k = rs.GetUserText(rh_obj, 'insulation_conductivity')
-                    r = rs.GetUserText(rh_obj, 'insulation_reflective')
-                    t = rs.GetUserText(rh_obj, 'insulation_thickness')
-                    d = rs.GetUserText(rh_obj, 'pipe_diameter')
-                    d, t = cleanPipeDimInputs(d, t)
-                    
-                    lengths.append(length)
-                    diams.append(d)
-                    insul_thks.append(t)
-                    insul_lambdas.append(k)
-                    refectives.append(r)
-                except Exception as e:
-                    msg = str(e)
-                    msg += "\nSorry, I am not sure what to do with the input: {} in 'pipe_geom_'?\n"\
-                        "Please input either a Curve or a number/numbers representing the pipe segments.".format(input)
-                    _ghenv.Component.AddRuntimeMessage( ghK.GH_RuntimeMessageLevel.Warning, msg )
-
-        if lengths: self.lengths = lengths
-        if diams: self.diams = diams
-        if insul_thks: self.insul_thicknesses = insul_thks
-        if insul_lambdas: self.insul_conductivities = insul_lambdas
-        if refectives: self.insul_reflectives = refectives
-
-    def to_dict(self):
-        d = {}
-
-        d.update( {'id':self.id} )
-        d.update( {'length':self.lengths} )
-        d.update( {'diam':self.diams} )
-        d.update( {'insul_thicknesses':self.insul_thicknesses} )
-        d.update( {'insul_conductivities':self.insul_conductivities} )
-        d.update( {'insul_reflectives':self.insul_reflectives} )
-        d.update( {'quality':self.quality} )
-        d.update( {'period':self.period} )
-
-        return d
-
-    @classmethod
-    def from_dict(cls, _dict):
-        new_obj = cls()
-
-        new_obj.id = _dict.get('id')
-        new_obj.lengths = _dict.get('length')
-        new_obj.diams = _dict.get('diam')
-        new_obj.insul_thicknesses = _dict.get('insul_thicknesses')
-        new_obj.insul_conductivities = _dict.get('insul_conductivities')
-        new_obj.insul_reflectives = _dict.get('insul_reflectives')
-        new_obj.quality = _dict.get('quality')
-        new_obj.period = _dict.get('period')
-
-        return new_obj
-    
-    def __unicode__(self):
-        return u'A DHW Recirculation Pipe Object <{}>'.format(self.id)
-    def __str__(self):
-        return unicode(self).encode('utf-8')
-    def __repr__(self):
-        return "{}( _len={!r}, _d={!r}, _t={!r}, "\
-              "_lam={!r}, _ref={!r} _q={!r}, _p={!r})".format(
-               self.__class__.__name__,
-               self.lengths,
-               self.diams,
-               self.insul_thicknesses,
-               self.insul_conductivities,
-               self.insul_reflectives,
-               self.quality,
-               self.period)
-    def ToString(self):
-        return str(self)
-
-class PHPP_DHW_branch_piping(Object):
-    def __init__(self, _ds=[0.0127], _lens=[], _opens=6, _utiliz=365):
-        self.id = random.randint(1000,9999)
-        self._diams = _ds
-        self._lens = _lens
-        self.tap_openings = _opens
-        self.utilisation = _utiliz
-       
-    def _len_weighted(self, _input_list, _default_value):
-        """ Utils function to return length-weighted avg. value """
-
-        if not self._lens:
-            return None
-        
-        weighted_result = []
-        for i, segment_len in enumerate( self._lens ):
-            try:
-                weighted_result.append( float(segment_len) * float(_input_list[i]) )
-            except:
-                try:
-                    weighted_result.append( float(segment_len) * float(_input_list[0]) )
-                except SystemError as e:
-                    # Catches any 'None' values in the list
-                    print('-'*25)
-                    print(e)
-                    print("DHW Error. Parameter value is missing on Rhino piping curve someplace?")
-                    print(_input_list)
-                    weighted_result.append( float(segment_len) * _default_value)
-        
-        return sum(weighted_result) / sum(self._lens)
-    
-    @property
-    def tap_points(self):
-        return len(self._lens)
-
-    @property
-    def length(self):
-        return sum(self._lens)
-
-    @length.setter
-    def length(self, _input):
-        if isinstance(_input, list):
-            self._lens = _input
-        else:
-            self._lens = [ _input ]
-
-    @property
-    def diameter(self):
-        return self._len_weighted( self._diams, 0.0127)
-
-    @diameter.setter
-    def diameter(self, _input):
-        if isinstance(_input, list):
-            self._diams = _input
-        else:
-            self._diams = [ _input ]
-
-    def to_dict(self):
-        d = {}
-
-        d.update( {'id':self.id} )
-        d.update( {'_diams':self._diams} )
-        d.update( {'_lens':self._lens} )
-        d.update( {'tap_openings':self.tap_openings} )
-        d.update( {'utilisation':self.utilisation} )
-
-        return d
-
-    @classmethod
-    def from_dict(cls, _dict):
-        new_obj = cls()
-
-        new_obj.id = _dict.get('id')
-        new_obj._diams = _dict.get('_diams')
-        new_obj._lens = _dict.get('_lens')
-        new_obj.tap_openings = _dict.get('tap_openings')
-        new_obj.utilisation = _dict.get('utilisation')
-
-        return new_obj
-    
-    def set_pipe_lengths(self, _input=[], _ghdoc=None, _ghenv=None):
-        """Will try and find the lengths of the things input 
-        
-        Arguments:
-            _input: (float: curve:) If input is number, uses that. Otherwise gets curve from Rhino
-            _ghdoc: (ghdoc)
-            _ghenv: (ghenv)
-        """
-        output = []
-        
-        with context_rh_doc( _ghdoc ):
-            for geom_input in _input:
-                try:
-                    output.append( float(convert_value_to_metric(geom_input, 'M')) )
-                except AttributeError as e:
-                    crv = rs.coercecurve(geom_input)
-                    if crv:
-                        pipeLen = ghc.Length(crv)
-                    else:
-                        pipeLen = False
-                    
-                    if not pipeLen:
-                        crvWarning = "Something went wrong getting the Pipe Geometry length?\n"\
-                        "Please ensure you are passing in only curves / polyline objects or numeric values.?"
-                        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, crvWarning)
-                    else:
-                        output.append(pipeLen)
-        
-        self.length = output
-
-    def __unicode__(self):
-        return u'A DHW Branch Piping Object <{}>'.format(self.id)
-    def __str__(self):
-        return unicode(self).encode('utf-8') 
-    def __repr__(self):
-        return "{}( _d={!r}, _len={!r}, "\
-              "_opens={!r}, _utiliz={!r} )".format(
-               self.__class__.__name__,
-               self._diams,
-               self._lens,
-               self.tap_openings,
-               self.utilisation)
-    def ToString(self):
-        return str(self)
-
-class PHPP_DHW_tank(Object):
+class PHPP_DHW_tank(object):
     def __init__(self, _type='0-No storage tank', _solar=False, _hl_rate=None,
                     _vol=None, _stndby_frac=None, _loc='1-Inside', _loc_T=''):
-        self.id = random.randint(1000,9999)
+        self._id = uuid4()
         self._type = _type
         self.solar = _solar
         self.hl_rate = _hl_rate
@@ -584,6 +578,15 @@ class PHPP_DHW_tank(Object):
         self._location = _loc
         self.location_t = _loc_T
     
+    @property
+    def id(self):
+        return str(self._id)
+
+    @id.setter
+    def id(self, _in):
+        if _in:
+            self._in = _in
+
     @property
     def type(self):
         return self._type
@@ -607,6 +610,40 @@ class PHPP_DHW_tank(Object):
             self._location = '2-Outside'
         else:
             self._location = '1-Inside'
+    
+    @staticmethod
+    def add_solars(s1, s2):
+        if s1 or s2:
+            return True
+        else:
+            return None
+
+    @staticmethod
+    def _join_str_values(_in1, _in2, _attr_name):
+        """Used when combining tanks. Clean join of string attribute values, checks that they are the same """
+
+        input_values = {_in1, _in2}
+        if len(input_values) != 1:
+            msg = '\nError Combining DHW Tanks:\n'\
+                    'Cannot combine {}: "{}" with "{}"\n'\
+                    'Please check your inputs.'.format(_attr_name, _in1, _in2)
+            raise Exception(msg)
+        else:
+            return _in1
+
+    def __add__(self, other):
+        new_obj = self.__class__()
+
+        new_obj.type = self._join_str_values(self.type, other.type, 'Tank Type' )
+        new_obj.solar = self.add_solars(self.solar, other.solar)
+        new_obj.hl_rate = ((self.hl_rate or 0) + (other.hl_rate or 0))/2
+        new_obj.vol = ((self.vol or 0) + (other.vol or 0))/2
+        new_obj.stndbyFrac = ((self.stndbyFrac or 0) + (other.stndbyFrac or 0))/2
+        new_obj.location = self._join_str_values(self.location, other.location, 'Tank Location')
+        new_obj.location_t = ((self.location_t or 0) + (other.location_t or 0))/2
+
+        return new_obj
+    __radd__ = __add__
 
     def to_dict(self):
         d = {}
@@ -680,7 +717,7 @@ class PHPP_DHW_Solar(object):
                 _additional_reduction_fac=1,
                 _heating_support=None,
                 _dhw_priority='X'):
-        self.id = random.randint(1000,9999)
+        self._id = uuid4()
         self.angle_off_north = _angle_off_north
         self.angle_off_horizontal = _angle_off_horizontal
         self.host_surface = _host_srfc
@@ -692,6 +729,15 @@ class PHPP_DHW_Solar(object):
         self._additional_reduction_fac = _additional_reduction_fac
         self.heating_support = _heating_support
         self.dhw_priority = _dhw_priority
+    
+    @property
+    def id(self):
+        return str(self._id)
+
+    @id.setter
+    def id(self, _in):
+        if _in:
+            self._in = _in
 
     @property
     def collector_type(self):
@@ -724,6 +770,18 @@ class PHPP_DHW_Solar(object):
             value = float(_in)
         
         self._additional_reduction_fac = value
+
+    def __add__(self, other):
+        #
+        #
+        #
+        # TODO
+        # Not Implemented
+        #
+        #
+        #        
+        return self
+    __radd__ = __add__
 
     def to_dict(self):
         d = {}
@@ -772,24 +830,3 @@ class PHPP_DHW_Solar(object):
        return "{}()".format(self.__class__.__name__)
     def ToString(self):
         return str(self)
-
-def clean_input(_in, _nm, _unit='-', _ghenv=None):
-    try:
-        out = float(convert_value_to_metric(_in, _unit) )
-        
-        if _nm == "tank_standby_frac_":
-            if out > 1:
-                msg = "Standby Units should be decimal fraction. ie: 30% should be entered as 0.30" 
-                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
-                return out/100
-        elif _nm == "diameter_":
-            if out > 1:
-                unitWarning = "Check diameter units? Should be in METERS not MM." 
-                _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, unitWarning)
-            
-        return out
-
-    except:
-        msg = '"{}" input should be a number'.format(_nm)
-        _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, msg)
-        return _in

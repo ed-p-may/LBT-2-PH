@@ -337,9 +337,9 @@ def get_dhw_systems(_model):
             continue
 
         dhw_dict = hb_room.user_data.get('phpp', {}).get('dhw_systems', {})
-        
         for system in dhw_dict.values():
-            dhw_systems.append( LBT2PH.dhw.PHPP_DHW_System.from_dict( system ))
+            new_system = LBT2PH.dhw.PHPP_DHW_System.from_dict( system )
+            dhw_systems.append( new_system )
 
     return dhw_systems
 

@@ -64,46 +64,55 @@ EM March 1, 2021
 
 import LBT2PH
 import LBT2PH.__versions__
-from LBT2PH.dhw import PHPP_DHW_RecircPipe
+import LBT2PH.dhw
+import LBT2PH.dhw_IO
 from LBT2PH.helpers import convert_value_to_metric
 from LBT2PH.helpers import preview_obj
 
 reload( LBT2PH )
 reload(LBT2PH.__versions__)
 reload( LBT2PH.dhw )
+reload( LBT2PH.dhw_IO )
 reload( LBT2PH.helpers )
 
 ghenv.Component.Name = "LBT2PH DHW Piping Recirc"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
-#-------------------------------------------------------------------------------
+LBT2PH.__versions__.set_component_params(ghenv, dev='APR_15_2021')
 
-# Classes and Defs
-def clean_input(_input, _unit):
-    val_list = [ convert_value_to_metric(val, _unit) for val in _input]
+# --- Build the attr dict from GH UD inputs
+# ------------------------------------------------------------------------------
+attr_dicts = []
+for i, v in enumerate(pipe_geom_):
+    attr_dict = {}
+    attr_dict['pipe_diameter'] = pipe_diam_[i] if i<len(pipe_diam_) else None
+    attr_dict['insulation_thickness'] = insul_thickness_[i] if i<len(insul_thickness_) else None
+    attr_dict['insulation_conductivity'] = insul_conductivity_[i] if i<len(insul_conductivity_) else None
+    attr_dict['insulation_reflective'] = insul_reflective_[i] if i<len(insul_reflective_) else None
+    attr_dict['insul_quality'] = insul_quality_
+    attr_dict['daily_period'] = daily_period_
     
-    return val_list
+    attr_dicts.append(attr_dict)
+
+# ---- Build the standardized inputs
+# ------------------------------------------------------------------------------
+
+piping_inputs = LBT2PH.dhw_IO.piping_input_values(_input_node=0, _user_input=pipe_geom_,
+                                    _user_attr_dicts=attr_dicts, _ghenv=ghenv, _ghdoc=ghdoc)
+
+# ---- Create the Pipe Segments
+# ------------------------------------------------------------------------------
+circulation_piping_ = []
+for segment in piping_inputs:
+    new_segment = LBT2PH.dhw.PHPP_DHW_Pipe_Segment()
+    new_segment.length = segment.get('length')
+    if segment.get('pipe_diameter'): new_segment.diameter = segment.get('pipe_diameter')
+    if segment.get('insulation_thickness'): new_segment.insulation_thickness = segment.get('insulation_thickness')
+    if segment.get('insulation_conductivity'): new_segment.insulation_conductivity = segment.get('insulation_conductivity')
+    if segment.get('insulation_reflective'): new_segment.insulation_reflective = segment.get('insulation_reflective')
+    if segment.get('insul_quality'): new_segment.insul_quality = segment.get('insul_quality')
+    if segment.get('daily_period'): new_segment.daily_period = segment.get('daily_period')
+    
+    circulation_piping_.append(new_segment)
 
 # ------------------------------------------------------------------------------
-# Build the Default Re-Circulation Pipe Object
-circulation_piping_ = PHPP_DHW_RecircPipe()
-
-if pipe_geom_:
-    # Get Rhino scene inputs
-    circulation_piping_.set_values_from_Rhino( pipe_geom_, ghenv, _input_num=0 )
-
-# ------------------------------------------------------------------------------
-# Get GH Component inputs
-if pipe_diam_:
-    circulation_piping_.diams = clean_input( pipe_diam_, 'MM')
-if insul_thickness_:
-    circulation_piping_.insul_thicknesses = clean_input( insul_thickness_, 'MM')
-if insul_conductivity_:
-    circulation_piping_.insul_conductivities = clean_input( insul_conductivity_, 'W/MK') 
-if insul_reflective_:
-    circulation_piping_.insul_reflectives = insul_reflective_
-if insul_quality_:
-    circulation_piping_.quality = insul_quality_
-if daily_period_:
-    circulation_piping_.period = daily_period_
-
-preview_obj(circulation_piping_)
+for each in circulation_piping_:
+    LBT2PH.helpers.preview_obj(each)

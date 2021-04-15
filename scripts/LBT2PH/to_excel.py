@@ -1,4 +1,5 @@
 import statistics
+from collections import defaultdict
 
 import Grasshopper.Kernel as ghK
 from Grasshopper import DataTree
@@ -956,197 +957,44 @@ def build_ground(_ground_objs, _zones, _ghenv):
             
     return ground
 
-def combine_DHW_systems(_dhwSystems):
-    def getBranchPipeAttr(_dhwSystems, _attrName, _branchOrRecirc, _resultType):
-        # Combine Elements accross the Systems
-        results = DataTree[Object]()
-        for sysNum, dhwSystem in enumerate(_dhwSystems.values()):
-            pipingObj = getattr(dhwSystem, _branchOrRecirc)
-            
-            for i in range(0, 4):
-                try:
-                    temp = getattr(pipingObj[i], _attrName)
-                    results.Add(temp, GH_Path(i) )
-                except: 
-                    pass
+def build_DHW_system(_list_of_dhw_systems, _hb_rooms, _ghenv):
+    def _list_of_unique_dhw_systems(_list_of_dhw_systems):
+        """ Return a list of the unique DHW Systems (determined by ID)
+        Args:
+            _list_of_dhw_systems [list] A list of ALL the DHW Systems found in the HB Model
+        Returns:
+            [list] Only one of each unique system
+        """
         
-        output = []
-        if _resultType == 'Sum':
-            for i in range(results.BranchCount):
-                output.append( sum( results.Branch(i) ) )
-        elif _resultType == 'Average':
-            for i in range(results.BranchCount):
-                output.append( statistics.mean( results.Branch(i) ) )
-        
-        return output
-    
-    def combineTank(_dhwSystems, _tankName):
-        # Combine Tank 1s
-        hasTank = False
-        tankObj = {'type':[], 'solar':[], 'hl_rate':[], 'vol':[],
-        'stndbyFrac':[], 'location':[], 'location_t':[]}
-        for v in _dhwSystems.values():
-            vTankObj = getattr(v, _tankName)
-            
-            if vTankObj != None:
-                hasTank = True
-                tankObj['type'].append( getattr(vTankObj, 'type') )
-                tankObj['solar'].append( getattr(vTankObj, 'solar') )
-                tankObj['hl_rate'].append( getattr(vTankObj, 'hl_rate') )
-                tankObj['vol'].append( getattr(vTankObj, 'vol') )
-                tankObj['stndbyFrac'].append( getattr(vTankObj, 'stndbyFrac') )
-                tankObj['location'].append( getattr(vTankObj, 'location') )
-                tankObj['location_t'].append( getattr(vTankObj, 'location_t') )
-        
-        if hasTank:
-            return LBT2PH.dhw.PHPP_DHW_tank(
-                                _type = tankObj['type'][0] if len(tankObj['type']) != 0 else None,
-                                _solar = tankObj['solar'][0] if len(tankObj['solar']) != 0 else None,
-                                _hl_rate = statistics.mean(tankObj['hl_rate']) if len(tankObj['hl_rate']) != 0 else None,
-                                _vol = statistics.mean(tankObj['vol']) if len(tankObj['vol']) != 0 else None,
-                                _stndby_frac = statistics.mean(tankObj['stndbyFrac']) if len(tankObj['stndbyFrac']) != 0 else None,
-                                _loc = tankObj['location'][0] if len(tankObj['location']) != 0 else None,
-                                _loc_T = tankObj['location_t'][0] if len(tankObj['location_t']) != 0 else None,
-                                )
-        else:
-            return None
-    
-    def combineSolar(_dhwSystems):
-        print('Not Implemented yet....')
-        #
-        #
-        #
-        #TODO
-        #
-        #
-        #
-        return None
+        dict_of_dhw_systems = {}
+        for system in _list_of_dhw_systems:
+            for room_id in system.rooms_assigned_to:
+                if room_id in _hb_rooms:
+                    dict_of_dhw_systems[system.id] = system
 
-    print('Combining together DHW Systems...')
-    #Combine Usages
-    #---------------------------------------------------------------------------
-    showers = []
-    other = []
-    
-    for v in _dhwSystems.values():
-        if isinstance(v.usage, LBT2PH.dhw.PHPP_DHW_usage_Res):
-            showers.append( getattr(v.usage, 'demand_showers' ) )
-            other.append( getattr(v.usage, 'demand_others' ) )
-        elif isinstance(v.usage, LBT2PH.dhw.PHPP_DHW_usage_Res):
-            # TODO
-            pass
-    
-    if showers and other:
-        dhwInputs = {'showers_demand_': sum(showers)/len(showers),
-                    'other_demand_': sum(other)/len(other)}
-        combinedUsage = LBT2PH.dhw.PHPP_DHW_usage_Res.from_dict( dhwInputs )
-    else:
-        combinedUsage = LBT2PH.dhw.PHPP_DHW_usage_Res()
+        return dict_of_dhw_systems.values()
 
-    
-    # Combine Branch Pipings
-    #---------------------------------------------------------------------------
-    combined_Diams = getBranchPipeAttr(_dhwSystems, 'diameter', 'branch_piping', 'Average')
-    combined_Lens = getBranchPipeAttr(_dhwSystems, 'totalLength', 'branch_piping', 'Sum')
-    combined_Taps =  getBranchPipeAttr(_dhwSystems, 'totalTapPoints', 'branch_piping',  'Sum')
-    combined_Opens =  getBranchPipeAttr(_dhwSystems, 'tapOpenings', 'branch_piping',  'Average')
-    combined_Utils =  getBranchPipeAttr(_dhwSystems, 'utilisation', 'branch_piping',  'Average')
-    
-    combined_BranchPipings = []
-    for i in range(len(combined_Diams)):
-        combinedBranchPiping = LBT2PH.dhw.PHPP_DHW_branch_piping(
-                                    combined_Diams[i],
-                                    combined_Lens[i],
-                                    combined_Taps[i],
-                                    combined_Opens[i],
-                                    combined_Utils[i]
-                                   )
-        combined_BranchPipings.append( combinedBranchPiping )
-    
-    # Combine Recirculation Pipings
-    #---------------------------------------------------------------------------
-    hasRecircPiping = False
-    recircObj = {'length':[], 'diam':[], 'insulThck':[],
-    'insulCond':[], 'insulRefl':[], 'quality':[], 'period':[],}
-    for v in _dhwSystems.values():
-        circObjs = v.circulation_piping
-        if len(circObjs) != 0:
-            hasRecircPiping = True
-            try:
-                recircObj['length'].append( getattr(circObjs[0], 'length'  ) )
-                recircObj['diam'].append( getattr(circObjs[0], 'diam'  )) 
-                recircObj['insulThck'].append( getattr(circObjs[0], 'insulThck'  ) )
-                recircObj['insulCond'].append( getattr(circObjs[0], 'insulCond'  ) )
-                recircObj['insulRefl'].append( getattr(circObjs[0], 'insulRefl'  ) )
-                recircObj['quality'].append( getattr(circObjs[0], 'quality'  ) )
-                recircObj['period'].append( getattr(circObjs[0], 'period'  ) )
-            except:
-                pass
-    
-    if hasRecircPiping:
-        combined_RecircPipings = [LBT2PH.dhw.PHPP_DHW_RecircPipe(
-                        sum(recircObj['length']),
-                        statistics.mean(recircObj['diam']) if len(recircObj['diam']) != 0 else None,
-                        statistics.mean(recircObj['insulThck']) if len(recircObj['insulThck']) != 0 else None,
-                        statistics.mean(recircObj['insulCond']) if len(recircObj['insulCond']) != 0 else None,
-                        recircObj['insulRefl'][0] if len(recircObj['insulRefl']) != 0 else None,
-                        recircObj['quality'][0] if len(recircObj['quality']) != 0 else None,
-                        recircObj['period'][0] if len(recircObj['period']) != 0 else None
-                        )]
-    else:
-        combined_RecircPipings = []
-    
-    # Combine the Tanks
-    #---------------------------------------------------------------------------
-    tank1 = combineTank(_dhwSystems, 'tank1')
-    tank2 = combineTank(_dhwSystems, 'tank2')
-    tank_buffer = combineTank(_dhwSystems, 'tank_buffer')
-    
-    # Combine Solar HW Systems
-    #---------------------------------------------------------------------------
-    solar_combined = combineSolar(_dhwSystems)
-    
-    # Build the combined / Averaged DHW System
-    #---------------------------------------------------------------------------
-    combinedDHWSys = LBT2PH.dhw.PHPP_DHW_System(
-                         _name='Combined', 
-                         _usage=combinedUsage,
-                         _fwdT=60, 
-                         _pCirc=combined_RecircPipings, 
-                         _pBran=combined_BranchPipings, 
-                         _t1=tank1, 
-                         _t2=tank2, 
-                         _tBf=tank_buffer,
-                         _solar=solar_combined,
-                         )
-    
-    return combinedDHWSys
-
-def build_DHW_system(_dhw_systems, _hb_rooms, _ghenv):
-    if not _dhw_systems:
+    if not _list_of_dhw_systems:
         return []
     
     #---------------------------------------------------------------------------
     # If more that one system are to be used, combine them into a single system
     
-    dhw_systems = {}
-    for system in _dhw_systems:
-        for room_id in system.rooms_assigned_to:
-            if room_id in _hb_rooms:
-                dhw_systems[system.id] = system 
-    
-    dhw_ = None
-    if len(dhw_systems.keys())>1:
-        dhw_ = combine_DHW_systems( dhw_systems )
+    list_of_systems = _list_of_unique_dhw_systems(_list_of_dhw_systems)
+    if len(list_of_systems)>1:
+        print('Found more than one DHW System in the model, trying to combine them together...')
+        dhw_ = sum(list_of_systems, start=LBT2PH.dhw.PHPP_DHW_System())
+    elif len(list_of_systems) == 1:
+        dhw_ = list_of_systems[0]
     else:
-        dhw_ = dhw_systems.values()[0]
+        dhw_ = []
     
     #---------------------------------------------------------------------------
     # DHW System Excel Objs
     dhwSystem = []
     if dhw_:
         print("Creating the 'DHW', 'SolarDHW' Objects...")
-        dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J146', dhw_.forwardTemp, 'C', 'F'))
+        dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'J146', dhw_.forward_temp, 'C', 'F'))
         dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P145', 0, 'C', 'F'))
         dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', 'P29', 0, 'C', 'F'))
         
@@ -1175,33 +1023,34 @@ def build_DHW_system(_dhw_systems, _hb_rooms, _ghenv):
         # Recirc Piping
         if len(dhw_.circulation_piping)>0:
             dhwSystem.append( PHPP_XL_Obj('Aux Electricity', 'H29', 1 ) ) # Circulator Pump
-            
-        for colNum, recirc_line in enumerate(dhw_.circulation_piping.values()):
+
+        for colNum, recirc_pipe_set in enumerate(dhw_.recirc_piping_PHPP_sets):
             col = chr(ord('J') + colNum)
             
             if ord(col) <= ord('N'):
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 149), recirc_line.length , 'M', 'FT'))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 150), recirc_line.diameter, 'MM','IN') )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 151), recirc_line.insul_thickness, 'MM', 'IN' ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 152), recirc_line.insul_relfective ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 153), recirc_line.insul_lambda, 'W/MK', 'HR-FT2-F/BTU-IN' ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 155), recirc_line.quality ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 159), recirc_line.period ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 149), recirc_pipe_set.length , 'M', 'FT'))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 150), recirc_pipe_set.diameter, 'MM','IN') )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 151), recirc_pipe_set.insul_thickness, 'MM', 'IN' ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 152), recirc_pipe_set.insul_relfective ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 153), recirc_pipe_set.insul_lambda, 'W/MK', 'HR-FT2-F/BTU-IN' ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 155), recirc_pipe_set.quality ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 159), recirc_pipe_set.period ) )
             else:
                 dhwRecircWarning = "Too many recirculation loops. PHPP only allows up to 5 loops to be entered.\nConsolidate the loops before moving forward"
                 _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
         
         #-----------------------------------------------------------------------
-        # Branch Piping
-        for colNum, branch_line in enumerate(dhw_.branch_piping.values()):
+        # Branch Piping       
+        for colNum, branch_line in enumerate(dhw_.branch_piping_PHPP_sets):
+
             col = chr(ord('J') + colNum)
             
             if ord(col) <= ord('N'):
                 dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 167), branch_line.diameter, 'M', 'IN'))
                 dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 168), branch_line.length, 'M', 'FT'))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 169), branch_line.tap_points))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 171), branch_line.tap_openings))
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 172), branch_line.utilisation))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 169), dhw_.number_of_tap_points))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 171), dhw_.tap_openings_per_day))
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 172), dhw_.tap_utilisation_days))
             else:
                 dhwRecircWarning = "Too many branch piping sets. PHPP only allows up to 5 sets to be entered.\nConsolidate the piping sets before moving forward"
                 _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
