@@ -24,7 +24,7 @@ Collects and organizes data for a DHW System. Hook up inputs from DHW components
 and this will organize for the excel writer.
 Connect the output to the 'dhw_' input on the 'Create Excel Obj - Setup' component to use.
 -
-EM April 15, 2021
+EM April 16, 2021
     Args:
         _system_name: (str) The name / idenfitier for the System.
         
@@ -76,7 +76,7 @@ reload( LBT2PH.dhw )
 reload( LBT2PH.dhw_IO )
 
 ghenv.Component.Name = "LBT2PH DHW System"
-LBT2PH.__versions__.set_component_params(ghenv, dev='APR_15_2021')
+LBT2PH.__versions__.set_component_params(ghenv, dev='APR_16_2021')
 
 #----- Get / Create Recirc Piping
 #-------------------------------------------------------------------------------
@@ -136,10 +136,12 @@ except AttributeError:
 
 #----- Get / Create the Tap Points
 #-------------------------------------------------------------------------------
-tap_pts = []
-for tap_pt in tap_points_:
-    new_tap_pt = LBT2PH.dhw.PHPP_DHW_Tap_Point()
-    tap_pts.append( new_tap_pt )
+if tap_points_:
+    # If the user enters tap points directly, use those
+    tap_pts = [ LBT2PH.dhw.PHPP_DHW_Tap_Point() for _ in  tap_points_ ]
+else:
+    # If no tap points are entered, assume each 'branch' goes to a tap
+    tap_pts = [ LBT2PH.dhw.PHPP_DHW_Tap_Point() for _ in  branch_pipes_ ]
 
 
 #---- Create the System

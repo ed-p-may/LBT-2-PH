@@ -5,9 +5,18 @@ class PHPP_DHW_Tap_Point:
     """A single DHW Tap point (faucet, fixture, etc) """
 
     def __init__(self):
-        self.location = None # Point3D
+        self.location = None # Point3D not implemented yet
         self.openings_per_day = 6
         self.utilization = 365
+
+    def __unicode__(self):
+        return u'A PHPP Style DHW Tap-Point: < {} >'.format(self.id)
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+    def __repr__(self):
+        return '{}()'.format(self.__class__.__name__)
+    def ToString(self):
+        return str(self)
 
 class PHPP_DHW_Pipe_Segment(object):
     """ The base element of a Pipe Section / Run. Represents a single pipe piece / segment """
