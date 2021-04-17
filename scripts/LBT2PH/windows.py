@@ -1079,7 +1079,7 @@ def build_frame_and_glass_objs_from_RH_doc(_ghdoc, _ghenv):
                     newFrameObject.PsiGVals = [
                                     tempDict.get('psiG_L', 0.04), tempDict.get('psiG_R', 0.04),
                                     tempDict.get('psiG_B', 0.04), tempDict.get('psiG_T', 0.04) ]
-                    newFrameObject.Installs = [
+                    newFrameObject.PsiInstalls = [
                                     tempDict.get('psiInst_L', 0.04), tempDict.get('psiInst_R', 0.04),
                                     tempDict.get('psiInst_B', 0.04), tempDict.get('psiInst_T', 0.04) ]
                     
