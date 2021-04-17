@@ -5,9 +5,30 @@ class PHPP_DHW_Tap_Point:
     """A single DHW Tap point (faucet, fixture, etc) """
 
     def __init__(self):
+        self.id = uuid4()
         self.location = None # Point3D not implemented yet
         self.openings_per_day = 6
         self.utilization = 365
+
+    def to_dict(self):
+        d = {}
+
+        d.update( {'id':self.id} )
+        d.update( {'location':self.location} )
+        d.update( {'openings_per_day':self.openings_per_day} )
+        d.update( {'utilization':self.utilization} )
+
+        return d
+
+    @classmethod
+    def from_dict(cls, _dict):
+        new_obj = cls()
+
+        new_obj.location = _dict.get('location')
+        new_obj.location = _dict.get('openings_per_day')
+        new_obj.location = _dict.get('utilization')
+
+        return new_obj
 
     def __unicode__(self):
         return u'A PHPP Style DHW Tap-Point: < {} >'.format(self.id)
@@ -194,7 +215,7 @@ class PHPP_DHW_System(object):
     @id.setter
     def id(self, _in):
         if _in:
-            self._in = _in
+            self._id = str(_in)
 
     @property
     def number_of_tap_points(self):
@@ -362,15 +383,24 @@ class PHPP_DHW_System(object):
 
     def to_dict(self):
         d = {}
+
         d.update( {'id':self.id} )
         d.update( {'rooms_assigned_to': self.rooms_assigned_to} )
         d.update( {'system_name':self.system_name} )
         d.update( {'forward_temp':self.forward_temp} )
 
+        d.update( {'tap_points': {} } ) 
+        for tap_obj in self.tap_points:
+            d['tap_points'].update( { tap_obj.id:tap_obj.to_dict() } )
+
+        d.update( {'circulation_piping': {} } ) 
+        for piping_obj in self.circulation_piping:
+            d['circulation_piping'].update( { piping_obj.id:piping_obj.to_dict() } )
+        
         d.update( {'branch_piping': {} } ) 
         for piping_obj in self.branch_piping:
             d['branch_piping'].update( { piping_obj.id:piping_obj.to_dict() } )
-        
+
         if self.usage:       d.update( {'usage': self.usage.to_dict() } )
         if self._tank1:       d.update( {'tank1':self.tank1.to_dict()} )
         if self._tank2:       d.update( {'tank2':self.tank2.to_dict()} )
@@ -387,6 +417,16 @@ class PHPP_DHW_System(object):
         new_obj.rooms_assigned_to = _dict.get('rooms_assigned_to')
         new_obj.system_name = _dict.get('system_name')
         new_obj.forward_temp = _dict.get('forward_temp')
+
+        tap_points = _dict.get('tap_points')
+        for tap_point_obj in tap_points.values():
+            new_tap_point_obj = PHPP_DHW_Tap_Point.from_dict( tap_point_obj )
+            new_obj.tap_points.append( new_tap_point_obj )
+
+        circulation_piping = _dict.get('circulation_piping')
+        for circ_pipe_obj in circulation_piping.values():
+            new_piping_obj = PHPP_DHW_Pipe_Segment.from_dict( circ_pipe_obj )
+            new_obj.circulation_piping.append( new_piping_obj )
 
         branch_piping = _dict.get('branch_piping')
         for branch_pipe_obj in branch_piping.values():

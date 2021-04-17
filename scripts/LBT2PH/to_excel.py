@@ -958,7 +958,7 @@ def build_ground(_ground_objs, _zones, _ghenv):
     return ground
 
 def build_DHW_system(_list_of_dhw_systems, _hb_rooms, _ghenv):
-    def _list_of_unique_dhw_systems(_list_of_dhw_systems):
+    def _list_of_unique_dhw_systems(_list_of_dhw_systems): #-> [List]
         """ Return a list of the unique DHW Systems (determined by ID)
         Args:
             _list_of_dhw_systems [list] A list of ALL the DHW Systems found in the HB Model
@@ -1040,9 +1040,8 @@ def build_DHW_system(_list_of_dhw_systems, _hb_rooms, _ghenv):
                 _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
         
         #-----------------------------------------------------------------------
-        # Branch Piping       
+        # Branch Piping
         for colNum, branch_line in enumerate(dhw_.branch_piping_PHPP_sets):
-
             col = chr(ord('J') + colNum)
             
             if ord(col) <= ord('N'):
