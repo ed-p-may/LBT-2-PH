@@ -889,16 +889,18 @@ def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):
     # test will return False. Must not work if point is 'on' a surface...
     move_distance = 0.1
     srfc_centroid_b = Rhino.Geometry.Point3d(srfc_centroid_a.X, srfc_centroid_a.Y, srfc_centroid_a.Z + move_distance)
-    
+
     # Also, to use 'is_point_inside' need to convert the Point to a Ladybug Point3D
     srfc_centroid_c = Point3D(srfc_centroid_b.X, srfc_centroid_b.Y, srfc_centroid_b.Z)
     
     host_room = None
     for room in _hb_rooms:
+        
         if room.geometry.is_point_inside( srfc_centroid_c ):
             host_room = room.display_name
             break
         else:
+            
             # Incase the Ladybug test doesn't work (seems to fail on some complex geom)
             # Try doing a test using real Rhino Geometry as well...
             
@@ -907,7 +909,6 @@ def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):
                 surfaces.append( from_face3d(face.geometry) )
             
             joined_breps = ghc.BrepJoin(surfaces).breps
-            
             if isinstance(joined_breps, list):
                 if ghc.PointInBreps(joined_breps, srfc_centroid_b, True):
                     host_room = room.display_name
@@ -917,7 +918,7 @@ def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):
                     host_room = room.display_name
                     break
 
-    return srfc_centroid_a, host_room
+    return srfc_centroid_b, host_room
 
 def get_hb_room_floor_surfaces(_room):
     hb_floor_surfaces = []

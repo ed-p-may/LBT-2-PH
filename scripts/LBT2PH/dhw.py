@@ -5,7 +5,7 @@ class PHPP_DHW_Tap_Point:
     """A single DHW Tap point (faucet, fixture, etc) """
 
     def __init__(self):
-        self.id = uuid4()
+        self.id = str(uuid4())
         self.location = None # Point3D not implemented yet
         self.openings_per_day = 6
         self.utilization = 365
@@ -43,7 +43,7 @@ class PHPP_DHW_Pipe_Segment(object):
     """ The base element of a Pipe Section / Run. Represents a single pipe piece / segment """
     
     def __init__(self):
-        self.id = uuid4()
+        self.id = str(uuid4())
         self.length = 10 #m
         self._diameter = 0.0127 #m
         self._insul_thickness = 0.0127 #m
@@ -108,11 +108,11 @@ class PHPP_DHW_Pipe_Segment(object):
         self._insul_reflective = _in
 
     @property
-    def insul_quality(self):
+    def insulation_quality(self):
         return self._quality
 
-    @insul_quality.setter
-    def insul_quality(self, _in):
+    @insulation_quality.setter
+    def insulation_quality(self, _in):
         if '2' in str(_in):
             self._quality = '2 - Moderate'
         elif '3' in str(_in):
@@ -195,7 +195,7 @@ class PHPP_DHW_System(object):
     """An organized collection of DHW items """
 
     def __init__(self):
-        self._id = uuid4()
+        self._id = str(uuid4())
         self.system_name = 'DHW'
         self.usage = PHPP_DHW_usage_Res()
         self.forward_temp = 60 #C
@@ -462,7 +462,7 @@ class PHPP_DHW_System(object):
 class PHPP_DHW_usage_Res(object):
     
     def __init__(self, _type='Res', _shwr=16, _other=9):
-        self._id = uuid4()
+        self._id = str(uuid4())
         self.type = 'Res'
         self.demand_showers = _shwr
         self.demand_others = _other
@@ -520,7 +520,7 @@ class PHPP_DHW_usage_Res(object):
 class PHPP_DHW_usage_NonRes(object):
     
     def __init__(self, args={}):
-        self._id = uuid4()
+        self._id = str(uuid4())
         self.type = 'NonRes'
         self.use_daysPerYear = args.get('useDaysPerYear_', 365)
         self.useShowers = args.get('showers_', 'x')
@@ -618,7 +618,7 @@ class PHPP_DHW_usage_NonRes(object):
 class PHPP_DHW_tank(object):
     def __init__(self, _type='0-No storage tank', _solar=False, _hl_rate=None,
                     _vol=None, _stndby_frac=None, _loc='1-Inside', _loc_T=''):
-        self._id = uuid4()
+        self._id = str(uuid4())
         self._type = _type
         self.solar = _solar
         self.hl_rate = _hl_rate
@@ -766,7 +766,7 @@ class PHPP_DHW_Solar(object):
                 _additional_reduction_fac=1,
                 _heating_support=None,
                 _dhw_priority='X'):
-        self._id = uuid4()
+        self._id = str(uuid4())
         self.angle_off_north = _angle_off_north
         self.angle_off_horizontal = _angle_off_horizontal
         self.host_surface = _host_srfc

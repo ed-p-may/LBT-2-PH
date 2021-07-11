@@ -1030,11 +1030,11 @@ def build_DHW_system(_list_of_dhw_systems, _hb_rooms, _ghenv):
             if ord(col) <= ord('N'):
                 dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 149), recirc_pipe_set.length , 'M', 'FT'))
                 dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 150), recirc_pipe_set.diameter, 'MM','IN') )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 151), recirc_pipe_set.insul_thickness, 'MM', 'IN' ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 152), recirc_pipe_set.insul_relfective ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 153), recirc_pipe_set.insul_lambda, 'W/MK', 'HR-FT2-F/BTU-IN' ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 155), recirc_pipe_set.quality ) )
-                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 159), recirc_pipe_set.period ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 151), recirc_pipe_set.insulation_thickness, 'MM', 'IN' ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 152), recirc_pipe_set.insulation_reflective ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 153), recirc_pipe_set.insulation_conductivity, 'W/MK', 'HR-FT2-F/BTU-IN' ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 155), recirc_pipe_set.insulation_quality ) )
+                dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 159), recirc_pipe_set.daily_period ) )
             else:
                 dhwRecircWarning = "Too many recirculation loops. PHPP only allows up to 5 loops to be entered.\nConsolidate the loops before moving forward"
                 _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, dhwRecircWarning)
