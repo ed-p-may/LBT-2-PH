@@ -241,19 +241,28 @@ class TFA_Surface(Object):
 
         # Choose the right Offset Curve. The one with the smaller area
         # Check IsPlanar first to avoid ghc.BoundarySurfaces error
-        if srfcPerim_Inset_Pos.IsPlanar:
-            srfcInset_Pos = ghc.BoundarySurfaces( srfcPerim_Inset_Pos )
-        else:
-            srfcInset_Pos = ghc.BoundarySurfaces( srfcPerim ) # Use the normal perim
+        if srfcPerim_Inset_Pos:
+            if srfcPerim_Inset_Pos.IsPlanar:
+                srfcInset_Pos = ghc.BoundarySurfaces( srfcPerim_Inset_Pos )
+            else:
+                srfcInset_Pos = ghc.BoundarySurfaces( srfcPerim ) # Use the normal perim
+            area_Pos = ghc.Area(srfcInset_Pos).area
+        else: area_Pos = None
 
-        if srfcPerim_Inset_Neg.IsPlanar():
-            srfcInset_Neg = ghc.BoundarySurfaces( srfcPerim_Inset_Neg )
+        if srfcPerim_Inset_Neg:
+            if srfcPerim_Inset_Neg.IsPlanar():
+                srfcInset_Neg = ghc.BoundarySurfaces( srfcPerim_Inset_Neg )
+            else:
+                srfcInset_Neg = ghc.BoundarySurfaces( srfcPerim ) # Use the normal perim
+            area_neg = ghc.Area(srfcInset_Neg).area
         else:
-            srfcInset_Neg = ghc.BoundarySurfaces( srfcPerim ) # Use the normal perim
-        
-        area_Pos = ghc.Area(srfcInset_Pos).area
-        area_neg = ghc.Area(srfcInset_Neg).area
+            area_neg = None
 
+        #Guard clause in case any return Nones
+        if not area_Pos: return area_neg
+        if not area_neg: return area_Pos
+
+        #Else, choose the smaller of the two
         if area_Pos < area_neg:
             return srfcInset_Pos
         else:
@@ -354,10 +363,10 @@ class TFA_Surface(Object):
         new_objs = []
         
         floor_surfaces = cls._find_hb_room_floor_surfaces(_hb_room, _ghenv)
-        
+
         for srfc in floor_surfaces:
             new_obj = cls()
-        
+            
             tfa_surface = new_obj._inset_floor_surfaces( srfc, new_obj.inset, _ghenv )
             new_obj.tfa_factor = 1.0
             new_obj.space_number = '0000'
@@ -892,11 +901,11 @@ def find_tfa_host_room(_tfa_srfc_geom, _hb_rooms):
 
     # Also, to use 'is_point_inside' need to convert the Point to a Ladybug Point3D
     srfc_centroid_c = Point3D(srfc_centroid_b.X, srfc_centroid_b.Y, srfc_centroid_b.Z)
-    
     host_room = None
     for room in _hb_rooms:
         
         if room.geometry.is_point_inside( srfc_centroid_c ):
+            
             host_room = room.display_name
             break
         else:

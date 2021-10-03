@@ -79,10 +79,7 @@ EM March 1, 2021
         -------
         legend_par_: Optional legend parameters from the "LB Legend Parameters"
             that will be used to customize the display of the results.
-        parallel_: (bool) Set to "True" to run the study using multiple CPUs. This can
-            dramatically decrease calculation time but can interfere with
-            other computational processes that might be running on your
-            machine. (Default: False).
+        cpu_count_: (int | None) An integer for the number of CPUs to be used in the intersection            calculation. If set to no input (None), all available processors will be used. (Default: None).
         _run: (bool) Set to "True" to run the component and perform incident radiation
             analysis.
    Returns:
@@ -133,7 +130,7 @@ reload(LBT2PH.__versions__)
 reload( LBT2PH.shading_lbt )
 
 ghenv.Component.Name = "LBT2PH Shading Seasonal Radiation"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
+LBT2PH.__versions__.set_component_params(ghenv, dev='SEP_08_2021')
 
 #-------------------------------------------------------------------------------
 grid_size = 0.5
@@ -167,13 +164,20 @@ if _run:
     mesh_by_window = DataTree[Object]()
     lb_window_meshes = []
     
+    # CPU Count
+    if cpu_count_:
+        cpus = int(cpu_count_)
+    else:
+        cpus = None
+    
+    
     for i, window_surface in enumerate(_window_surfaces):
         pts, nrmls, win_msh, win_msh_bck, rh_msh = LBT2PH.shading_lbt.build_window_meshes(window_surface, grid_size, mesh_params)
         lb_window_meshes.append(win_msh)
         
         # Solve Winter
         # ----------------------------------------------------------------------
-        args_winter = (shade_mesh, win_msh_bck, pts, w_sky_vecs, nrmls, parallel_)
+        args_winter = (shade_mesh, win_msh_bck, pts, w_sky_vecs, nrmls, cpus)
         
         int_matrix_s, int_matrix_u, angles_s, angles_u = LBT2PH.shading_lbt.generate_intersection_data(*args_winter)
         w_rads_shaded, face_areas = LBT2PH.shading_lbt.calc_win_radiation(int_matrix_s, angles_s, w_total_sky_rad, win_msh)
@@ -186,7 +190,7 @@ if _run:
         
         # Solve Summer
         # ----------------------------------------------------------------------
-        args_summer = (shade_mesh, win_msh_bck, pts, s_sky_vecs, nrmls, parallel_)
+        args_summer = (shade_mesh, win_msh_bck, pts, s_sky_vecs, nrmls, cpus)
         
         int_matrix_s, int_matrix_u, angles_s, angles_u = LBT2PH.shading_lbt.generate_intersection_data(*args_summer)
         s_rads_shaded, face_areas = LBT2PH.shading_lbt.calc_win_radiation(int_matrix_s, angles_s, s_total_sky_rad, win_msh)

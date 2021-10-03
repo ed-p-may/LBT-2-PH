@@ -26,7 +26,7 @@ and nighttime ACH from any 'additional' ventilation beyond the basic HRV/ERV.
 This could be from operable windows, additional fans or any other method used to 
 increase airflow during the summer months.
 -
-EM March 21, 2021
+EM March 1, 2021
     Args:
         _HB_rooms: The Honeybee rooms to add summer-ventilation to.
         use_default_: <boolean> Default=False. Set True to use 'default' values 
@@ -52,7 +52,7 @@ reload(LBT2PH.summer_vent)
 reload(LBT2PH.helpers)
 
 ghenv.Component.Name = "LBT2PH Summer Ventilation"
-LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_21_2021')
+LBT2PH.__versions__.set_component_params(ghenv, dev=False)
 
 #-------------------------------------------------------------------------------
 # Build the Summ-Vent Object
@@ -61,8 +61,8 @@ if use_default_:
     summ_vent_obj.day_ach = 'default'
     summ_vent_obj.night_ach = 'default'
 
-if basic_ach_ is not None: summ_vent_obj.day_ach = float(basic_ach_)
-if nighttime_ach is not None: summ_vent_obj.night_ach = float(nighttime_ach)
+if basic_ach_: summ_vent_obj.day_ach = basic_ach_
+if nighttime_ach: summ_vent_obj.night_ach = nighttime_ach
 
 #-------------------------------------------------------------------------------
 # Add the Summ-Vent objects onto the Honeybee Rooms

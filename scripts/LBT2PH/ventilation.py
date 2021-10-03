@@ -715,11 +715,17 @@ def calc_room_vent_rates_from_HB(_hb_room, _ghenv):
     hb_sched_vent = _hb_room.properties.energy.ventilation.schedule
 
     if hb_sched_occ:
-        hb_sched_occ = schedule_by_identifier(hb_sched_occ.identifier)
-        
-        if isinstance(hb_sched_occ, ScheduleRuleset):
-            data_occ = hb_sched_occ.data_collection(
-                timestep, start_date, end_date, week_start_day, holidays, leap_year=False)
+        try:
+            # -- Try and get the schedule from the HB Library
+            hb_sched_occ = schedule_by_identifier(hb_sched_occ.identifier)
+        except ValueError:
+            # -- Try and convert the Schdedule onboard the Room
+            try:
+                if isinstance(hb_sched_occ, ScheduleRuleset):
+                    data_occ = hb_sched_occ.data_collection(
+                        timestep, start_date, end_date, week_start_day, holidays, leap_year=False)
+            except AttributeError as e:
+                raise e
     else:
         data_occ = (1 for i in range(8760))
 
@@ -783,11 +789,9 @@ def calc_room_vent_rates_from_HB(_hb_room, _ghenv):
 
     return output
 
-def hb_schedule_to_data(_schedule_name):
-        try:
+def hb_schedule_to_data(_schedule):
+        if isinstance(_schedule, str):
             _schedule = schedule_by_identifier(_schedule_name)
-        except:
-            return None
         
         week_start_day = 'Sunday'
         start_date, end_date, timestep = Date(1, 1), Date(12, 31), 1
@@ -859,9 +863,11 @@ def calc_space_vent_schedule(_space, _hb_room, _hb_room_tfa):
     if _hb_room_tfa == 0:
         return None
 
+    # Try and get the Schedule data
+    hb_schedule_obj = hb_schedule_to_data(_hb_room.properties.energy.people.occupancy_schedule) 
+    
     # Create a PHPP-Style 3-part sched from the EP data
-    occupancy_sched_name = _hb_room.properties.energy.people.occupancy_schedule.display_name
-    bins, vals = generate_histogram(hb_schedule_to_data(occupancy_sched_name).values, 2)
+    bins, vals = generate_histogram(hb_schedule_obj.values, 2)
     room_sched_from_hb = PHPP_Sys_VentSchedule( vals[2], bins[2], vals[1], bins[1], vals[0], bins[0] )
     
     # Compute the Room % of Total TFA and Room's Ventilation Airflows

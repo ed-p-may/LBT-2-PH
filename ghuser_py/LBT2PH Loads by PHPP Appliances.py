@@ -116,7 +116,7 @@ reload( LBT2PH.schedules )
 reload( LBT2PH.occupancy )
 
 ghenv.Component.Name = "LBT2PH Loads by PHPP Appliances"
-LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_12_21')
+LBT2PH.__versions__.set_component_params(ghenv, dev=False)
 
 #-------------------------------------------------------------------------------
 # These are copied from the Honeybee 'ApplyLoadVals' component
@@ -214,6 +214,7 @@ if _HB_model:
     HB_model_ = _HB_model.duplicate()
     LBT2PH.helpers.add_to_HB_model(HB_model_, 'appliances', appliance_list_obj.to_dict(), ghenv  )
 
+
 # Add to the Honeybee Rooms
 #-------------------------------------------------------------------------------
 if HB_model_ and set_honeybee_loads_:
@@ -253,5 +254,6 @@ if HB_model_ and set_honeybee_loads_:
         equip = dup_load(obj, 'electric_equipment', 'electric_equip_sch_')
         equip.schedule = schedule_object(epuipment_schd)
         assign_load(obj, equip, 'electric_equipment')
+    
     
     HB_model_ = new_model

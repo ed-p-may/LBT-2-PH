@@ -457,6 +457,7 @@ def find_nearest_phpp_climate(_epw_file):
     return [ climate_set_to_use ]
 
 def get_footprint( _surfaces ):
+
     # Finds the 'footprint' of the building for 'Primary Energy Renewable' reference
     # 1) Re-build the Opaque Surfaces
     # 2) Join all the surface Breps into a single brep
@@ -468,6 +469,10 @@ def get_footprint( _surfaces ):
     
     Footprint = namedtuple('Footprint', ['Footprint_surface', 'Footprint_area'])
     
+    # This shit is all busted, just skip it until I can make it work....
+    return Footprint(None, 0)
+
+
     #----- Build brep
     surfaces = [from_face3d(surface.Srfc) for surface in _surfaces]
     bldg_mass = ghc.BrepJoin( surfaces ).breps

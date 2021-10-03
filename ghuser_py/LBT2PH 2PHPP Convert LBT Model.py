@@ -37,15 +37,7 @@ EM March 1, 2021
         _model: The Honeybee Model
         rooms_included_: <Optional :str> Input the Room/Zone Name or a list of Room/Zone Names to output to a PHPP document. If no input, all zones found in the HB Model will be output to a single PHPP Excel document. 
         rooms_excluded_: <Optional :str> Pass in a list of string values to filter out certain zones by name. If the zone name includes the string anywhere in its name, it will be removed from the set to output.
-        ud_row_starts_: <Optional :str> Input a list of string values for any 
-        non-standard starting positions (rows) in your PHPP. This might be neccessary 
-        if you have modified your PHPP from the normal one you got originally. 
-        For instance, if you added new rows to the PHPP in  order to add more 
-        rooms (Additional Ventilation) or surfaces (Areas) or that sort of thing. 
-        To set the correct values here, input strings in the format " Worksheet 
-        Name, Start Key: New Start Row " - so use commas to separate the levels 
-        of the dict, then a semicolon before the value you want to input. Will 
-        accept multiline strings for multiple value resets.
+        ud_row_starts_: <Optional :str> Input a list of string values for any non-standard starting positions (rows) in your PHPP. This might be neccessary if you have modified your PHPP from the normal one you got originally. For instance, if you added new rows to the PHPP in  order to add more rooms (Additional Ventilation) or surfaces (Areas) or that sort of thing. To set the correct values here, input strings in the format " Worksheet Name, Start Key: New Start Row " - so use commas to separate the levels of the dict, then a semicolon before the value you want to input. Will accept multiline strings for multiple value resets.
         Enter any of the following valid Start Rows:
             -  Additional Ventilation, Rooms: ## (Default=56)
             -  Additional Ventilation, Vent Unit Selection: ## (Default=97)
@@ -56,10 +48,6 @@ EM March 1, 2021
             -  Electricity non-res, Lighting: ## (Default= 19)
             -  Electricity non-res, Office Equip: ## (Default=62)
             -  Electricity non-res, Kitchen: ## (Default=77)
-        ---or---
-        If you work for bldgtyp, you can input the string 'bldgtyp_standard' to use the default
-        values for our 'normal' large-phpp.
-        
         estimated_tfa_: <bool> Set True to have this component try and estimate the TFA based on the gross floor area of the Honeybee Zones/ surfaces. Leave False or blank to have it try and read TFA info from the PHPP Rooms / Rhino Scene.
         variants_: Input for the 'Variants' component. Used to configure the Variants worksheet if you are using that functionality. 
         ud_custom_: Input one or more 'UD XL Obj' items here to write custom values anywhere in the workbook. Be careful with this as you can break the PHPP by accident. For experienced users only.
@@ -86,7 +74,7 @@ reload( LBT2PH.to_excel )
 reload( LBT2PH.helpers)
 
 ghenv.Component.Name = "LBT2PH 2PHPP Convert LBT Model"
-LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_12_21')
+LBT2PH.__versions__.set_component_params(ghenv, dev=False)
 
 #-------------------------------------------------------------------------------
 excel_objects_ = DataTree[Object]() 

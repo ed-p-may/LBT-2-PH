@@ -27,21 +27,15 @@ These shading factors can come from any source but should always be 0<-->1 with
 -
 Note: Be sure that the order of the windowNames and the shading factors match each other.
 -
-EM March 27, 2021
+EM March 1, 2021
     Args:
         _HB_rooms: (List)
         _windowNames: (List) The window names in the HB Model being analyzed. The 
             order of this list should match the order of the Shading Factors input.
         _winter_shading_factors: (List) The winter shading factors (0=fully shaded, 1=fully unshaded). 
             The length and order of this list should match the "_windowNames" input.
-            Note - You can also pass in 'ignore' if you would like to maintain any 
-            existing shading factors for this season. This is useful if you are 
-            assessing winter and summer shading separately (turning on/off tree foliage or the like.)
         _summer_shading_factors: (List) The summer shading factors (0=fully shaded, 1=fully unshaded). 
             The length and order of this list should match the "_windowNames" input.
-            Note - You can also pass in 'ignore' if you would like to maintain any 
-            existing shading factors for this season. This is useful if you are 
-            assessing winter and summer shading separately (turning on/off tree foliage or the like.)
     Returns:
         HBZones_: The updated Honeybee Zone objects to pass along to the next step.
 """
@@ -58,54 +52,37 @@ reload(LBT2PH.__versions__)
 reload( LBT2PH.windows )
 
 ghenv.Component.Name = "LBT2PH Shading Apply Factors"
-LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_27_2021')
+LBT2PH.__versions__.set_component_params(ghenv, dev=False)
 #-------------------------------------------------------------------------------
-if _winter_shading_factors and _summer_shading_factors:
-    if str(_winter_shading_factors[0]).upper() != 'IGNORE' and str(_winter_shading_factors[0]).upper() != 'IGNORE':
-        if len(_window_names) != len(_winter_shading_factors) or len(_window_names) != len(_summer_shading_factors):
-            warning = "The number of windows in the HB Model doesn't match the shading factor inputs?\n"\
-            "Check the HB Model / shading factor values. For now I'll use 0.75 for all the missing ones."
-            ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
+
+if len(_window_names) != len(_winter_shading_factors) or len(_window_names) != len(_summer_shading_factors):
+    warning = "The number of windows in the HB Model doesn't match the shading factor inputs?\n"\
+    "Check the HB Model / shading factor values. For now I'll use 0.75 for all the missing ones."
+    ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, warning)
 
 # ------------------------------------------------------------------------------
 # Build the window param dict
 Params = namedtuple('Params', ['winter', 'summer'])
 param_dict = {}
-
 for i, window_name in enumerate(_window_names):
-    
+
+    try:
+        winter_factor= float(_winter_shading_factors[i])
+    except IndexError as e:
+        winter_factor = 0.75
+    except SystemError as e:
+        winter_factor = 0.75
     
     try:
-        ignore_winter_inputs = str(_winter_shading_factors[0]).upper() == 'IGNORE'
-        if not ignore_winter_inputs:
-            raise IndexError
-        else:
-            winter_factor = None
-    except IndexError:
-        try:
-            winter_factor= float(_winter_shading_factors[i])
-        except IndexError as e:
-            winter_factor = 0.75
-        except SystemError as e:
-            winter_factor = 0.75
-    
-    try:
-        ignore_summer_inputs = str(_summer_shading_factors[0]).upper() == 'IGNORE'
-        if not ignore_summer_inputs:
-            raise IndexError
-        else:
-            summer_factor = None
-    except IndexError:
-        try:
-            summer_factor= float(_summer_shading_factors[i])
-        except IndexError as e:
-            summer_factor = 0.75
-        except SystemError as e:
-            summer_factor = 0.75
+        summer_factor= float(_summer_shading_factors[i])
+    except IndexError as e:
+        summer_factor = 0.75
+    except SystemError as e:
+        summer_factor = 0.75
     
     param_dict[window_name] = Params(winter_factor, summer_factor)
 
-# Add the new shading factors to the Honeybee Room Apertures
+
 # ------------------------------------------------------------------------------
 HB_rooms_ = []
 for room in _HB_rooms:
@@ -132,10 +109,8 @@ for room in _HB_rooms:
                 msg = "Error finding a matching name for Honeybee Aperture {}?".format(name)
                 continue
             
-            if window_factors.winter:
-                phpp_window.shading_factor_winter = window_factors.winter
-            if window_factors.summer:
-                phpp_window.shading_factor_summer = window_factors.summer
+            phpp_window.shading_factor_winter = window_factors.winter
+            phpp_window.shading_factor_summer = window_factors.summer
             phpp_window.shading_dimensions = None
             
             # ------------------------------------------------------------------
