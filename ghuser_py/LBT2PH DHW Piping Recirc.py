@@ -25,7 +25,7 @@ Will take in curves from Rhino and calculate their lengths automatically.
 Will try and pull curve object attributes from Rhino as well - use attribute 
 setter to assign the pipe diameter, insulation, etc... on the Rhino side.
 -
-EM March 1, 2021
+EM November 29, 2021
     Args:
         pipe_geom_: (float: curve:) Recirculation piping. The input here will accept either:
             >   A single number representing the length (m) of the total loop in meters
@@ -76,7 +76,7 @@ reload( LBT2PH.dhw_IO )
 reload( LBT2PH.helpers )
 
 ghenv.Component.Name = "LBT2PH DHW Piping Recirc"
-LBT2PH.__versions__.set_component_params(ghenv, dev='APR_15_2021')
+LBT2PH.__versions__.set_component_params(ghenv, dev='NOV_29_2021')
 
 # --- Build the attr dict from GH UD inputs
 # ------------------------------------------------------------------------------
@@ -87,7 +87,7 @@ for i, v in enumerate(pipe_geom_):
     attr_dict['insulation_thickness'] = insul_thickness_[i] if i<len(insul_thickness_) else None
     attr_dict['insulation_conductivity'] = insul_conductivity_[i] if i<len(insul_conductivity_) else None
     attr_dict['insulation_reflective'] = insul_reflective_[i] if i<len(insul_reflective_) else None
-    attr_dict['insul_quality'] = insul_quality_
+    attr_dict['insulation_quality'] = insul_quality_
     attr_dict['daily_period'] = daily_period_
     
     attr_dicts.append(attr_dict)
@@ -108,7 +108,7 @@ for segment in piping_inputs:
     if segment.get('insulation_thickness'): new_segment.insulation_thickness = segment.get('insulation_thickness')
     if segment.get('insulation_conductivity'): new_segment.insulation_conductivity = segment.get('insulation_conductivity')
     if segment.get('insulation_reflective'): new_segment.insulation_reflective = segment.get('insulation_reflective')
-    if segment.get('insul_quality'): new_segment.insul_quality = segment.get('insul_quality')
+    if segment.get('insulation_quality'): new_segment.insulation_quality = segment.get('insulation_quality')
     if segment.get('daily_period'): new_segment.daily_period = segment.get('daily_period')
     
     circulation_piping_.append(new_segment)

@@ -173,7 +173,7 @@ class PHPP_DHW_Pipe_Segment(object):
         new_obj.insulation_thickness = other.insulation_thickness
         new_obj.insulation_conductivity = other.insulation_conductivity
         new_obj.insulation_reflective = other.insulation_reflective
-        new_obj.insul_quality = other.insul_quality
+        new_obj.insulation_quality = other.insulation_quality
         new_obj.daily_period = other.daily_period
 
         return new_obj
