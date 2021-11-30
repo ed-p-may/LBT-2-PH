@@ -49,7 +49,7 @@ class PHPP_DHW_Pipe_Segment(object):
         self._diameter = 0.0127 #m
         self._insul_thickness = 0.0127 #m
         self._insul_conductivity = 0.04 #W/mk
-        self._insul_reflective = True
+        self._insul_reflective = 'x'
         self._quality = '1-None'
         self._period = 18
     
@@ -106,7 +106,10 @@ class PHPP_DHW_Pipe_Segment(object):
 
     @insulation_reflective.setter
     def insulation_reflective(self, _in):
-        self._insul_reflective = _in
+        if _in is False or 'False' in str(_in):        
+            self._insul_reflective = ''
+        else:
+            self._insul_reflective = 'x'
 
     @property
     def insulation_quality(self):

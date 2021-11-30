@@ -1026,7 +1026,7 @@ def build_DHW_system(_list_of_dhw_systems, _hb_rooms, _ghenv):
 
         for colNum, recirc_pipe_set in enumerate(dhw_.recirc_piping_PHPP_sets):
             col = chr(ord('J') + colNum)
-            
+
             if ord(col) <= ord('N'):
                 dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 149), recirc_pipe_set.length , 'M', 'FT'))
                 dhwSystem.append( PHPP_XL_Obj('DHW+Distribution', '{}{}'.format(col, 150), recirc_pipe_set.diameter, 'MM','IN') )

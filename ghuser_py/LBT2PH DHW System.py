@@ -24,7 +24,7 @@ Collects and organizes data for a DHW System. Hook up inputs from DHW components
 and this will organize for the excel writer.
 Connect the output to the 'dhw_' input on the 'Create Excel Obj - Setup' component to use.
 -
-EM November 29, 2021
+EM November 30, 2021
     Args:
         _system_name: (str) The name / idenfitier for the System.
         
@@ -76,7 +76,7 @@ reload( LBT2PH.dhw )
 reload( LBT2PH.dhw_IO )
 
 ghenv.Component.Name = "LBT2PH DHW System"
-LBT2PH.__versions__.set_component_params(ghenv, dev='NOV_29_2021')
+LBT2PH.__versions__.set_component_params(ghenv, dev='NOV_30_2021')
 
 #----- Get / Create Recirc Piping
 #-------------------------------------------------------------------------------

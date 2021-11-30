@@ -25,7 +25,7 @@ Will take in curves from Rhino and calculate their lengths automatically.
 Will try and pull curve object attributes from Rhino as well - use attribute 
 setter to assign the pipe diameter, insulation, etc... on the Rhino side.
 -
-EM November 29, 2021
+EM November 30, 2021
     Args:
         pipe_geom_: (float: curve:) Recirculation piping. The input here will accept either:
             >   A single number representing the length (m) of the total loop in meters
@@ -76,7 +76,7 @@ reload( LBT2PH.dhw_IO )
 reload( LBT2PH.helpers )
 
 ghenv.Component.Name = "LBT2PH DHW Piping Recirc"
-LBT2PH.__versions__.set_component_params(ghenv, dev='NOV_29_2021')
+LBT2PH.__versions__.set_component_params(ghenv, dev='NOV_30_2021')
 
 # --- Build the attr dict from GH UD inputs
 # ------------------------------------------------------------------------------
@@ -86,7 +86,7 @@ for i, v in enumerate(pipe_geom_):
     attr_dict['pipe_diameter'] = pipe_diam_[i] if i<len(pipe_diam_) else None
     attr_dict['insulation_thickness'] = insul_thickness_[i] if i<len(insul_thickness_) else None
     attr_dict['insulation_conductivity'] = insul_conductivity_[i] if i<len(insul_conductivity_) else None
-    attr_dict['insulation_reflective'] = insul_reflective_[i] if i<len(insul_reflective_) else None
+    attr_dict['insulation_reflective'] = str(insul_reflective_[i]) if i<len(insul_reflective_) else False
     attr_dict['insulation_quality'] = insul_quality_
     attr_dict['daily_period'] = daily_period_
     
