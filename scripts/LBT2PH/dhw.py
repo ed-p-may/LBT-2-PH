@@ -1,5 +1,6 @@
 from uuid import uuid4
 from collections import defaultdict
+import functools
 
 class PHPP_DHW_Tap_Point:
     """A single DHW Tap point (faucet, fixture, etc) """
@@ -90,7 +91,7 @@ class PHPP_DHW_Pipe_Segment(object):
 
     @property
     def insulation_conductivity(self):
-        return self._insul_thickness
+        return self._insul_conductivity
 
     @insulation_conductivity.setter
     def insulation_conductivity(self, _in):
@@ -133,11 +134,26 @@ class PHPP_DHW_Pipe_Segment(object):
         
         assert self._period > 0  and self._period < 24, 'Error: Daily Period should be a number between 0 and 24 hours.'
     
+    def _length_weighted_attribute_join(self, other, attr):
+        # used by __add__ to join attributes weighted by pipe length
+        val_a = getattr(self, attr, 0) * self.length
+        val_b = getattr(other, attr, 0) * other.length
+        total_val = val_a + val_b
+        weighted_val = total_val / (self.length + other.length)
+        
+        return weighted_val
+
     def __add__(self, other):
         """Allows you to '+' or sum() PHPP_DHW_Pipe_Segment instances """
         new_obj = self.__class__()
+        
+        new_obj.insulation_thickness = self._length_weighted_attribute_join(other, 'insulation_thickness')
+        new_obj.insulation_conductivity = self._length_weighted_attribute_join(other, 'insulation_conductivity')
+        new_obj.diameter = self._length_weighted_attribute_join(other, 'diameter')
         new_obj.length = self.length + other.length
-        new_obj.diameter = other.diameter
+        #new_obj.insulation_reflective = self.insulation_reflective or other.insulation_reflective
+        #new_obj.insulation_quality = 2
+        #new_obj.daily_period = max(self.daily_period, other.daily_period)
 
         return new_obj
 
@@ -149,6 +165,11 @@ class PHPP_DHW_Pipe_Segment(object):
         d.update( {'id':self.id} )
         d.update( {'length':self.length} )
         d.update( {'diameter':self.diameter} )
+        d.update( {'insulation_thickness':self.insulation_thickness} )
+        d.update( {'insulation_conductivity':self.insulation_conductivity} )
+        d.update( {'insulation_reflective':self.insulation_reflective} )
+        d.update( {'insulation_quality':self.insulation_quality} )
+        d.update( {'daily_period':self.daily_period} )
 
         return d
 
@@ -159,6 +180,11 @@ class PHPP_DHW_Pipe_Segment(object):
         new_obj.id = _dict.get('id')
         new_obj.length = _dict.get('length')
         new_obj.diameter = _dict.get('diameter')
+        new_obj.insulation_thickness = _dict.get('insulation_thickness')
+        new_obj.insulation_conductivity = _dict.get('insulation_conductivity')
+        new_obj.insulation_reflective = _dict.get('insulation_reflective')
+        new_obj.insulation_quality = _dict.get('insulation_quality')
+        new_obj.daily_period = _dict.get('daily_period')
 
         return new_obj
 
@@ -337,11 +363,17 @@ class PHPP_DHW_System(object):
         set_dict = self._get_piping_set_by_diameter(_piping)
         list_of_segments = [ set_dict[key] for key in sorted(set_dict.keys(), reverse=True)]
 
-        sets = []
-        for set in list_of_segments:
-            sets.append( sum(set, start=PHPP_DHW_Pipe_Segment())  )
+        pipe_sets = []
+        for pipe_set in list_of_segments:
+            if len(pipe_set) == 0:
+                pass
+            elif len(pipe_set) == 1:
+                pipe_sets.append(pipe_set[0])
+            else:
+                # Use reduce instead of sum to avoid default length propblem
+                pipe_sets.append( functools.reduce(lambda a, b: a+b, pipe_set) )
 
-        return sets
+        return pipe_sets
 
     def _get_piping_set_by_diameter(self, _piping): #-> [Dict]
         """ Returns a dict with pipe segments organized/binned by their diameter 
@@ -401,7 +433,7 @@ class PHPP_DHW_System(object):
         for piping_obj in self.branch_piping:
             d['branch_piping'].update( { piping_obj.id:piping_obj.to_dict() } )
 
-        if self.usage:       d.update( {'usage': self.usage.to_dict() } )
+        if self.usage:        d.update( {'usage': self.usage.to_dict() } )
         if self._tank1:       d.update( {'tank1':self.tank1.to_dict()} )
         if self._tank2:       d.update( {'tank2':self.tank2.to_dict()} )
         if self.tank_buffer:  d.update( {'tank_buffer':self.tank_buffer.to_dict() } )
@@ -423,12 +455,14 @@ class PHPP_DHW_System(object):
             new_tap_point_obj = PHPP_DHW_Tap_Point.from_dict( tap_point_obj )
             new_obj.tap_points.append( new_tap_point_obj )
 
-        circulation_piping = _dict.get('circulation_piping')
+        circulation_piping = _dict.get('circulation_piping', {})
+        print('new_obj.circulation_piping', new_obj.circulation_piping)
         for circ_pipe_obj in circulation_piping.values():
             new_piping_obj = PHPP_DHW_Pipe_Segment.from_dict( circ_pipe_obj )
             new_obj.circulation_piping.append( new_piping_obj )
+        print('new_obj.circulation_piping', new_obj.circulation_piping)
 
-        branch_piping = _dict.get('branch_piping')
+        branch_piping = _dict.get('branch_piping', {})
         for branch_pipe_obj in branch_piping.values():
             new_piping_obj = PHPP_DHW_Pipe_Segment.from_dict( branch_pipe_obj )
             new_obj.branch_piping.append( new_piping_obj )
