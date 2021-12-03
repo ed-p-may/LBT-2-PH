@@ -366,7 +366,7 @@ class PHPP_Cooling_SupplyAir(Object):
         return str(self)
 
 class PHPP_Cooling_RecircAir(Object):
-    def __init__(self, _on_off=None, _maxCap=1000, _nomVol=100, _varVol='x', _seer=3):
+    def __init__(self, _on_off=None, _maxCap=1000, _nomVol=100, _varVol=None, _seer=3):
         self.id = random.randint(1000,9999)
         self._on_off = _on_off
         self._max_capacity = _maxCap
@@ -406,16 +406,12 @@ class PHPP_Cooling_RecircAir(Object):
     
     @property
     def variable_vol(self):
-        if self._variable_vol:
-            return 'x'
-        else:
-            return None
+        return self._variable_vol
 
     @variable_vol.setter
     def variable_vol(self, _in):
-        if _in:
-            self._variable_vol = 'x'
-        else:
+        self._variable_vol = 'x'
+        if _in == False:
             self._variable_vol = None
 
     @property
