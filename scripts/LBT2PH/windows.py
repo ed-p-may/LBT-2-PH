@@ -133,6 +133,11 @@ class PHPP_Window(Object):
 
             frame_width = self.frame.fLeft # assumes all widths are the same!?
             inset_srfc = LBT2PH.helpers_geometry.inset_rhino_surface(geom, frame_width, self.name)
+            
+            if isinstance(inset_srfc, list):
+                print('ERROR: Cannot properly generate glazing for window {}'.format(self.name))
+                print("Check the window's frame-type dimensions to make sure window size is not too small to inset?")
+
             self._glazing_surface = inset_srfc
             
             return inset_srfc
