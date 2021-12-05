@@ -365,11 +365,16 @@ def get_lighting(_model):
         if not room.user_data:
             continue
         
+        appliances_dicts = room.user_data.get('phpp', {}).get('appliances', {})
+        spaces_dicts = room.user_data.get('phpp', {}).get('spaces', {})
+        if not appliances_dicts or not spaces_dicts:
+            continue
+        
         name = room.display_name
-        efficacy =  float( room.user_data.get('phpp', {}).get('appliances', {}).get('lighting_efficacy', 50) )
+        efficacy =  float( appliances_dicts.get('lighting_efficacy', 50) )
 
         space_tfas = []
-        for space_dict in room.user_data.get('phpp', {}).get('spaces', {}).values():
+        for space_dict in spaces_dicts.values():
             space_tfas.append( float( space_dict.get('_tfa', 0)) )
         space_tfa = sum(space_tfas)
 
