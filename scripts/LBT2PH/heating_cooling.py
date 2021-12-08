@@ -32,7 +32,9 @@ class PHPP_PER(Object):
 
     @property
     def secondary_heat(self):
-        if '1' in str(self._secondary_heat):
+        if not self._secondary_heat or str(self._secondary_heat) == '-':
+            return '-'
+        elif '1' in str(self._secondary_heat):
             return '1-HP compact unit' 
         elif '2' in str(self._secondary_heat):
             return '2-Heat pump(s)'
