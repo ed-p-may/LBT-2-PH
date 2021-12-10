@@ -219,8 +219,8 @@ def calc_win_radiation(_int_matrix_init, _angles, _total_sky_rad, _window_mesh):
     results_kWh = []
     window_face_areas = []
     int_matrix = []
-
-    count = (k for k in range(len(_angles) * 2))  # just a super large counter
+    
+    count = (k for k in range(len(_angles) * 10))  # just a super large counter
 
     for c, int_vals, angs in izip(count, _int_matrix_init, _angles):
         pt_rel = (ival * math.cos(ang) for ival, ang in izip(int_vals, angs))

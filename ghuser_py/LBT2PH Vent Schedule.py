@@ -28,7 +28,7 @@ within the utilisation period can be considered. All of these attributes can
 be manually input using the Rhino-Scene PHPP tool 'Set TFA Surface Factor(s)'.
 > All times % values should add up to 100%
 -
-EM March 20, 2021
+EM December 10, 2021
 
     Args:
         _fanSpeed_high: Fan Speed factor (in %) in relation to the maximum volume 
@@ -61,7 +61,7 @@ reload(LBT2PH.helpers)
 reload(LBT2PH.ventilation)
 
 ghenv.Component.Name = "LBT2PH Vent Schedule"
-LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_20_2021')
+LBT2PH.__versions__.set_component_params(ghenv, dev='DEC_10_2021')
 #-------------------------------------------------------------------------------
 
 def cleanGet(_in, _default=None):
@@ -76,12 +76,21 @@ def cleanGet(_in, _default=None):
     except:
         return _default
 
+def warn_input(_input):
+    try:
+        if float(_input) > 1.0:
+            message = 'Warning: Input value: {} is > 1. Are you sure? Input % values as decimal. Ie: 77% =0.77'.format(_input)
+            ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, message)
+    except ValueError:
+        pass
+    return _input
+
 phpp_ventilation_sched_ = LBT2PH.ventilation.PHPP_Sys_VentSchedule()
 
 # Have to check is non None cus' if you want to pass 0 ever...
-if _fan_speed_high is not None: phpp_ventilation_sched_.speed_high = _fan_speed_high
-if _fan_speed_med is not None:  phpp_ventilation_sched_.speed_med = _fan_speed_med
-if _fan_speed_low is not None:  phpp_ventilation_sched_.speed_low = _fan_speed_low
+if _fan_speed_high is not None: phpp_ventilation_sched_.speed_high = warn_input(_fan_speed_high)
+if _fan_speed_med is not None:  phpp_ventilation_sched_.speed_med = warn_input(_fan_speed_med)
+if _fan_speed_low is not None:  phpp_ventilation_sched_.speed_low = warn_input(_fan_speed_low)
 
 if _operation_time_high is not None: phpp_ventilation_sched_.time_high = cleanGet(_operation_time_high)
 if _operation_time_med is not None:  phpp_ventilation_sched_.time_med = cleanGet(_operation_time_med)
