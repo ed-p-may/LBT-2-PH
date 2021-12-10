@@ -459,11 +459,9 @@ class PHPP_DHW_System(object):
             new_obj.tap_points.append( new_tap_point_obj )
 
         circulation_piping = _dict.get('circulation_piping', {})
-        print('new_obj.circulation_piping', new_obj.circulation_piping)
         for circ_pipe_obj in circulation_piping.values():
             new_piping_obj = PHPP_DHW_Pipe_Segment.from_dict( circ_pipe_obj )
             new_obj.circulation_piping.append( new_piping_obj )
-        print('new_obj.circulation_piping', new_obj.circulation_piping)
 
         branch_piping = _dict.get('branch_piping', {})
         for branch_pipe_obj in branch_piping.values():

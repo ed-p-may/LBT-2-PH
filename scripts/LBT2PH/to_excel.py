@@ -1541,6 +1541,12 @@ def build_variants( _var_obj ):
             variants.append( PHPP_XL_Obj('U-Values', 'S'+str(row_Uval), '=G'+str(row_Uval) ))
             variants.append( PHPP_XL_Obj('Variants', 'B'+str(row_Variant), '=Components!D'+str(row_Compo) ))
 
+            # Zero out all the other U-Value inputs to avoid any double-counting
+            # when using standard multi-layer Honeybee-Materials
+            for k in range(1,8):
+                row_number = row_Uval + k
+                variants.append( PHPP_XL_Obj('U-Values', 'S'+str(row_number), 0 ))
+
     if _var_obj.airtightness:
         variants.append( PHPP_XL_Obj('Ventilation', 'N27', '=D27' ))
 
