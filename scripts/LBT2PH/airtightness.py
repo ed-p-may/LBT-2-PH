@@ -6,6 +6,13 @@ import LBT2PH.spaces
 reload(LBT2PH)
 reload(LBT2PH.spaces)
 
+class HoneybeeZeroValueError(Exception):
+    def __init__(self, _hb_room, _value):
+        self.message = "Error: Honeybee Room: {} required data: {} appears to be Zero?".format(_hb_room.display_name, _value)
+        super(HoneybeeZeroValueError, self).__init__(self.message)
+
+
+
 def get_room_infiltration_rate(_n50, _q50, _blower_pressure, _hb_room, _phpp_space_dict):
     phpp_spaces = [ LBT2PH.spaces.Space.from_dict( dict ) 
                     for dict 
@@ -20,6 +27,15 @@ def get_room_infiltration_rate(_n50, _q50, _blower_pressure, _hb_room, _phpp_spa
     else:
         room_infil_airflow = _hb_room.exposed_area * _hb_room.properties.energy.infiltration.flow_per_exterior_area / 3600
     
+    if phpp_spaces_vn50 == 0.0:
+        raise HoneybeeZeroValueError(_hb_room, 'PHPP-Spaces Vn50 Volume')
+    if _hb_room.volume == 0.0:
+        raise HoneybeeZeroValueError(_hb_room, 'Volume')
+    if _hb_room.floor_area == 0.0:
+        raise HoneybeeZeroValueError(_hb_room, 'Floor Area')
+    if _hb_room.exposed_area == 0.0:
+        raise HoneybeeZeroValueError(_hb_room, 'Exposed Exterior Surface Area')
+
     print('- '*15, 'HB-Room: {}'.format(_hb_room.display_name), '- '*15)
     print('INPUTS:')
     print('  >HB-Room PHPP Space Volumes (Vn50): {:.2f} m3'.format(phpp_spaces_vn50))
