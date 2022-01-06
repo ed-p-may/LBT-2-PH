@@ -619,7 +619,7 @@ def build_addnl_vent_rooms(_inputBranch, _vent_systems, _zones, _startRows):
             addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_Name, '{}-{}'.format(phpp_space.space_number, phpp_space.space_name )))
             addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_VentAllocation, ventMatchFormula ))
             addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_Area, phpp_space.space_tfa, 'M2', 'FT2'))
-            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_RoomHeight, phpp_space.space_avg_clear_ceiling_height, 'M2', 'FT2'))
+            addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_RoomHeight, phpp_space.space_avg_clear_ceiling_height, 'M', 'FT'))
             
             addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_SupplyAirFlow, roomAirFlow_sup, 'M3/H', 'CFM'))
             addnlVentRooms.append( PHPP_XL_Obj('Additional Vent', address_ExractAirFlow, roomAirFlow_eta, 'M3/H', 'CFM'))
