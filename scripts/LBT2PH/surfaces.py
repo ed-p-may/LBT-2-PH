@@ -15,6 +15,7 @@ try:  # import the core honeybee dependencies
 except ImportError as e:
     raise ImportError('\nFailed to import honeybee:\n\t{}'.format(e))
 
+
 class Temp_Surface:
     """ A temporary holder for some surface stuff. Used to be just a nametuple.. """
 
@@ -24,17 +25,20 @@ class Temp_Surface:
 
     def __iter__(self):
         return (i for i in (self.geom, self.params))
-    
+
     def __unicode__(self):
         return u'A Temporary Surface with Geom and Params'
+
     def __str__(self):
         return unicode(self).encode('utf-8')
+
     def __repr__(self):
         return "_geom={!r}, _params={!r}".format(self.geom, self.params)
-    
+
+
 class hb_surface:
     """ Simple class to organize data for a 'surface'. Used to set up data for a HB-Face Component
-    
+
     Args:
         _srfc: <Surface> A single 'Surface' object with .geom and .param properties
         _constructions: <Dict> A dict of all the EP Constructions
@@ -50,72 +54,72 @@ class hb_surface:
     """
 
     srfc_type_schema = {
-        'Wall': {'legacy':0, 'lbt1': 'Wall'},
-        'WALL': {'legacy':0, 'lbt1': 'Wall'},
-        'UndergroundWall': {'legacy':0.5, 'lbt1': 'Wall'},
-        'ROOF': {'legacy':1, 'lbt1': 'RoofCeiling'},
-        'Roof': {'legacy':1, 'lbt1': 'RoofCeiling'},
-        'UndergroundCeiling': {'legacy':1.5, 'lbt1': 'Wall'},
-        'FLOOR': {'legacy':2, 'lbt1': 'Floor'},
-        'Floor': {'legacy':2, 'lbt1': 'Floor'},
-        'UndergroundSlab': {'legacy':2.25, 'lbt1': 'Floor'},
-        'SlabOnGrade': {'legacy':2.5, 'lbt1': 'Floor'},
-        'ExposedFloor': {'legacy':2.75, 'lbt1': 'Floor'},
-        'RoofCeiling': {'legacy':3, 'lbt1': 'RoofCeiling'},
-        'CEILING': {'legacy':3, 'lbt1': 'RoofCeiling'},
-        'AIRWALL': {'legacy':4, 'lbt1': 'AirBoundary'},
-        'WINDOW':  {'legacy':5, 'lbt1': 'Wall'},
+        'Wall': {'legacy': 0, 'lbt1': 'Wall'},
+        'WALL': {'legacy': 0, 'lbt1': 'Wall'},
+        'UndergroundWall': {'legacy': 0.5, 'lbt1': 'Wall'},
+        'ROOF': {'legacy': 1, 'lbt1': 'RoofCeiling'},
+        'Roof': {'legacy': 1, 'lbt1': 'RoofCeiling'},
+        'UndergroundCeiling': {'legacy': 1.5, 'lbt1': 'Wall'},
+        'FLOOR': {'legacy': 2, 'lbt1': 'Floor'},
+        'Floor': {'legacy': 2, 'lbt1': 'Floor'},
+        'UndergroundSlab': {'legacy': 2.25, 'lbt1': 'Floor'},
+        'SlabOnGrade': {'legacy': 2.5, 'lbt1': 'Floor'},
+        'ExposedFloor': {'legacy': 2.75, 'lbt1': 'Floor'},
+        'RoofCeiling': {'legacy': 3, 'lbt1': 'RoofCeiling'},
+        'CEILING': {'legacy': 3, 'lbt1': 'RoofCeiling'},
+        'AIRWALL': {'legacy': 4, 'lbt1': 'AirBoundary'},
+        'WINDOW':  {'legacy': 5, 'lbt1': 'Wall'},
         'SHADING': {'legacy': 6, 'lbt1': 'Wall'}
-        }
-        
+    }
+
     def __init__(self, _srfc, _constructions):
-        self.id = random.randint(1000,9999)
+        self.id = random.randint(1000, 9999)
         self.geometry = _srfc.geom
         self.params = _srfc.params
         self.constructions = _constructions
         self.rad_mod = None
-    
+
     def check_surface_names(self):
         """ Used to provide the user warnings if surfaces without names are found. """
-        
+
         nm = self.params.get('Object Name', None)
         warning = None
 
         if nm is None or nm == 'None':
             warning = "Warning: Some Surfaces look like they are missing names? It is possible that\n"\
-            "the Honeybee 'solveAdjc' component will not work correctly without names.\n"\
-            "This is especially true for 'interior' surfaces up against other thermal zones.\n"\
-            "If you run into trouble later, maybe try applying a unique name to all surfaces.\n"\
-            "For now, I will apply a random/default name to each surface."
-    
+                "the Honeybee 'solveAdjc' component will not work correctly without names.\n"\
+                "This is especially true for 'interior' surfaces up against other thermal zones.\n"\
+                "If you run into trouble later, maybe try applying a unique name to all surfaces.\n"\
+                "For now, I will apply a random/default name to each surface."
+
         return warning
 
     def _add_ext_flag_to_name(self, _ud_value):
         """ So that the EP Results can be properly sorted at the very end, add an EXT or INT flag to the srfc"""
-        
+
         if self.bc is None:
             return 'EXT_' + str(_ud_value)
         elif 'Adiabatic' in self.bc:
             return 'INT_' + str(_ud_value)
-        else: 
-            return 'EXT_' + str(_ud_value)    
+        else:
+            return 'EXT_' + str(_ud_value)
 
     def _get_srfc_type(self, _ud_value, _version):
         try:
             assert type(_ud_value) == str, '_ud_value input should be str'
-            return self.srfc_type_schema.get(_ud_value, {_version:'Wall'}).get(_version, 'Wall')
-        except: 
+            return self.srfc_type_schema.get(_ud_value, {_version: 'Wall'}).get(_version, 'Wall')
+        except:
             return 'Wall'
 
     @property
     def name(self):
         default_name = 'No_Name_{}'.format(self.id)
-        
+
         try:
             ud_value = self.params.get('Object Name', default_name)
             if str(ud_value) == 'None':
                 ud_value = default_name
-            
+
             ud_value = self._add_ext_flag_to_name(ud_value)
             return ud_value
         except:
@@ -129,24 +133,25 @@ class hb_surface:
     @property
     def type_legacy(self):
         """Exposure type used by old 'Legacy' Honeybee """
-        
+
         ud_value = self.params.get('srfType', 'Wall')
         return self._get_srfc_type(ud_value, 'legacy')
 
     @property
     def bc(self):
         return self.params.get('EPBC', 'Outdoors')
- 
+
     @property
     def const(self):
         ud_value = self.params.get('EPConstruction', None)
         if not ud_value:
             return None
-        
+
         ud_value = 'PHPP_CONST_' + str(ud_value).upper()
         ud_value = ud_value.replace(' ', '_')
 
         return self.constructions.get(ud_value, ud_value)
+
 
 class PHPP_Surface:
     def __init__(self, _lbt_face, _rm_name, _rm_id, _scene_north_vec, _ghenv):
@@ -157,7 +162,7 @@ class PHPP_Surface:
         self.ghenv = _ghenv
         self.Factor_Shading = 0.5
         self.Factor_Absorptivity = 0.6
-        self.Factor_Emissivity = 0.9        
+        self.Factor_Emissivity = 0.9
 
     def calc_scene_north_vector(self, _input_vector):
         ''' 
@@ -167,17 +172,17 @@ class PHPP_Surface:
             north_vector:
         '''
 
-        default_north_vector = Rhino.Geometry.Vector2d(0,1)
-        
+        default_north_vector = Rhino.Geometry.Vector2d(0, 1)
+
         if _input_vector is None:
             return default_north_vector
-        
+
         if isinstance(_input_vector, ladybug_geometry.geometry2d.pointvector.Vector2D):
             return _input_vector
 
         if isinstance(_input_vector, Rhino.Geometry.Vector2d):
             return _input_vector
-        
+
         # If its an angle input, create the vector from the angle
         try:
             angle = float(_input_vector)
@@ -199,7 +204,8 @@ class PHPP_Surface:
     def identifier(self):
         try:
             lbt_srfc_identifier = self.lbt_srfc.identifier
-            clean_identifier = lbt_srfc_identifier.replace('EXT_', '').replace('INT_', '')
+            clean_identifier = lbt_srfc_identifier.replace(
+                'EXT_', '').replace('INT_', '')
             return clean_identifier
         except Exception as e:
             print('Error getting idetifier from the LBT Face?', e)
@@ -244,10 +250,10 @@ class PHPP_Surface:
     @property
     def GroupNum(self):
         ''' Figure out the 'Group Number' for PHPP based on the Srfc exposure & type '''
-        
+
         bc = self.exposure
         face_type = self.type
-        
+
         if isinstance(bc, (Surface)):
             return None
         elif isinstance(face_type, Wall) and isinstance(bc, (Outdoors)):
@@ -265,8 +271,10 @@ class PHPP_Surface:
         else:
             groupWarning = "Couldn't figure out the Group Number for surface '{self.Name}'?\n"\
                 "It appears to have an exposure of: '{self.exposure}' and a type of: '{self.type}'?\n"\
-                "I will give this surface a group type of 13. You may want to overwrite that in PHPP.".format(self=self)
-            self.ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Warning, groupWarning)
+                "I will give this surface a group type of 13. You may want to overwrite that in PHPP.".format(
+                    self=self)
+            self.ghenv.Component.AddRuntimeMessage(
+                ghK.GH_RuntimeMessageLevel.Warning, groupWarning)
             return 13
 
     @property
@@ -298,17 +306,17 @@ class PHPP_Surface:
 
     @property
     def AngleFromHoriz(self):
-        up_vec = Rhino.Geometry.Vector3d(0,0,1)
+        up_vec = Rhino.Geometry.Vector3d(0, 0, 1)
         face_normal_vec = self.NormalVector
-        
+
         angle = rs.VectorAngle(up_vec, face_normal_vec)
-        return angle 
+        return angle
 
     @property
     def AngleFromNorth(self):
         ''' Uses the Surface's Normal Vector and the project's north angle
         vector and computes the clockwise orientation angle 0--360 between them
-        
+
         http://frasergreenroyd.com/obtaining-the-angle-between-two-vectors-for-360-degrees/
         Results 0=north, 90=east, 180=south, 270=west
         Arguments:
@@ -320,7 +328,7 @@ class PHPP_Surface:
         # Get the input Vector's X and Y parts
         x1 = self.NormalVector.x
         y1 = self.NormalVector.y
-        
+
         # Note: ladybug_geometry vectors use lowercase 'x', Rhino uses uppercase 'X'
         try:
             x2 = self.scene_north_vector.X
@@ -332,10 +340,10 @@ class PHPP_Surface:
         # Calc the angle between the vectors
         angle = math.atan2(y2, x2) - math.atan2(y1, x1)
         angle = angle * 360 / (2 * math.pi)
-        
+
         if angle < 0:
             angle = angle + 360
-        
+
         # Return Angle in Degrees
         return angle
 
@@ -350,14 +358,16 @@ class PHPP_Surface:
 
     def __unicode__(self):
         return u'A PHPP-Style Surface Object: < {} >'.format(self.Name)
+
     def __str__(self):
         return unicode(self).encode('utf-8')
+
     def __repr__(self):
-       return "{}(_lbt_face={!r})".format(
+        return "{}(_lbt_face={!r})".format(
             self.__class__.__name__, self.lbt_srfc)
 
 
-def get_input_geom( _input_list, _ghenv ):
+def get_input_geom(_input_list, _ghenv):
     """Gets geom and guid from whatever objects are input as the '_srfcs' """
 
     _input_num = 0
@@ -367,17 +377,17 @@ def get_input_geom( _input_list, _ghenv ):
     for i, input_obj in enumerate(_input_list):
         if not input_obj:
             continue
-        
+
         # Get the GUID of the item being input into the component's 0-pos input
         input_guid = _ghenv.Component.Params.Input[_input_num].VolatileData[0][i].ReferenceID
-        rh_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find( input_guid )
+        rh_obj = Rhino.RhinoDoc.ActiveDoc.Objects.Find(input_guid)
 
-        if rh_obj:            
+        if rh_obj:
             # Must be some Rhino Geometry being input
             # Try and explode any multi-surface Breps
             # If that fails, must be a Mesh, just pass along without exploding.
             geom = rs.coercegeometry(rh_obj)
-            
+
             # Try and convert whatever it is into a Brep (for Extrusions, etc.)
             try:
                 geom = geom.ToBrep()
@@ -386,19 +396,20 @@ def get_input_geom( _input_list, _ghenv ):
 
             try:
                 for srfc in geom.Faces:
-                    output.append( Geom(srfc, input_guid) )
+                    output.append(Geom(srfc, input_guid))
             except AttributeError as e:
-                output.append( Geom(geom, input_guid) )
+                output.append(Geom(geom, input_guid))
         else:
-            
+
             # Must be some Grasshopper Geometry being input
             try:
                 for srfc in input_obj.Faces:
-                    output.append( Geom(srfc, None) )
+                    output.append(Geom(srfc, None))
             except AttributeError as e:
-                output.append( Geom(input_obj, None) )
-    
+                output.append(Geom(input_obj, None))
+
     return output
+
 
 def get_rh_srfc_params(_input_geom, _ghenv, _ghdoc):
     """ Pulls geom and UserText params from the Rhino scene.
@@ -410,17 +421,18 @@ def get_rh_srfc_params(_input_geom, _ghenv, _ghdoc):
     Returns:
         surfaces: A List of surface objects. Each object has a .geom and a .param property
     """
-    
+
     surfaces = []
-    
+
     for item in _input_geom:
         # --- Get UserText params
         srfc_user_text = _get_surface_rh_userText(item.guid, _ghenv, _ghdoc)
-        
+
         new_srfc_obj = Temp_Surface(item.geom, srfc_user_text)
         surfaces.append(new_srfc_obj)
 
     return surfaces
+
 
 def determine_surface_type_by_orientation(_surfaces):
     """ Determines the 'type' of surface automatically, based on its surface normal.
@@ -430,15 +442,15 @@ def determine_surface_type_by_orientation(_surfaces):
     Returns:
         surface_type: A new list of Surface objs with their Surface Type modified as appropriate
     """
-    
+
     surfaces = []
     warnings = {}
     for srfc_geom, srfc_params in _surfaces:
         # Code here adapted from Honeybee Legacy 'decomposeZone' method
-        # Checks the surface normal and depending on the direction, 
+        # Checks the surface normal and depending on the direction,
         # assigns it as a 'wall', 'floor' or 'roof'
-        
-        def find_srfc_normal(_f):           
+
+        def find_srfc_normal(_f):
             centroid = Rhino.Geometry.AreaMassProperties.Compute(_f).Centroid
             b, u, v = _f.ClosestPoint(centroid)
             face_normal = _f.NormalAt(u, v)
@@ -447,20 +459,21 @@ def determine_surface_type_by_orientation(_surfaces):
 
         maximumRoofAngle = 30
         try:
-            #---- Find the surface normal of the srfc
+            # ---- Find the surface normal of the srfc
             normal = find_srfc_normal(srfc_geom)
 
-            #---- Find the surface type based on the normal
-            angle2Z = math.degrees(Rhino.Geometry.Vector3d.VectorAngle(normal, Rhino.Geometry.Vector3d.ZAxis))
-            
-            if  angle2Z < maximumRoofAngle or angle2Z > 360 - maximumRoofAngle:
+            # ---- Find the surface type based on the normal
+            angle2Z = math.degrees(Rhino.Geometry.Vector3d.VectorAngle(
+                normal, Rhino.Geometry.Vector3d.ZAxis))
+
+            if angle2Z < maximumRoofAngle or angle2Z > 360 - maximumRoofAngle:
                 srfc_type = 'RoofCeiling'
                 bc = 'Outdoors'
-            elif  160 < angle2Z <200:
+            elif 160 < angle2Z < 200:
                 srfc_type = 'Floor'
                 bc = 'Ground'
 
-                #---- Warn the user if it should have been a floor, 
+                # ---- Warn the user if it should have been a floor,
                 # but wasn't tagged as one.
                 msg = "I found a surface which looks like it should be a 'Floor' but is\n"\
                     "not tagged as a floor? To correct this, either:\n"\
@@ -470,33 +483,34 @@ def determine_surface_type_by_orientation(_surfaces):
                 ud_srfc_type = srfc_params.get('srfType')
                 floor_types = ['FLOOR', 'ExposedFloor', 'UndergroundSlab', 'SlabOnGrade']
                 if ud_srfc_type not in floor_types:
-                    warnings['Floor'] = {'level':'Warning', 'msg':msg}
+                    warnings['Floor'] = {'level': 'Warning', 'msg': msg}
 
-            else: 
+            else:
                 srfc_type = 'Wall'
                 bc = 'Outdoors'
         except:
             print('Failed to find surface normal. Are you sure it is Brep geometry?')
             srfc_type = 'Wall'
             bc = 'Outdoors'
-        
-        #--- Build the new surface with the modified params
+
+        # --- Build the new surface with the modified params
         nm = srfc_params.get('Object Name')
         new_srfc_params = {
             'Object Name': nm,
             'srfType': srfc_type,
             'EPBC': bc,
-            'EPConstruction':srfc_params.get('EPConstruction', None),
-            }
+            'EPConstruction': srfc_params.get('EPConstruction', None),
+        }
         new_srfc_obj = Temp_Surface(srfc_geom, new_srfc_params)
         surfaces.append(new_srfc_obj)
 
     return surfaces, warnings
 
+
 def _get_surface_rh_userText(_srfc_GUID, _ghdoc, _ghenv):
     """ Takes in an objects GUID and returns the full dictionary of
     Attribute UserText Key and Value pairs. Cleans up a bit as well.
-    
+
     Args:
         _GUID: <Guid> the Rhino GUID of the surface object to try and read from
         _ghdoc: The Grasshopper Component 'ghdoc' object
@@ -505,26 +519,30 @@ def _get_surface_rh_userText(_srfc_GUID, _ghdoc, _ghenv):
         output_dict: a dictionary object with all the keys / values found in the Object's UserText
     """
     output_dict = {}
-    
+
     if not _srfc_GUID:
         return output_dict
 
-    if _srfc_GUID.GetType() != System.Guid:
+    # Note: I know this is the wrong way to do this,
+    # but testing using "_srfc_GUID.GetType() != System.Guid" will cause
+    # Mac OS to crash. So test using a basic text comparison I guess....
+    # if _srfc_GUID.GetType() != System.Guid:
+    if str(type(_srfc_GUID)) != "<type 'Guid'>":
         remark = "Unable to get parameter data for the surface? If trying to pull data\n"\
-        "from Rhino, be sure the '_srfc' input Type Hint is set to 'Guid'\n"\
-        "For now, using default values for all surface parameter values."
+            "from Rhino, be sure the '_srfc' input Type Hint is set to 'Guid'\n"\
+            "For now, using default values for all surface parameter values."
         _ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Remark, remark)
         return output_dict
-    
+
     with helpers.context_rh_doc(_ghdoc):
         output_dict['Object Name'] = rs.ObjectName(_srfc_GUID)
-        
+
         for eachKey in rs.GetUserText(_srfc_GUID):
             if 'Object Name' not in eachKey:
-                val =  rs.GetUserText(_srfc_GUID, eachKey)
+                val = rs.GetUserText(_srfc_GUID, eachKey)
                 if val != 'None':
                     output_dict[eachKey] = val
                 else:
                     output_dict[eachKey] = None
-    
+
     return output_dict
