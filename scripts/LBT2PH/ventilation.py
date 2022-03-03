@@ -979,8 +979,9 @@ def generate_histogram(_data, _nbins):
         hist_vals[k] = 0
 
     # Create the Histogram
+    val_range = (max_val - min_val) or 1.0
     for d in _data:
-        bin_number = int(_nbins * ((d - min_val) / (max_val - min_val)))
+        bin_number = int(_nbins * ((d - min_val) / val_range))
 
         hist_bins[bin_number] += 1
         hist_vals[bin_number] += d
@@ -988,7 +989,7 @@ def generate_histogram(_data, _nbins):
 
     # Clean up / fix the data for output
     for n in hist_vals.keys():
-        hist_vals[n] = hist_vals[n] / hist_bins[n]
+        hist_vals[n] = hist_vals[n] / (hist_bins[n] or 1)
 
     for h in hist_bins.keys():
         hist_bins[h] = float(hist_bins[h]) / total

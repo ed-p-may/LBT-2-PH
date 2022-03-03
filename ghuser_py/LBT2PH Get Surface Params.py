@@ -22,7 +22,7 @@
 """
 Use this component BEFORE a Honeybee 'Face' component. This will pull data from  the Rhino scene (names, constructions, etc) where relevant. Simply connect the  outputs from this compone to the inputs on the 'Face' for this to run.
 -
-EM March 1, 2021
+EM March 3, 2021
     Args:
         _srfcs: <list> Rhino Brep or Mesh geometry
         auto_orientation_: <bool Default='False'> Set to 'True' to have this component automatically assign surface type ('wall', 'floor', 'roof'). useful if you are testing massings / geometry and don't want to assign explicit type everytime. If you have already assigned the surface type in Rhino, leave this set to False. If 'True' this will override any values found in the Rhino scene.
@@ -49,15 +49,20 @@ reload(LBT2PH.assemblies)
 reload(LBT2PH.surfaces)
 
 ghenv.Component.Name = "LBT2PH Get Surface Params"
-LBT2PH.__versions__.set_component_params(ghenv, dev=False)
+LBT2PH.__versions__.set_component_params(ghenv, dev='MAR_3_2021')
 
 #-------------------------------------------------------------------------------
 # Get the Surface data from the RH Scene
 input_geom = LBT2PH.surfaces.get_input_geom(_srfcs, ghenv)
 input_srfcs = LBT2PH.surfaces.get_rh_srfc_params(input_geom, ghenv, ghdoc)
 
+warnings = {}
 if auto_orientation_:
-    input_srfcs = LBT2PH.surfaces.determine_surface_type_by_orientation(input_srfcs)
+    input_srfcs, floor_warnings = LBT2PH.surfaces.determine_surface_type_by_orientation(input_srfcs)
+else:
+    _, floor_warnings = LBT2PH.surfaces.determine_surface_type_by_orientation(input_srfcs)
+    for k, v in floor_warnings.items():
+        warnings[k] = v
 
 #-------------------------------------------------------------------------------
 # Get all the Assemblies from the RH Scene
@@ -76,11 +81,10 @@ type_ = []
 bc_ = []
 ep_const_ = []
 rad_mod_ = []
-warnings = {}
 
 for hb_srfc in hb_surfaces:
     name_warning = hb_srfc.check_surface_names()
-    if name_warning: warnings['name_warning'] = name_warning
+    if name_warning: warnings['names'] = {'level':'Remark', 'msg':name_warning}
     
     geo_.append(hb_srfc.geometry)
     name_.append(hb_srfc.name)
@@ -93,15 +97,6 @@ for hb_srfc in hb_surfaces:
 # Give Warnings
 if _srfcs:
     for warning in warnings.values():
-        ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Remark, warning)
-    
-    if 'Floor' not in type_:
-        warning = "There is no 'Floor' surface found for some reason? Later components like\n"\
-        "the 'PHPP Spaces', 'Airtightness', and others will NOT work without at least one valid\n" \
-        "Honeybee 'Floor' element. Please check your surface assignnements and geometry\n"\
-        "before proceeding.\n"\
-        "1) Try setting the 'auto-orientation_' intput to 'True'?\n"\
-        "2) Check the surface-normals for the floor surface perhaps?\n"\
-        "3) If you are passing in GH-generated geometry and/or a Brep solid, consider using \n"\
-        "the normal Honeybee 'HB Room from Solid' instead of this component?"
-        ghenv.Component.AddRuntimeMessage(ghK.GH_RuntimeMessageLevel.Error, warning)
+        level = LBT2PH.helpers.get_warning_level(warning.get('level'))
+        msg = warning.get('msg')
+        ghenv.Component.AddRuntimeMessage(level, msg)
