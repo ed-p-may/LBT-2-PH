@@ -26,7 +26,7 @@ Assembly Type (Wall, Floor, etc..), Boundary Conditions and Material Assemblies
 The Assembly values come from a PHPP-Style Excel file with a 'Components' 
 worksheet to read from Assembly names will read from 'Components[D15:H113]'.
 -
-EM Jul. 26, 2020
+EM Mar. 7, 2022
 """
 
 import rhinoscriptsyntax as rs
@@ -34,6 +34,7 @@ import Eto
 import Rhino
 import json
 from collections import defaultdict
+from copy import deepcopy
 
 __commandname__ = "PHPP_SetSurfaceParams"
 
@@ -50,12 +51,13 @@ class Model:
         for eachObj in self.selectedObjects:
             # Formula to auto-set the obj's name in the User Text = '%<ObjectName("{}")>%'
             rs.SetUserText(eachObj, 'Object Name', '%<ObjectName("{}")>%'.format( str(eachObj) ) )            
-            if 'varies' not in str(_dialogVals['srfcName']):
-                rs.ObjectName(eachObj, str(_dialogVals['srfcName']))
             
-            self._setAttrIfNotVaries(eachObj, 'srfType', _dialogVals['srfcType'])
-            self._setAttrIfNotVaries(eachObj, 'EPBC', _dialogVals['srfcEPBC'])
-            self._setAttrIfNotVaries(eachObj, 'EPConstruction', _dialogVals['srfcAssmbly'])
+            if 'varies' not in str(_dialogVals.get('srfcName')):
+                rs.ObjectName(eachObj, str(_dialogVals.get('srfcName')))
+            
+            self._setAttrIfNotVaries(eachObj, 'srfType', _dialogVals.get('srfcType'))
+            self._setAttrIfNotVaries(eachObj, 'EPBC', _dialogVals.get('srfcEPBC'))
+            self._setAttrIfNotVaries(eachObj, 'EPConstruction', _dialogVals.get('srfcAssmbly'))
     
     def getObjAttrs_Exg(self):
         exgNames, exgTypes, exgEPBCs , exgAssmblies = self._getValsForSelectedObjs()
@@ -71,12 +73,13 @@ class Model:
     def getAssmblyLib(self):
         assmblyLib = []
         
-        print("Reading the Rhino Document's Glazing and Frame Types...")
+        print("Reading the Rhino Document's Assembly Types...")
         if rs.IsDocumentUserText():
             for eachKey in rs.GetDocumentUserText():
                 if 'PHPP_lib_Assmbly' in eachKey:
                     assmblyLib.append( json.loads(rs.GetDocumentUserText(eachKey))['Name'] )
         return assmblyLib
+    
     
     def _getObjUserText(self, _obj, _val, _default):
         keys = rs.GetUserText(_obj)
@@ -87,7 +90,7 @@ class Model:
     
     def _getValsForSelectedObjs(self):
         nms = []
-        types = []
+        srf_types = []
         epbcs = []
         assemblies = []
         
@@ -96,11 +99,11 @@ class Model:
             
         for eachObj in self.selectedObjects:
             nms.append(rs.ObjectName(eachObj))
-            types.append(self._getObjUserText(eachObj, 'srfType', ''))
+            srf_types.append(self._getObjUserText(eachObj, 'srfType', ''))
             epbcs.append(self._getObjUserText(eachObj, 'EPBC', ''))
             assemblies.append(self._getObjUserText(eachObj, 'EPConstruction', ''))
         
-        return nms, types, epbcs, assemblies
+        return nms, srf_types, epbcs, assemblies
 
 class View(Eto.Forms.Dialog):
     
@@ -108,7 +111,6 @@ class View(Eto.Forms.Dialog):
         self.controller = controller
         assmblyLib = self.controller.getAssemblyLib()
         exgName, exgType, exgEPBC, exgAssmbly = self.controller.getExistingValues()
-        
         self.groupContent = self.createContent(exgName, exgType, exgEPBC, exgAssmbly, assmblyLib)
         self._setWindowParams()
         self._addContentToWindow()
@@ -145,9 +147,24 @@ class View(Eto.Forms.Dialog):
         return groupContent
     
     def _createDropDown(self, _data, _exgValue):
+        # type: (list, Any) -> Eto.Forms.DropDown
+        """Create a new Eto.Forms.DropDown item based on the input parameters.
+        
+        Arguments:
+            * _data (list): A list of the options to display in the DropDown.
+            * _exgValue (Any): The existing value (if any) of the object for the attribute in question.
+        
+        Returns:
+            * Eto.Forms.Dropdown: The new Eto DropDown item
+        """
+        
+        # Prepare the options. Dev Note: Cannot used DataStore.Insert() on MacOS. So have to prepare the list ahead of time.
+        dropdown_options = deepcopy(_data)
+        dropdown_options.insert(0, _exgValue)
+        
+        # Build the Dropdown Intem
         dropDownObj = Eto.Forms.DropDown()
-        dropDownObj.DataStore = _data
-        dropDownObj.DataStore.Insert(0, _exgValue)
+        dropDownObj.DataStore = dropdown_options
         dropDownObj.SelectedIndex = 0
         dropDownObj.Size = Eto.Drawing.Size(200, -1)
         
@@ -170,6 +187,11 @@ class View(Eto.Forms.Dialog):
             groupLayout.Spacing = Eto.Drawing.Size(15,10) # Spacing between elements
             
             for tableRow in group.get('content', ''):
+                try:
+                    print "tableRow.get('input')=", tableRow.get('input').DataStore
+                except:
+                    pass
+                
                 groupLayout.Rows.Add(Eto.Forms.TableRow(
                         Eto.Forms.TableCell(Eto.Forms.Label(Text = tableRow.get('label', 'Label Missing'))), 
                         Eto.Forms.TableCell(tableRow.get('input'), None)    
@@ -198,13 +220,17 @@ class View(Eto.Forms.Dialog):
         self.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
     
     def getDialogValues(self):
-        dialogValues = defaultdict()
+        dialogValues = dict()
         for eachEntry in self.groupContent[0]['content']:
-            if isinstance(eachEntry['input'], Eto.Forms.TextBox):
-                dialogValues[eachEntry['name']] = eachEntry['input'].Text
-            elif isinstance(eachEntry['input'], Eto.Forms.DropDown):
-                dialogValues[eachEntry['name']] = eachEntry['input'].DataStore[eachEntry['input'].SelectedIndex]
-                
+            input_attribute_name = eachEntry['name']
+            
+            try:
+                input_index = eachEntry['input'].SelectedIndex
+                input_val = eachEntry['input'].DataStore[input_index]
+                dialogValues[input_attribute_name] = input_val
+            except AttributeError:
+                dialogValues[input_attribute_name] = eachEntry['input'].Text
+            
         return dialogValues
 
 class Controller:
@@ -236,7 +262,6 @@ class Controller:
 
 def RunCommand( is_interactive ):
     print "Setting the name(s) for the selected object(s)"
-    
     dialog = Controller(rs.SelectedObjects())
     dialog.main()
 
