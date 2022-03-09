@@ -34,6 +34,12 @@ import rhinoscriptsyntax as rs
 import Eto
 import Rhino
 import re
+import System
+
+try:
+    from typing import Any
+except ImportError:
+    pass # Python 2.7
 
 __commandname__ = "PHPP_SetSurfaceTFAFactor"
 
@@ -261,24 +267,34 @@ class Dialog_WindowProperties(Eto.Forms.Dialog):
             return str(_val)
     
     def evaluateUnits(self, sender, e):
-        """If values are passed including a 'cfm' tag, will
+        # type: (Eto.Forms.TextBox, System.EventArgs) -> None
+        """If values are passed including a 'CFM' tag, will
         set the TextBox value to the m3/h equivalent"""
-        inputVal = sender.Text.replace(' ', '')
         
+        inputVal = str(sender.Text).replace(' ', '')
+        outputVal = 0.0 # default
+
         try:
             outputVal = float(inputVal)
-        except:
-            # Pull out just the decimal characters
-            for each in re.split(r'[^\d\.]', inputVal):
-                if len(each)>0:
-                    outputVal = each
-            
-            # Convert to m3/h if necessary
-            if 'cfm' in inputVal:
-                outputVal = float(outputVal) * 1.699010796 #cfm--->m3/h
-        
-        sender.Text = '{:.1f}'.format(outputVal)
-    
+        except ValueError:
+            try:
+                # Might have some units text, try and convert the units
+                for each in re.split(r'\D+', inputVal):
+                    if len(each) > 0:
+                        outputVal = float(each)
+
+                # Try and convert, if it can
+                if 'CFM' in str(inputVal).upper():
+                    outputVal = outputVal * 1.699010796 #cfm--->m3/h
+            except Exception as ex:
+                print(ex)
+                outputVal = 0.0
+        except Exception as ex:
+            print(ex)
+            outputVal = 0.0
+
+        sender.Text = str(outputVal)
+
     def convertFlowRates(self, _oldFlowType, _newFlowType, val):
         # Coversion factors between types
         schema = {  'Boost':{
@@ -412,7 +428,7 @@ def RunCommand( is_interactive ):
             if str(vSup) != '<varies>': rs.SetUserText(eachObj, 'V_sup', str(vSup))
             if str(vEta) != '<varies>': rs.SetUserText(eachObj, 'V_eta', str(vEta))
             if str(vTrans) != '<varies>': rs.SetUserText(eachObj, 'V_trans', str(vTrans))
-            
+    
     return 0
 
 # temp for debuggin in editor
