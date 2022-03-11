@@ -25,13 +25,16 @@ the curve. This includes pipe diameter, insultion, etc.. This data will be
 useful later for the GH side tools to read. This is for the RECIRCULATION pipes
 only - not for the branch piping. That is all done in the GH tool only.
 -
-EM Mar. 29, 2020
+EM Mar. 11, 2022
 """
+
+from copy import deepcopy
 
 import rhinoscriptsyntax as rs
 import Rhino
 import Eto
 import json
+
 
 __commandname__ = "PHPP_SetDHW_Pipe_Recirc"
 

@@ -26,7 +26,7 @@ Assembly Type (Wall, Floor, etc..), Boundary Conditions and Material Assemblies
 The Assembly values come from a PHPP-Style Excel file with a 'Components' 
 worksheet to read from Assembly names will read from 'Components[D15:H113]'.
 -
-EM Mar. 7, 2022
+EM Mar. 11, 2022
 """
 
 import rhinoscriptsyntax as rs
@@ -187,11 +187,6 @@ class View(Eto.Forms.Dialog):
             groupLayout.Spacing = Eto.Drawing.Size(15,10) # Spacing between elements
             
             for tableRow in group.get('content', ''):
-                try:
-                    print "tableRow.get('input')=", tableRow.get('input').DataStore
-                except:
-                    pass
-                
                 groupLayout.Rows.Add(Eto.Forms.TableRow(
                         Eto.Forms.TableCell(Eto.Forms.Label(Text = tableRow.get('label', 'Label Missing'))), 
                         Eto.Forms.TableCell(tableRow.get('input'), None)    

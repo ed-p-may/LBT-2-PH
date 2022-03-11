@@ -27,9 +27,10 @@ data will be read later by the GH side tools in order to establish total zone fl
 areas, airflow rates and volumes. Note: Use this to tag *only* the 'floor' surface
 for a room, not the entire enclosing volume/shape of the room.
 -
-EM Jul. 10 2020
+EM Mar. 11 2022
 """
 
+from copy import deepcopy
 import rhinoscriptsyntax as rs
 import Eto
 import Rhino
@@ -89,7 +90,7 @@ class Dialog_WindowProperties(Eto.Forms.Dialog):
                 '4-by bus system']
     
     def __init__(self, _exgTFA, _exgName, _exgNum, _vSup, _vEta, _vTrans, _exgUse, _exgLighting, _exgMotion, _flowType='Boost' ):
-        self.tfaFactors = [1.0, 0.6, 0.5, 0]  # Factors for Dropdown List
+        self.tfaFactors = [1.0, 0.6, 0.5, 0.3, 0]  # Factors for Dropdown List
         self.flowTypes = ['Boost', 'Normal', 'Away']
         self.flowType = _flowType
         self.MotionControls = ['-', 'Yes', 'No']
@@ -114,34 +115,47 @@ class Dialog_WindowProperties(Eto.Forms.Dialog):
         self.Label_LightingControl = Eto.Forms.Label(Text = 'Lighting Control Type:')
         self.Label_MotionDetector = Eto.Forms.Label(Text = 'Motion Detector Used?:')
         
-        self.tfaDropDownBox = Eto.Forms.DropDown()
-        self.tfaDropDownBox.DataStore = self.tfaFactors
-        self.tfaDropDownBox.DataStore.Insert(0, _exgTFA) # For the default
+
+        # -- Dev Note: DataStore.Insert() does not work on MacOS
+        tfa_dropdown_options = deepcopy(self.tfaFactors)
+        tfa_dropdown_options.insert(0, _exgTFA)
+        self.tfaDropDownBox = Eto.Forms.ComboBox()
+        self.tfaDropDownBox.DataStore = tfa_dropdown_options
         self.tfaDropDownBox.SelectedIndex = 0
         
         self.roomNumberTextBox = Eto.Forms.TextBox( Text = str(_exgNum) )
         self.roomNameTextBox = Eto.Forms.TextBox( Text = str(_exgName) )
+
+        # -- Dev Note: DataStore.Insert() does not work on MacOS
+        vent_dropdown_options = deepcopy(self.flowTypes)
+        vent_dropdown_options.insert(0, _flowType)
         self.ventTypeDropDown = Eto.Forms.DropDown()
-        self.ventTypeDropDown.DataStore = self.flowTypes
-        self.ventTypeDropDown.DataStore.Insert(0, _flowType)
+        self.ventTypeDropDown.DataStore = vent_dropdown_options
         self.ventTypeDropDown.SelectedIndex = 0
+
         self.txtBox_Vsup = Eto.Forms.TextBox( Text = self.displayFlowValue(_vSup) )
         self.txtBox_Veta = Eto.Forms.TextBox( Text = self.displayFlowValue(_vEta) )
         self.txtBox_Vtran = Eto.Forms.TextBox( Text = self.displayFlowValue(_vTrans) )
         
+        # -- Dev Note: DataStore.Insert() does not work on MacOS
+        rm_cat_dropdown_options = deepcopy(self.roomCategories)
+        rm_cat_dropdown_options.insert(0, _exgUse)
         self.RoomCategoryDropDownBox = Eto.Forms.DropDown()
-        self.RoomCategoryDropDownBox.DataStore = self.roomCategories
-        self.RoomCategoryDropDownBox.DataStore.Insert(0, _exgUse) # For the default
+        self.RoomCategoryDropDownBox.DataStore = rm_cat_dropdown_options
         self.RoomCategoryDropDownBox.SelectedIndex = 0
         
+        # -- Dev Note: DataStore.Insert() does not work on MacOS
+        lighting_dropdown_options = deepcopy(self.lightingControls)
+        lighting_dropdown_options.insert(0, _exgLighting)
         self.LightingDropDownBox = Eto.Forms.DropDown()
-        self.LightingDropDownBox.DataStore = self.lightingControls
-        self.LightingDropDownBox.DataStore.Insert(0, _exgLighting) # For the default
+        self.LightingDropDownBox.DataStore = lighting_dropdown_options
         self.LightingDropDownBox.SelectedIndex = 0
         
+        # -- Dev Note: DataStore.Insert() does not work on MacOS
+        motion_dropdown_options = deepcopy(self.MotionControls)
+        motion_dropdown_options.insert(0, _exgMotion)
         self.MotionControl = Eto.Forms.DropDown()
-        self.MotionControl.DataStore = self.MotionControls
-        self.MotionControl.DataStore.Insert(0, _exgMotion) # For the default
+        self.MotionControl.DataStore = motion_dropdown_options 
         self.MotionControl.SelectedIndex = 0
         
         # Add the Handlers for Unit (cfm  or m3/h) eval
@@ -218,7 +232,7 @@ class Dialog_WindowProperties(Eto.Forms.Dialog):
         # Group: Use Non-Res
         self.groupbox_NonRes = Eto.Forms.GroupBox(Text = 'PHPP Non-Residential Usage Data')
         self.layout_Group_NonRes = Eto.Forms.TableLayout()
-        self.layout_Group_NonRes.Padding = Eto.Drawing.Padding(5) # Offfset from the outside of the Group Edge
+        self.layout_Group_NonRes.Padding = Eto.Drawing.Padding(5) # Offset from the outside of the Group Edge
         self.layout_Group_NonRes.Spacing = Eto.Drawing.Size(10,5) # Spacing between elements
         
         # Cells
@@ -338,14 +352,14 @@ class Dialog_WindowProperties(Eto.Forms.Dialog):
     def GetUserInput(self):
         num = self.roomNumberTextBox.Text
         name = self.roomNameTextBox.Text
-        tfaFac = self.tfaFactors[ self.tfaDropDownBox.SelectedIndex ]# Gets the text for the index num selected
+        tfaFac = self.tfaDropDownBox.Text
         vSup_ = self.convertFlowRates(self.flowType, 'Boost', self.txtBox_Vsup.Text)
         vEta_ = self.convertFlowRates(self.flowType, 'Boost', self.txtBox_Veta.Text)
         vTran_ = self.convertFlowRates(self.flowType, 'Boost', self.txtBox_Vtran.Text)
         
-        useType_ = self.roomCategories[self.RoomCategoryDropDownBox.SelectedIndex]
-        lightingControl_ = self.lightingControls[self.LightingDropDownBox.SelectedIndex]
-        motionDetector_ = self.MotionControls[self.MotionControl.SelectedIndex]
+        useType_ = self.RoomCategoryDropDownBox.DataStore[self.RoomCategoryDropDownBox.SelectedIndex]
+        lightingControl_ = self.LightingDropDownBox.DataStore[self.LightingDropDownBox.SelectedIndex]
+        motionDetector_ = self.MotionControl.DataStore[self.MotionControl.SelectedIndex]
         
         return num, name, tfaFac, vSup_, vEta_, vTran_, useType_, lightingControl_, motionDetector_
     

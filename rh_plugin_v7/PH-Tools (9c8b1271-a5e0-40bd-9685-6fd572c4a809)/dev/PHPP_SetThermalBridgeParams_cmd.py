@@ -26,9 +26,10 @@ command and will let you 'tag' lines/curves with the exposure type and Psi-Value
 type. These parameters will be read later on the GH side in order to create
 thermal bridge items in the PHPP.
 -
-EM Mar. 29 2020
+EM Mar. 11 2022
 """
 
+from copy import deepcopy
 import rhinoscriptsyntax as rs
 import Rhino
 import Eto
@@ -64,15 +65,17 @@ class Dialog_TB_Properties(Eto.Forms.Dialog):
         # Create the Primary Controls for the Dialog
         self.tb_TypeName_Label = Eto.Forms.Label(Text = "TB Type:")
         self.tb_TypeName_DDbox = Eto.Forms.DropDown()
-        self.tb_TypeName_DDbox.DataStore = self.tb_name_list
-        self.tb_TypeName_DDbox.DataStore.Insert(0, _exg_edge_typeName) # For the default
+        tb_TypeName_options = deepcopy(self.tb_name_list)
+        tb_TypeName_options.insert(0, _exg_edge_typeName)
+        self.tb_TypeName_DDbox.DataStore = tb_TypeName_options
         self.tb_TypeName_DDbox.SelectedIndex = 0
         self.tb_TypeName_DDbox.Width = 250
         
         self.tb_Group_Label = Eto.Forms.Label(Text = "Group Type:")
         self.tb_Group_DDbox = Eto.Forms.DropDown()
-        self.tb_Group_DDbox.DataStore = self.tb_group_types
-        self.tb_Group_DDbox.DataStore.Insert(0, _exg_edge_group) # For the default
+        tb_Group_options = deepcopy(self.tb_group_types)
+        tb_Group_options.insert(0, _exg_edge_group)
+        self.tb_Group_DDbox.DataStore = tb_Group_options
         self.tb_Group_DDbox.SelectedIndex = 0
         self.tb_Group_DDbox.Width = 250
         
@@ -119,79 +122,11 @@ class Dialog_TB_Properties(Eto.Forms.Dialog):
         self.Close()
     
     def GetUserInput(self):
-        typeName = self.tb_name_list[ self.tb_TypeName_DDbox.SelectedIndex ]# Gets the text for the index num selected
-        groupNum = self.tb_group_types[ self.tb_Group_DDbox.SelectedIndex ]# Gets the text for the index num selected
+        typeName = self.tb_TypeName_DDbox.DataStore[ self.tb_TypeName_DDbox.SelectedIndex ]# Gets the text for the index num selected
+        groupNum = self.tb_Group_DDbox.DataStore[ self.tb_Group_DDbox.SelectedIndex ]# Gets the text for the index num selected
         
         return typeName, groupNum
-"""
-class Dialog_TB_Properties_Table(Eto.Forms.Dialog):
-    
-    def getTBLib(self):
-        tb_name_list = []
-        
-        print "Reading the Rhino Document's Thermal Bridge types..."
-        if rs.IsDocumentUserText():
-            for eachKey in rs.GetDocumentUserText():
-                if 'PHPP_lib_TB_' in eachKey:
-                    dict = json.loads(rs.GetDocumentUserText(eachKey))
-                    tb_name_list.append( dict.get('Name', '') )
-        
-        return sorted(tb_name_list)
-    
-    def OnCancelButtonClick(self, sender, e):
-        print('Canceled...')
-        self.Update = False
-        self.Close()
-    
-    def OnOKButtonClick(self, sender, e):
-        print('Applying Attributes to the Selected Object(s)')
-        self.Update = True
-        self.Close()
-    
-    def GetUserInput(self):
-        typeName = self.tb_name_list[ self.tb_TypeName_DDbox.SelectedIndex ]# Gets the text for the index num selected
-        groupNum = self.tb_group_types[ self.tb_Group_DDbox.SelectedIndex ]# Gets the text for the index num selected
-        
-        return typeName, groupNum
-    
-    def __init__(self, _exg_edge_typeName=None, _exg_edge_group=None):
-        
-        self.tb_group_types = ['15: Ambient', '16: Perimeter', '17: FS/BC']
-        
-        # First, pull in the Assembly library data from the Document's User-Text
-        self.tb_name_list = self.getTBLib()
-        
-        # Set up the ETO Dialogue window
-        self.Title = "Thermal Bridge Parameters for Selected Edge(s)..."
-        self.Resizable = True
-        
-        self.tb_TypeName_DDbox = Eto.Forms.DropDown()
-        self.tb_TypeName_DDbox.DataStore = self.tb_name_list
-        self.tb_TypeName_DDbox.DataStore.Insert(0, _exg_edge_typeName) # For the default
-        self.tb_TypeName_DDbox.SelectedIndex = 0
-        
-        self.label_01 = Eto.Forms.Label(Text = "Label 1")
-        self.label_02 = Eto.Forms.Label(Text = "Label 2")
-        
-        ## Layout
-        layout = Eto.Forms.TableLayout()
-        
-        # Cells
-        cell_01 = Eto.Forms.TableCell( self.tb_TypeName_DDbox)
-        cell_01.ScaleWidth = True
-        cell_02 = Eto.Forms.TableCell( self.label_02) 
-        
-        # Rows
-        Row01 = Eto.Forms.TableRow([cell_01, cell_02])
-        
-        Row01.ScaleHeight = False
-        
-        layout.Rows.Add( Row01 )
-        #layout.Rows.Add( Eto.Forms.TableRow( cell_02  ))
-        
-        # Set the dialog window Content
-        self.Content = layout
-"""
+
 def getAttrs(_in, _key, _defaultVal):
     # Takes in a list of Objects (_in) and the key to search for in 
     # User-Text. Returns '<varies>' if more than one value is found for the key

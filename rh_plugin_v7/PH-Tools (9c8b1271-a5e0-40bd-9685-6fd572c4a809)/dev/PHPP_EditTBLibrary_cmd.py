@@ -25,25 +25,16 @@ such as windows, frames, glasss. This uses a Model-View-Controller configuration
 mostly just cus' I wanted to test that out. Might be way overkill for something like
 this... but was fun to build.
 -
-EM September 21, 2020
+EM Mar. 11, 2022
 """
+import json
+import random
+import re
 
 import rhinoscriptsyntax as rs
 import Eto
 import Rhino
-import json
-from collections import defaultdict
-from System import Array
-from System.IO import File
-import System.Windows.Forms.DialogResult
-import System.Drawing.Image
-import os
-import random
-from shutil import copyfile
-import clr
-clr.AddReferenceByName('Microsoft.Office.Interop.Excel, Culture=neutral, PublicKeyToken=71e9bce111e9429c')
-from Microsoft.Office.Interop import Excel
-import re
+import System
 
 __commandname__ = "PHPP_EditTBLibrary"
 
@@ -130,108 +121,6 @@ class Model:
         for gr in self.GroupContent:
             if gr.Name == _grID:
                 gr.removeRow( _rowID )
-    
-    def getTBLibAddress(self):
-        if rs.IsDocumentUserText():
-            return rs.GetDocumentUserText('PHPP_TB_Lib')
-        else:
-            return '...'
-    
-    def setLibraryFileAddress(self):
-        """ Opens a dialogue window so the use can select a file
-        """
-        fd = Rhino.UI.OpenFileDialog()
-        fd.Filter = "Excel Files (*.xlsx;*.xls)|*.xlsx;*.xls"
-        
-        #-----------------------------------------------------------------------
-        # Add a warning to the user before proceeding
-        # https://developer.rhino3d.com/api/rhinoscript/user_interface_methods/messagebox.htm
-        msg = "Loading TB parameters from a file will overwrite all "\
-        "the TB and Psi-Install values in the current Rhino "\
-        "file's library. Be sure you want to do this before proceeding."
-        proceed = rs.MessageBox(msg, 1 | 48, 'Warning:')
-        if proceed == 2:
-            return fd.FileName
-        
-        #-----------------------------------------------------------------------
-        if fd.ShowDialog()!= System.Windows.Forms.DialogResult.OK:
-            print 'Load is Canceled...'
-            return None
-        else:
-            rs.SetDocumentUserText('PHPP_TB_Lib', fd.FileName)
-            return fd.FileName
-    
-    def readTBDataFromExcel(self):
-        if rs.IsDocumentUserText():
-            libPath = rs.GetDocumentUserText('PHPP_TB_Lib')
-        
-        try:
-            if libPath != None:
-                # If a Library File is set in the file...
-                if os.path.exists(libPath):
-                    print 'Reading the Thermal Bridge Library File....'
-                    
-                    # Make a Temporary copy
-                    saveDir = os.path.split(libPath)[0]
-                    tempFile = '{}_temp.xlsx'.format(random.randint(0,1000))
-                    tempFilePath = os.path.join(saveDir, tempFile)
-                    copyfile(libPath, tempFilePath) # create a copy of the file to read from
-                    
-                    # Open the Excel Instance and File
-                    ex = Excel.ApplicationClass()   
-                    ex.Visible = False  # False means excel is hidden as it works
-                    ex.DisplayAlerts = False
-                    workbook = ex.Workbooks.Open(tempFilePath)
-                    worksheets = workbook.Worksheets
-                    
-                    try:
-                        xlArray_TBs = None
-                        ws_TBs = worksheets['Thermal Bridges']
-                        xlArray_TBs = ws_TBs.Range['A2:C100'].Value2
-                    except:
-                        print 'Could not find a worksheet named "Thermal Bridges" in the taget file?'
-                        
-                    try:
-                        xlArray_Psi = None
-                        ws_PsiInst = worksheets['Psi-Installs']
-                        xlArray_Psi = ws_PsiInst.Range['B3:F103'].Value2
-                    except:
-                        print 'Could not find a worksheet named "Psi-Installs" in the target file?'
-                    
-                    workbook.Close()  # Close the worbook itself
-                    ex.Quit()  # Close out the instance of Excel
-                    os.remove(tempFilePath) # Remove the temporary read-file
-                    
-                    # Build the Thermal Bridge Library
-                    lib_TBs = []
-                    if xlArray_TBs:
-                        xlList_TBs = list(xlArray_TBs)
-                        for i in range(0, len(xlList_TBs), 3):
-                            newAssembly = [xlList_TBs[i],
-                                    xlList_TBs[i+1],
-                                    xlList_TBs[i+2],
-                            ]
-                            lib_TBs.append(newAssembly)
-                    
-                    # Build the Psi-Installs Library
-                    lib_PsiInst = []
-                    if xlArray_Psi:
-                        xlList_Psi = list(xlArray_Psi)
-                        for i in range(0, len(xlList_Psi), 5):
-                            if xlList_Psi[i] != None:
-                                newPsiInstall = [
-                                        xlList_Psi[i],
-                                        xlList_Psi[i+1],
-                                        xlList_Psi[i+2],
-                                        xlList_Psi[i+3],
-                                        xlList_Psi[i+4]
-                                ]
-                                lib_PsiInst.append(newPsiInstall)
-                    
-                return lib_TBs, lib_PsiInst
-        except:
-            print('Woops... something went wrong reading from the Excel file?')
-            return [], []
     
     def addTBDataToDocumentUserText(self, _tbs, _psiInstalls):
         self._clearDocumentLibValues(['PHPP_lib_TB_', 'PHPP_lib_PsiInstall'])
@@ -325,7 +214,6 @@ class Model:
         except:
             print 'Something went wrong converting the input value?'
             return _inputVal
-
 
 
 class Group:
@@ -434,12 +322,10 @@ class Group:
         self.Data = newDataDict
 
 
-
 class View(Eto.Forms.Dialog):
     
     def __init__(self, controller):
         self.controller = controller
-        
         self._setWindowParams()
         self.buildWindow()
     
@@ -535,12 +421,7 @@ class View(Eto.Forms.Dialog):
         return Scroll_panel
         
     def _addOKCancelButtons(self, _layout):
-        # Create the OK / Cancel Button
-        self.Button_LoadLib = Eto.Forms.Button(Text = 'Import From Libary File...')
-        self.Button_LoadLib.Click += self.controller.OnLoadLibButtonClick
-        self.Lib_txtBox = Eto.Forms.TextBox( Text = self.controller.getTBLibraryFileAddress() )
-        self.Lib_txtBox.Width=200
-        
+        # Create the OK / Cancel Button       
         self.Button_OK = Eto.Forms.Button(Text = 'OK')
         self.Button_OK.Click += self.controller.OnOKButtonClick
         self.Button_Cancel = Eto.Forms.Button(Text = 'Cancel')
@@ -550,7 +431,7 @@ class View(Eto.Forms.Dialog):
         self.vert = _layout.BeginVertical()
         self.vert.Padding = Eto.Drawing.Padding(10)
         self.vert.Spacing = Eto.Drawing.Size(15,0)
-        _layout.AddRow(None, self.Button_LoadLib, self.Lib_txtBox, None, None, self.Button_Cancel, self.Button_OK, None)
+        _layout.AddRow(None, None, None, None, None, self.Button_Cancel, self.Button_OK, None)
         _layout.EndVertical()
         
         return _layout
@@ -600,7 +481,6 @@ class View(Eto.Forms.Dialog):
         return dataFromGridItems
 
 
-
 class Controller:
     
     def __init__(self, selObjs):
@@ -621,18 +501,7 @@ class Controller:
         print('Canceled...')
         self.Update = False
         self.view.Close()
-    
-    def OnLoadLibButtonClick(self, sender, e):
-        update = self.view.Lib_txtBox = self.model.setLibraryFileAddress()
-        
-        if update:
-            tbs, psiInstalls = self.model.readTBDataFromExcel()
-            self.model.addTBDataToDocumentUserText( tbs, psiInstalls )
-            
-            self.model.setInitialGroupData()
-            self.view.layout.Clear()
-            self.view.buildWindow()
-    
+       
     def OnAddRowButtonClick(self, sender, e):
         data = self.view.getGridValues()
         self.model.updateGroupData(data)
@@ -656,10 +525,7 @@ class Controller:
         
     def getGroupContent(self):
         return self.model.GroupContent
-    
-    def getTBLibraryFileAddress(self):
-        return self.model.getTBLibAddress()
-    
+
     def evalInput(self, sender, e):
         # Determine if the user provides some 'Units' such as 'ft' or 'in' 
         # If so, do the conversion to the right SI value and reset the grid cell value

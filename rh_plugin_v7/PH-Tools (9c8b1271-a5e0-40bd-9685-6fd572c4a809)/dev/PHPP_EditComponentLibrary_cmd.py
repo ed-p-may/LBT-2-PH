@@ -25,29 +25,24 @@ including window Psi-Installs. This uses a Model-View-Controller configuration
 mostly just cus' I wanted to test that out. Might be way overkill for something like
 this... but was fun to build.
 -
-EM April 7, 2021
+EM Mar. 11, 2022
 """
+
+try:
+    from typing import Optional
+except ImportError:
+    pass # Python 2.7
+
+import json
+import random
+import re
 
 import rhinoscriptsyntax as rs
 import Eto
 import Rhino
-import json
-from collections import defaultdict
-from System import Array
-from System.IO import File
+
 import System.Windows.Forms.DialogResult
 import System.Drawing.Image
-import os
-import random
-from shutil import copyfile
-import clr
-clr.AddReferenceByName('Microsoft.Office.Interop.Excel, Culture=neutral, PublicKeyToken=71e9bce111e9429c')
-from Microsoft.Office.Interop import Excel
-import re
-from contextlib import contextmanager
-from System.Runtime.InteropServices import Marshal
-import gc
-import unicodedata
 
 __commandname__ = "PHPP_EditComponentLibrary"
 
@@ -160,78 +155,6 @@ class Model:
             if gr.Name == _grID:
                 gr.removeRow( _rowID )
     
-    def getCompoLibAddress(self):
-        if rs.IsDocumentUserText():
-            return rs.GetDocumentUserText('PHPP_Component_Lib')
-        else:
-            return '...'
-    
-    def setLibraryFileAddress(self):
-        """ Opens a dialogue window so the use can select a file
-        """
-        fd = Rhino.UI.OpenFileDialog()
-        fd.Filter = "Excel Files (*.xlsx;*.xls)|*.xlsx;*.xls"
-        
-        #-----------------------------------------------------------------------
-        # Add a warning to the user before proceeding
-        # https://developer.rhino3d.com/api/rhinoscript/user_interface_methods/messagebox.htm
-        msg = "Loading component parameters from a file will overwrite all "\
-        "the Assembly, Glazing and Window-Frame values in the current Rhino "\
-        "file's library. Be sure you want to do this before proceeding."
-        proceed = rs.MessageBox(msg, 1 | 48, 'Warning:')
-        if proceed == 2:
-            return fd.FileName
-        
-        #-----------------------------------------------------------------------
-        if fd.ShowDialog()!= System.Windows.Forms.DialogResult.OK:
-            print 'Load is Canceled...'
-            return None
-        else:
-            rs.SetDocumentUserText('PHPP_Component_Lib', fd.FileName)
-            return fd.FileName
-    
-    @contextmanager
-    def readingFromExcel(self, _lib_path):
-        """ Context Manager for handling open / close / cleanup for Excel App"""
-        #
-        #Ref: https://stackoverflow.com/questions/158706/how-do-i-properly-clean-up-excel-interop-objects
-        #Ref: https://devblogs.microsoft.com/visualstudio/marshal-releasecomobject-considered-dangerous/
-        #
-        # Appears that we can / should leave the Marshal.ReleaseComObect() off?
-        # Just using gc.collect() seems to catch all but the first instance, so
-        # at least they don't build up past the first. Still don't know why
-        # I can't kill that first instance though...
-        #
-        
-        try:
-            #-----------------------------------------------------------
-            # Make a Temporary copy
-            self.saveDir = os.path.split(_lib_path)[0]
-            self.tempFile = '{}_temp.xlsx'.format(random.randint(0,1000))
-            self.tempFilePath = os.path.join(self.saveDir, self.tempFile)
-            copyfile(_lib_path, self.tempFilePath)
-            
-            #-----------------------------------------------------------
-            # Read from the Excel file
-            self.ex = Excel.ApplicationClass()
-            self.ex.Visible = False  # False means excel is hidden as it works
-            self.ex.DisplayAlerts = False
-            self.workbook = self.ex.Workbooks.Open(self.tempFilePath)
-            self.worksheets = self.workbook.Worksheets
-            yield
-        except:
-            self.workbook.Close()        # Close the worbook itself
-            self.ex.Quit()               # Close out the instance of Excel
-            self.ex = None
-            gc.collect()
-            os.remove(self.tempFilePath) # Remove the temporary read-file
-        finally:
-            self.workbook.Close()        # Close the worbook itself
-            self.ex.Quit()               # Close out the instance of Excel
-            self.ex = None
-            gc.collect()
-            os.remove(self.tempFilePath) # Remove the temporary read-file
-    
     @staticmethod
     def determineUnitsFromStr(_inputStr):
         """ Takes in a list of strings, finds the right unit for each"""
@@ -307,82 +230,7 @@ class Model:
                         outputList.append(eachTuple[0])
         
         return outputList
-    
-    def readCompoDataFromExcel(self):
-        if rs.IsDocumentUserText():
-            libPath = rs.GetDocumentUserText('PHPP_Component_Lib')
-        
-        try:
-            if libPath == None:
-                return [], [], []
-            
-            if not os.path.exists(libPath):
-                return [], [], []
-            
-            #-------------------------------------------------------------------
-            print 'Reading the Main Component Library File....'
-            with self.readingFromExcel(libPath):
-                try:
-                    wsComponents = self.worksheets['Components']
-                except:
-                    print "ERROR: Could not find the 'Components' Worksheet in the target file?"
-                    return [], [], []
-                
-                #---------------------------------------------------------------
-                # Read in the Components from Excel Worksheet
-                # Come in as 2D Arrays..... grrr.....
-                xl_glazing =  list(wsComponents.Range['IE15:IG113'].Value2)
-                xl_frames = list(wsComponents.Range['IL15:JC113'].Value2)
-                xl_assemblies = list(wsComponents.Range['E15:H113'].Value2)
-                
-                # Read the units headings
-                xl_glazing_units = list(wsComponents.Range['IE14:IG14'].Value2)
-                xl_frames_units = list(wsComponents.Range['IL14:JC14'].Value2)
-                xl_assemblies_units = list(wsComponents.Range['E14:H14'].Value2)
-            
-            #-------------------------------------------------------------------
-            # Figure out the Unit Conversion Factors to use
-            
-            glazing_units = self.determineUnitsFromStr( xl_glazing_units)
-            frames_units = self.determineUnitsFromStr( xl_frames_units)
-            assembls_units = self.determineUnitsFromStr( xl_assemblies_units)
-            
-            glazing_conv_factors = self.determineConversionFactors(glazing_units)
-            frames_conv_factors = self.determineConversionFactors(frames_units)
-            assmbls_conv_factors = self.determineConversionFactors(assembls_units)
-            
-            #-------------------------------------------------------------------
-            # Build the Glazing Library
-            lib_Glazing = []
-            for i in range(0, len(xl_glazing), 3):
-                if xl_glazing[i] == None:
-                    continue
-                tempList = zip(xl_glazing[i:i+3], glazing_conv_factors)
-                lib_Glazing.append( self.convertInputVal(tempList) )
-            
-            #-------------------------------------------------------------------
-            # Build the Frame Library
-            lib_Frames = []
-            for i in range(0, len(xl_frames), 18):
-                if xl_frames[i] == None:
-                    continue
-                tempList = zip(xl_frames[i:i+18], frames_conv_factors)
-                lib_Frames.append( self.convertInputVal(tempList) )
-            
-            #-------------------------------------------------------------------
-            lib_Assemblies = []
-            for i in range(0, len(xl_assemblies), 4):
-                if xl_assemblies[i] == None:
-                    continue
-                tempList = zip(xl_assemblies[i:i+4], assmbls_conv_factors)
-                lib_Assemblies.append( self.convertInputVal(tempList) )
-            
-            return lib_Glazing, lib_Frames, lib_Assemblies
-        except Exception as inst:
-            print('Woops... something went wrong reading from the Excel file?')
-            print('ERROR: ', inst)
-            return [], [], []
-    
+
     def addCompoDataToDocumentUserText(self, _glzgs, _frms, _assmbls):
         self._clearDocumentLibValues(['PHPP_lib_Glazing', 'PHPP_lib_Frame', 'PHPP_lib_Assmbly'])
         
@@ -481,6 +329,7 @@ class Model:
             return _inputVal
     
     def determineDisplayVal(self, _inputVal, _displayColumnUnit):
+        # type () -> Optional[float]
         """ Decide how to show the value in the cell """
         # If it a 'name' field, don't want to do any conversions
         if _displayColumnUnit is None:
@@ -492,17 +341,21 @@ class Model:
             
             return displayValue
         except:
-            print 'Something went wrong converting the input value?'
+            print('Something went wrong converting the input value?')
             return _inputVal
 
 
 class Group:
     """Data Class to hold info about each Group setup"""
-    def __init__(self, _nm=None, _vo=None, _lt=None):
+    def __init__(self, _nm=None, _vo=None, _lt=None, _eb=None, _cu=None, _ct=None):
+        # type: (Optional[str], Optional[list], Optional[str], Optional[list[bool]], Optional[list], Optional[list[str]]) -> None
         self.Name = _nm
         self.ViewOrder = _vo
         self.LibType = _lt
         self.Layout = None
+        self.Editable = _eb
+        self.ColUnit = _cu
+        self.ColType = _ct
         self.BlankRow = {}
         self.Data = []
     
@@ -576,7 +429,7 @@ class Group:
         # First, build a new dataset without the selected row
         # remember, 'ID' is 1 based, not 0 based
         # Note: In case there are 'gaps' in the dataset where the 'ID' skips over
-        # some numnber, first get the keys and then make sure they are sorted
+        # some number, first get the keys and then make sure they are sorted
         
         dataKeys = list(self.Data.keys())
         dataKeys.sort()
@@ -598,12 +451,10 @@ class Group:
         self.Data = newDataDict
 
 
-
 class View(Eto.Forms.Dialog):
     
     def __init__(self, controller):
         self.controller = controller
-        
         self._setWindowParams()
         self.buildWindow()
     
@@ -717,12 +568,7 @@ class View(Eto.Forms.Dialog):
         return Scroll_panel
         
     def _addOKCancelButtons(self, _layout):
-        # Create the OK / Cancel Button
-        self.Button_LoadLib = Eto.Forms.Button(Text = 'Import From Libary File...')
-        self.Button_LoadLib.Click += self.controller.OnLoadLibButtonClick
-        self.Lib_txtBox = Eto.Forms.TextBox( Text = self.controller.getCompoLibraryFileAddress() )
-        self.Lib_txtBox.Width=200
-        
+        # Create the OK / Cancel Button       
         self.Button_OK = Eto.Forms.Button(Text = 'OK')
         self.Button_OK.Click += self.controller.OnOKButtonClick
         self.Button_Cancel = Eto.Forms.Button(Text = 'Cancel')
@@ -732,7 +578,7 @@ class View(Eto.Forms.Dialog):
         self.vert = _layout.BeginVertical()
         self.vert.Padding = Eto.Drawing.Padding(10)
         self.vert.Spacing = Eto.Drawing.Size(15,0)
-        _layout.AddRow(None, self.Button_LoadLib, self.Lib_txtBox, None, None, self.Button_Cancel, self.Button_OK, None)
+        _layout.AddRow(None, None, None, None, self.Button_Cancel, self.Button_OK, None)
         _layout.EndVertical()
         
         return _layout
@@ -802,18 +648,7 @@ class Controller:
         print('Canceled...')
         self.Update = False
         self.view.Close()
-    
-    def OnLoadLibButtonClick(self, sender, e):
-        update = self.view.Lib_txtBox = self.model.setLibraryFileAddress()
         
-        if update:
-            glzgs, frms, assmbls = self.model.readCompoDataFromExcel()
-            self.model.addCompoDataToDocumentUserText( glzgs, frms, assmbls )
-            
-            self.model.setInitialGroupData()
-            self.view.layout.Clear()
-            self.view.buildWindow()
-    
     def OnAddRowButtonClick(self, sender, e):
         data = self.view.getGridValues()
         self.model.updateGroupData(data)
@@ -837,9 +672,6 @@ class Controller:
         
     def getGroupContent(self):
         return self.model.GroupContent
-    
-    def getCompoLibraryFileAddress(self):
-        return self.model.getCompoLibAddress()
     
     def evalInput(self, sender, e):
         # Determine if the user provides some 'Units' such as 'ft' or 'in' 

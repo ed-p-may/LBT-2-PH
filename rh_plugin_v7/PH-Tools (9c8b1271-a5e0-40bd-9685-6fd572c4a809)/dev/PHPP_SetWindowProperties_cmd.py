@@ -25,13 +25,14 @@ to enter values for Frame Type, Glass Type and Install condition (0|1) for the e
 The Frame and Glass Type values come from a PHPP-Style Excel file with a 'Components' worksheet to read from
 Frames will read from 'Components[IL15:JC113]'. Glazing will read from 'Components[ID15:IG113]'
 -
-EM August 16, 2020
+EM Mar. 11, 2022
 """
 
 # Reference:
 # https://developer.rhino3d.com/guides/rhinopython/eto-forms-python/https://developer.rhino3d.com/guides/rhinopython/eto-forms-python/
 # http://api.etoforms.picoe.ca/html/R_Project_EtoForms.htm
 
+from copy import deepcopy
 import rhinoscriptsyntax as rs
 import Rhino
 import Eto
@@ -208,25 +209,28 @@ class View(Eto.Forms.Dialog):
         exgFrame, exgGlaz, exgPsi, exgVariant, exgInstDepth = self.controller.getExistingValues()
         exgLeft, exgRight, exgBottom, exgTop = self.controller.getExistingInstalls()
         
-        self.groupContent = [
-            {'groupName': 'Select Window Parameters',
-            'content':[
-                {'name': 'frame', 'label':'Select Frame:', 'input':self._createComboBox(frameLib, exgFrame)},
-                {'name': 'glass', 'label':'Select Glazing:', 'input':self._createComboBox(glazingLib, exgGlaz)},
-                {'name': 'variant', 'label':'Variant Type:', 'input':self._createComboBox(variantTypes, exgPsi)},
-                {'name': 'psiInst', 'label':'Psi-Install Type:', 'input':self._createComboBox(psiLib, exgVariant)},
-                {'name': 'instDepth', 'label':'Win Install Depth (m):', 'input':  self._createTextBox(exgInstDepth) }
-                ]
-            },
-            {'groupName': 'Set the Installed Edges',
-            'content':[
-                {'name': 'Left', 'label':'Left:', 'input':self._createCheckBox(exgLeft)},
-                {'name': 'Right', 'label':'Right:', 'input':self._createCheckBox(exgRight)},
-                {'name': 'Bottom', 'label':'Bottom:', 'input':self._createCheckBox(exgBottom)},
-                {'name': 'Top', 'label':'Top:', 'input':self._createCheckBox(exgTop)}
-                ]
-            }]
-        
+        try:
+            self.groupContent = [
+                {'groupName': 'Select Window Parameters',
+                'content':[
+                    {'name': 'frame', 'label':'Select Frame:', 'input':self._createComboBox(frameLib, exgFrame)},
+                    {'name': 'glass', 'label':'Select Glazing:', 'input':self._createComboBox(glazingLib, exgGlaz)},
+                    {'name': 'variant', 'label':'Variant Type:', 'input':self._createComboBox(variantTypes, exgPsi)},
+                    {'name': 'psiInst', 'label':'Psi-Install Type:', 'input':self._createComboBox(psiLib, exgVariant)},
+                    {'name': 'instDepth', 'label':'Win Install Depth (m):', 'input':  self._createTextBox(exgInstDepth) }
+                    ]
+                },
+                {'groupName': 'Set the Installed Edges',
+                'content':[
+                    {'name': 'Left', 'label':'Left:', 'input':self._createCheckBox(exgLeft)},
+                    {'name': 'Right', 'label':'Right:', 'input':self._createCheckBox(exgRight)},
+                    {'name': 'Bottom', 'label':'Bottom:', 'input':self._createCheckBox(exgBottom)},
+                    {'name': 'Top', 'label':'Top:', 'input':self._createCheckBox(exgTop)}
+                    ]
+                }]
+        except Exception as e:
+            print(e)
+
         self._setWindowParams()
         self._addContentToWindow()
         self._addOKCancelButtons()
@@ -240,14 +244,16 @@ class View(Eto.Forms.Dialog):
         return txtBox
     
     def _createComboBox(self, _data, _exgValue):
+        
         comboBoxObj = Eto.Forms.ComboBox()
-        comboBoxObj.DataStore = _data
-        comboBoxObj.DataStore.Insert(0, _exgValue) # For the default
+
+        # Dev Note: DataStore.Insert() does not work on MacOS
+        combobox_options = deepcopy(_data)
+        combobox_options.insert(0, _exgValue)
+        comboBoxObj.DataStore = combobox_options
         comboBoxObj.SelectedIndex = 0
         comboBoxObj.Size = Eto.Drawing.Size(400, -1) # This is what sets Col 2 Width
-        
 
-        
         return comboBoxObj
     
     def _createCheckBox(self, _checked):
@@ -358,9 +364,9 @@ class Controller:
 
 def RunCommand( is_interactive ):
     print "Applying PHPP Window Types to Selected Object(s)"
-    
     dialog = Controller(rs.SelectedObjects())
     dialog.main()
+
 
 # Use for debuging in editor
 #RunCommand(True)
