@@ -781,11 +781,8 @@ def calc_room_vent_rates_from_HB(_hb_room, _ghenv):
     hb_sched_occ = _hb_room.properties.energy.people.occupancy_schedule
     hb_sched_vent = _hb_room.properties.energy.ventilation.schedule
 
-    if hb_sched_occ:
-        # -- Try and get the schedule from the HB Library
-        hb_sched_occ = schedule_by_identifier(hb_sched_occ.identifier)
-
-        if hb_sched_occ is not None:
+    if hb_sched_occ is not None:
+        if isinstance(hb_sched_occ, ScheduleRuleset):
             data_occ = hb_sched_occ.data_collection(
                 timestep,
                 start_date,
@@ -800,8 +797,6 @@ def calc_room_vent_rates_from_HB(_hb_room, _ghenv):
         data_occ = (1 for i in range(8760))
 
     if hb_sched_vent:
-        hb_sched_vent = schedule_by_identifier(hb_sched_vent.identifier)
-
         if isinstance(hb_sched_vent, ScheduleRuleset):
             data_vent = hb_sched_vent.data_collection(
                 timestep,
