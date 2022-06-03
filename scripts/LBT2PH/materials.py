@@ -30,7 +30,7 @@ class PHPP_Material_Opaque:
             return self._t
         else:
             print('EP Material does not have a thickness, using default 1.0 m')
-            return 1
+            return 1.0
     
     @property
     def LayerConductivity(self):
@@ -38,26 +38,27 @@ class PHPP_Material_Opaque:
             return self._hb_k
         elif self._hb_r:
             return 1/self._hb_r
-        elif self._t and self._hb_U:
-            return float(self._hb_U) / float(self._t) 
-        elif self._t and self._hb_R:
-            return 1/float(self._hb_R) / float(self._t) 
+        elif self._hb_U:
+            return float(self._hb_U) / self.LayerThickness
+        elif self._hb_R:
+            return 1/float(self._hb_R) / self.LayerThickness
         else:
-            print('Cannot determine the layer conductivity for some reason?')
+            print('>>', str(self), self._hb_k, self._hb_r, self._hb_U, self._t)
+            print('Error with {}. Cannot determine the layer conductivity for some reason?'.format(self.phpp_name))
             return None
 
     @property
     def LayerConductance(self):
         if self._hb_U:
             return self._hb_U
-        elif self.hb_R:
+        elif self._hb_R:
             return 1/self._hb_R
-        elif self._t and self._hb_k:
-            return float(self._hb_k) * float(self._t)
-        elif self._t and self._hb_r:
-            return 1/float(self._hb_r) * float(self._t)
+        elif self._hb_k:
+            return float(self._hb_k) * self.LayerThickness
+        elif self._hb_r:
+            return 1/float(self._hb_r) * self.LayerThickness
         else:
-            print('Cannot determine the layer conductance for some reason?')
+            print('Error with {}. Cannot determine the layer conductance for some reason?'.format(self.phpp_name))
             return None
 
     def __unicode__(self):
