@@ -268,11 +268,18 @@ def get_aperture_surfaces_from_model(_model, _ghenv):
 
     return phpp_apertures
 
-def get_spaces_from_model(_model, _ghdoc):
+def get_spaces_from_model(_model, _ghdoc, _sort=False):
     ''' Returns a list of PHPP_Space objects found in the HB Model '''
-    rooms = [] 
+    spaces = [] 
+    
+    # -- sort
+    if _sort:
+        rooms = sorted(_model.rooms, key=lambda room: room.identifier)
+    else:
+        rooms = _model.rooms
 
-    for room in _model.rooms:
+    # -- 
+    for room in rooms:
         if not room.user_data:
             print('No User_Data dict found for room < {} >.\n'\
             'Ignoring any Space/Room/TFA/Volume info for now.'.format(room.display_name))
@@ -281,9 +288,9 @@ def get_spaces_from_model(_model, _ghdoc):
         spaces_dict = room.user_data.get('phpp', {}).get('spaces', {})
         for space_data in spaces_dict.values():
             space_obj = LBT2PH.spaces.Space.from_dict( space_data )
-            rooms.append(space_obj)
+            spaces.append(space_obj)
     
-    return rooms
+    return spaces
 
 def get_ventilation_systems_from_model(_model, _ghenv):
     model_vent_systems = set()
