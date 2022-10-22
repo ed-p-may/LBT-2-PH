@@ -1,3 +1,8 @@
+UPDATE | OCTOBER 22, 2022: The LBT2PH package has now been deprecated in favor of the new [HONEYBEE-PH](https://ph-tools.github.io/honeybee_grasshopper_ph/). Please transtition all worlflows to the new Honeybee-PH as LBT2PH will no longer be updated.
+- - - -
+- - - - 
+
+
 # LBT-2-PH v0.1 (Beta Release | March 1, 2021)
 LBT-2-PH is a free toolkit for creating PHPP energy models from Ladybug Tools v1.0+ definitions. These components are updated to work with the new LBTv1.+ tools and replace the older 'IDF-2-PH' toolkit.
 
